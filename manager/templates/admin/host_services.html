@@ -1,0 +1,171 @@
+{% extends 'admin/base_site.html' %}
+
+{% block title %}{{ title }} - Jupiter Admin{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    {% include 'admin/management_nav.html' %}
+    
+    <style>
+        .section-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            color: #333;
+            border-bottom: 2px solid #f39c12;
+            padding-bottom: 10px;
+            margin: 0 0 20px 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .service-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .service-table thead th {
+            padding: 12px;
+            text-align: left;
+            background: #f5f5f5;
+            border-bottom: 2px solid #ddd;
+            font-weight: bold;
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .service-table tbody tr {
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s ease;
+        }
+        
+        .service-table tbody tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .service-table td {
+            padding: 12px;
+            font-size: 13px;
+        }
+        
+        .service-name-col {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .service-description-col {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .service-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        
+        .action-btn {
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 11px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .action-btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .action-btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .action-btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .action-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+    </style>
+    
+    <h1 style="margin-bottom: 20px;"><i class="fas fa-cogs"></i> Services Management on {{ host.name }}</h1>
+    
+    <div class="section-container">
+        <h2 class="section-title">
+            <i class="fas fa-cogs"></i> Available Services
+        </h2>
+        
+        <table class="service-table">
+            <thead>
+                <tr>
+                    <th><i class="fas fa-cog"></i> Service Name</th>
+                    <th>Description</th>
+                    <th style="text-align: center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for service in services %}
+                    <tr>
+                        <td class="service-name-col">{{ service.name }}</td>
+                        <td class="service-description-col">
+                            {% if service.id == 'ssh' %}
+                                Remote secure shell access for command line management
+                            {% elif service.id == 'ntp' %}
+                                Network Time Protocol for time synchronization
+                            {% elif service.id == 'vpxa' %}
+                                Jupiter communication and management
+                            {% elif service.id == 'hostd' %}
+                                ESXi firewall and management services
+                            {% else %}
+                                {{ service.name }} system service
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                            <div class="service-actions">
+                                <button class="action-btn action-btn-success" onclick="alert('Start {{ service.name }} - Coming soon')">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <button class="action-btn action-btn-danger" onclick="alert('Stop {{ service.name }} - Coming soon')">
+                                    <i class="fas fa-stop"></i>
+                                </button>
+                                <button class="action-btn action-btn-warning" onclick="alert('Restart {{ service.name }} - Coming soon')">
+                                    <i class="fas fa-redo"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+
+    
+    <div style="margin-top: 30px;">
+        <a href="{% url 'admin:manager_host_change' host.pk %}" class="button" style="
+            display: inline-block;
+            padding: 10px 20px;
+            background: #417690;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+        ">
+            ← Back to Host
+        </a>
+    </div>
+</div>
+{% endblock %}

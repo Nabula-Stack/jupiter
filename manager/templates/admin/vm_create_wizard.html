@@ -1,0 +1,857 @@
+{% if add %}
+<style>
+.vm-wizard-wrap {
+    margin: 24px 0 0 0;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.vm-wizard-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8fafc;
+}
+.vm-wizard-header h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+}
+.vm-wizard-body {
+    padding: 18px 20px;
+}
+.vm-wizard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 20px;
+}
+@media (max-width: 780px) {
+    .vm-wizard-grid { grid-template-columns: 1fr; }
+}
+.vm-f {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.vm-f label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #475569;
+}
+.vm-f input,
+.vm-f select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #fff;
+    box-sizing: border-box;
+}
+.vm-f input:focus,
+.vm-f select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+}
+.vm-wiz-status {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    display: none;
+}
+.vm-wiz-status.err {
+    display: block;
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+.vm-wiz-status.ok {
+    display: block;
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+.vm-wizard-footer {
+    padding: 12px 20px 18px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+/* Tabs */
+.wiz-tab{padding:10px 18px;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:6px}
+.wiz-tab:hover{color:#1e293b;background:rgba(0,0,0,.02)}
+.wiz-tab.active{color:#2563eb;border-bottom-color:#2563eb}
+.wiz-panel{display:none}
+.wiz-panel.active{display:block}
+.wiz-section{padding:0;margin:0}
+.wiz-section h4{margin:0 0 4px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;display:flex;align-items:center;gap:6px}
+.wiz-hw-item{display:flex;gap:12px;padding:12px 14px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px}
+.wiz-hw-icon{display:flex;align-items:flex-start;padding-top:2px}
+.wiz-hw-icon .material-symbols-outlined{font-size:22px;color:#94a3b8}
+.wiz-hw-body{flex:1;display:flex;flex-direction:column;gap:2px}
+.wiz-hw-label{font-weight:600;font-size:13px;color:#1e293b;display:flex;align-items:center;gap:8px}
+.wiz-hw-rm{background:none;border:none;cursor:pointer;color:#ef4444;padding:2px 4px;border-radius:4px;display:flex;margin-left:auto}
+.wiz-hw-rm:hover{background:#fee2e2}
+.vm-wiz-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    border: 0;
+    cursor: pointer;
+}
+.vm-wiz-btn.primary { background: #2563eb; color: #fff; }
+.vm-wiz-btn.primary:hover { background: #1d4ed8; }
+.vm-wiz-btn.secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
+.vm-wiz-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.vm-spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: wiz-spin 0.7s linear infinite;
+    vertical-align: middle;
+}
+@keyframes wiz-spin { to { transform: rotate(360deg); } }
+
+/* ISO Browser Modal */
+.iso-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+}
+.iso-modal-overlay.open { display: flex; }
+.iso-modal {
+    background: #fff;
+    border-radius: 12px;
+    width: 640px;
+    max-width: 94vw;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    overflow: hidden;
+}
+.iso-modal-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8fafc;
+}
+.iso-modal-header h3 { margin: 0; font-size: 15px; font-weight: 700; color: #1e293b; }
+.iso-modal-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #64748b;
+    padding: 4px;
+    border-radius: 4px;
+}
+.iso-modal-close:hover { background: #f1f5f9; color: #1e293b; }
+.iso-breadcrumb {
+    padding: 8px 18px;
+    font-size: 12px;
+    color: #64748b;
+    background: #fafbfc;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    min-height: 34px;
+}
+.iso-breadcrumb a {
+    color: #2563eb;
+    text-decoration: none;
+    cursor: pointer;
+    font-weight: 600;
+}
+.iso-breadcrumb a:hover { text-decoration: underline; }
+.iso-breadcrumb .sep { color: #cbd5e1; }
+.iso-file-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 0;
+    min-height: 200px;
+    max-height: 50vh;
+}
+.iso-file-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 18px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #334155;
+    transition: background 0.1s;
+}
+.iso-file-item:hover { background: #f1f5f9; }
+.iso-file-item.selected { background: #eff6ff; }
+.iso-file-item .fi-icon { color: #94a3b8; font-size: 20px; }
+.iso-file-item.is-dir .fi-icon { color: #f59e0b; }
+.iso-file-item.is-iso .fi-icon { color: #8b5cf6; }
+.iso-file-item .fi-name { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iso-file-item .fi-size { color: #94a3b8; font-size: 12px; white-space: nowrap; }
+.iso-file-empty {
+    padding: 30px 18px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+}
+.iso-modal-footer {
+    padding: 10px 18px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    background: #f8fafc;
+}
+.iso-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    gap: 10px;
+    color: #64748b;
+    font-size: 13px;
+}
+</style>
+
+<div class="vm-wizard-wrap">
+    <div class="vm-wizard-header">
+        <span class="material-symbols-outlined" style="color: #2563eb; font-size: 22px;">add_circle</span>
+        <h2>Create VM</h2>
+        <span style="margin-left: auto; font-size: 11px; color: #94a3b8;">Fill in the options and click Create VM</span>
+    </div>
+
+    <!-- ── Tabs ── -->
+    <div style="display:flex;gap:0;border-bottom:1px solid #e5e7eb;background:#f8fafc;padding:0 20px">
+        <div class="wiz-tab active" data-wtab="general">
+            <span class="material-symbols-outlined" style="font-size:16px">info</span> General
+        </div>
+        <div class="wiz-tab" data-wtab="network">
+            <span class="material-symbols-outlined" style="font-size:16px">lan</span> Network
+        </div>
+        <div class="wiz-tab" data-wtab="storage">
+            <span class="material-symbols-outlined" style="font-size:16px">hard_drive</span> Storage
+        </div>
+    </div>
+
+    <div class="vm-wizard-body">
+
+        <!-- ====== GENERAL TAB ====== -->
+        <div class="wiz-panel active" id="wpanel-general">
+            <div class="vm-wizard-grid">
+                <div class="vm-f">
+                    <label for="wiz_host_name">Host *</label>
+                    <select id="wiz_host_name"><option value="">Loading hosts...</option></select>
+                </div>
+                <div class="vm-f">
+                    <label for="wiz_name">VM Name *</label>
+                    <input id="wiz_name" type="text" placeholder="my-app-vm-01">
+                </div>
+                <div class="vm-f">
+                    <label for="wiz_cpu">vCPU Count</label>
+                    <input id="wiz_cpu" type="number" min="1" max="128" value="2">
+                </div>
+                <div class="vm-f">
+                    <label for="wiz_ram">Memory (GB)</label>
+                    <input id="wiz_ram" type="number" min="0.5" step="0.5" value="2">
+                </div>
+                <div class="vm-f">
+                    <label for="wiz_guest_os">Guest OS</label>
+                    <select id="wiz_guest_os"></select>
+                </div>
+                <div class="vm-f">
+                    <label for="wiz_firmware">Firmware</label>
+                    <select id="wiz_firmware"></select>
+                </div>
+                <div class="vm-f">
+                    <label for="wiz_hw_version">Hardware Version</label>
+                    <select id="wiz_hw_version"></select>
+                </div>
+                <div class="vm-f">
+                    <label for="wiz_scsi_controller">SCSI Controller</label>
+                    <select id="wiz_scsi_controller"></select>
+                </div>
+                <div class="vm-f" style="grid-column: span 2;">
+                    <label>Hardware Features</label>
+                    <div style="display:flex;gap:16px;flex-wrap:wrap;padding:8px 0 2px;">
+                        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1f2937;text-transform:none;letter-spacing:0;cursor:pointer;">
+                            <input id="wiz_cpu_hotplug" type="checkbox" style="width:auto;"> CPU Hotplug
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1f2937;text-transform:none;letter-spacing:0;cursor:pointer;">
+                            <input id="wiz_memory_hotplug" type="checkbox" style="width:auto;"> Memory Hotplug
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1f2937;text-transform:none;letter-spacing:0;cursor:pointer;">
+                            <input id="wiz_hardware_virtualization" type="checkbox" style="width:auto;"> Enable Hardware Virtualization
+                        </label>
+                    </div>
+                </div>
+                <div class="vm-f" style="grid-column: span 2;">
+                    <label for="wiz_pci_passthrough_devices">PCI Passthrough Devices (optional)</label>
+                    <select id="wiz_pci_passthrough_devices" multiple size="5" style="min-height:120px;">
+                        <option value="">Select host first</option>
+                    </select>
+                </div>
+                <div class="vm-f" style="grid-column: span 2;">
+                    <label for="wiz_cd_iso">Boot ISO (optional — browse datastore)</label>
+                    <div style="display: flex; gap: 8px; align-items: stretch;">
+                        <input id="wiz_cd_iso" type="text" placeholder="No ISO selected" readonly
+                               style="flex: 1; background: #f8fafc; cursor: default;">
+                        <button type="button" id="isoBrowseBtn" class="vm-wiz-btn secondary" style="white-space: nowrap;">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">folder_open</span> Browse
+                        </button>
+                        <button type="button" id="isoClearBtn" class="vm-wiz-btn secondary" style="padding: 9px 10px;" title="Clear ISO">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">close</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="vm-f" style="justify-content: flex-end; padding-bottom: 4px;">
+                    <label style="text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 600; color: #1f2937; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input id="wiz_power_on" type="checkbox" style="width: auto;">
+                        Power on after creation
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- ====== NETWORK TAB ====== -->
+        <div class="wiz-panel" id="wpanel-network">
+            <div class="wiz-section">
+                <h4><span class="material-symbols-outlined" style="font-size:16px">lan</span> Network Adapters</h4>
+                <p style="font-size:12px;color:#64748b;margin:0 0 12px">The first NIC is always created. Add more below.</p>
+
+                <!-- Primary NIC (always present) -->
+                <div class="wiz-hw-item" id="wiz-nic-0">
+                    <div class="wiz-hw-icon"><span class="material-symbols-outlined">lan</span></div>
+                    <div class="wiz-hw-body">
+                        <span class="wiz-hw-label">NIC 1 (Primary)</span>
+                        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+                            <div class="vm-f" style="flex:1;min-width:160px">
+                                <label>Port Group</label>
+                                <select id="wiz_network_name"><option value="">Select host first</option></select>
+                            </div>
+                            <div class="vm-f" style="flex:1;min-width:120px">
+                                <label>Adapter Type</label>
+                                <select id="wiz_nic_type"></select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Extra NICs rendered here -->
+                <div id="wiz-extra-nics"></div>
+
+                <button type="button" class="vm-wiz-btn secondary" id="wizAddNicBtn" style="margin-top:10px">
+                    <span class="material-symbols-outlined" style="font-size:16px">add</span> Add Network Adapter
+                </button>
+            </div>
+        </div>
+
+        <!-- ====== STORAGE TAB ====== -->
+        <div class="wiz-panel" id="wpanel-storage">
+            <div class="wiz-section">
+                <h4><span class="material-symbols-outlined" style="font-size:16px">hard_drive</span> Virtual Disks</h4>
+                <p style="font-size:12px;color:#64748b;margin:0 0 12px">The first disk is always created. Add more below.</p>
+
+                <!-- Primary Disk (always present) -->
+                <div class="wiz-hw-item" id="wiz-disk-0">
+                    <div class="wiz-hw-icon"><span class="material-symbols-outlined">hard_drive</span></div>
+                    <div class="wiz-hw-body">
+                        <span class="wiz-hw-label">Hard Disk 1 (Primary)</span>
+                        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+                            <div class="vm-f" style="flex:1;min-width:100px">
+                                <label>Datastore *</label>
+                                <select id="wiz_datastore"><option value="">Select host first</option></select>
+                            </div>
+                            <div class="vm-f" style="width:100px">
+                                <label>Size (GB)</label>
+                                <input id="wiz_disk_size_gb" type="number" min="1" value="16">
+                            </div>
+                            <div class="vm-f" style="flex:1;min-width:120px">
+                                <label>Provisioning</label>
+                                <select id="wiz_disk_type"></select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Extra Disks rendered here -->
+                <div id="wiz-extra-disks"></div>
+
+                <button type="button" class="vm-wiz-btn secondary" id="wizAddDiskBtn" style="margin-top:10px">
+                    <span class="material-symbols-outlined" style="font-size:16px">add</span> Add Virtual Disk
+                </button>
+            </div>
+        </div>
+
+        <div id="wizStatus" class="vm-wiz-status"></div>
+    </div>
+
+    <div class="vm-wizard-footer">
+        <button type="button" id="wizReloadBtn" class="vm-wiz-btn secondary">
+            <span class="material-symbols-outlined" style="font-size: 16px;">refresh</span> Reload Options
+        </button>
+        <button type="button" id="wizCreateBtn" class="vm-wiz-btn primary">
+            <span class="material-symbols-outlined" style="font-size: 16px;">add</span> Create VM
+        </button>
+    </div>
+</div>
+
+<!-- ISO Browser Modal -->
+<div id="isoModal" class="iso-modal-overlay">
+    <div class="iso-modal">
+        <div class="iso-modal-header">
+            <span class="material-symbols-outlined" style="color: #8b5cf6; font-size: 20px;">album</span>
+            <h3>Browse Datastore — Select ISO</h3>
+            <button type="button" class="iso-modal-close" id="isoModalClose">
+                <span class="material-symbols-outlined" style="font-size: 20px;">close</span>
+            </button>
+        </div>
+        <div class="iso-breadcrumb" id="isoBreadcrumb"></div>
+        <div class="iso-file-list" id="isoFileList"></div>
+        <div class="iso-modal-footer">
+            <button type="button" class="vm-wiz-btn secondary" id="isoModalCancel">Cancel</button>
+            <button type="button" class="vm-wiz-btn primary" id="isoModalSelect" disabled>Select ISO</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const hostSel      = document.getElementById('wiz_host_name');
+    const statusBox    = document.getElementById('wizStatus');
+    const createBtn    = document.getElementById('wizCreateBtn');
+    const reloadBtn    = document.getElementById('wizReloadBtn');
+
+    // ── Tab switching ──
+    document.querySelectorAll('.wiz-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.wiz-tab').forEach(function(t){ t.classList.remove('active'); });
+            document.querySelectorAll('.wiz-panel').forEach(function(p){ p.classList.remove('active'); });
+            tab.classList.add('active');
+            document.getElementById('wpanel-' + tab.dataset.wtab).classList.add('active');
+        });
+    });
+
+    function setStatus(type, msg) {
+        statusBox.className = 'vm-wiz-status';
+        statusBox.textContent = msg || '';
+        if (msg) statusBox.classList.add(type === 'error' ? 'err' : 'ok');
+    }
+
+    function fillSel(id, items, labelKey) {
+        const el = document.getElementById(id);
+        el.innerHTML = '';
+        items.forEach(item => {
+            const o = document.createElement('option');
+            if (typeof item === 'string') { o.value = item; o.textContent = item; }
+            else { o.value = item.value; o.textContent = labelKey ? item[labelKey] : item.value; }
+            el.appendChild(o);
+        });
+    }
+
+    // Keep options data for extra NIC/disk selects
+    var cachedNetworks = ['VM Network'];
+    var cachedNicTypes = ['e1000', 'e1000e', 'vmxnet3'];
+    var cachedDiskTypes = ['thin', 'zeroedthick', 'eagerzeroedthick'];
+    var cachedDatastores = [];
+    var cachedPciDevices = [];
+
+    // ── Extra NICs ──
+    var extraNicIdx = 0;
+    var extraNicsEl = document.getElementById('wiz-extra-nics');
+
+    function buildSelectHtml(options, labelKey) {
+        var html = '';
+        options.forEach(function(item) {
+            var v = typeof item === 'string' ? item : item.value;
+            var l = typeof item === 'string' ? item : (labelKey ? item[labelKey] : item.value);
+            html += '<option value="' + v + '">' + l + '</option>';
+        });
+        return html;
+    }
+
+    document.getElementById('wizAddNicBtn').addEventListener('click', function() {
+        extraNicIdx++;
+        var num = extraNicIdx;
+        var div = document.createElement('div');
+        div.className = 'wiz-hw-item';
+        div.id = 'wiz-extra-nic-' + num;
+        div.innerHTML =
+            '<div class="wiz-hw-icon"><span class="material-symbols-outlined">lan</span></div>' +
+            '<div class="wiz-hw-body">' +
+                '<span class="wiz-hw-label">NIC ' + (num + 1) +
+                    '<button type="button" class="wiz-hw-rm" data-rm-nic="' + num + '" title="Remove">' +
+                        '<span class="material-symbols-outlined" style="font-size:16px">delete</span>' +
+                    '</button>' +
+                '</span>' +
+                '<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">' +
+                    '<div class="vm-f" style="flex:1;min-width:160px"><label>Port Group</label>' +
+                        '<select class="extra-nic-net">' + buildSelectHtml(cachedNetworks) + '</select></div>' +
+                    '<div class="vm-f" style="flex:1;min-width:120px"><label>Adapter Type</label>' +
+                        '<select class="extra-nic-type">' + buildSelectHtml(cachedNicTypes) + '</select></div>' +
+                '</div>' +
+            '</div>';
+        extraNicsEl.appendChild(div);
+        div.querySelector('[data-rm-nic]').addEventListener('click', function() { div.remove(); });
+    });
+
+    // ── Extra Disks ──
+    var extraDiskIdx = 0;
+    var extraDisksEl = document.getElementById('wiz-extra-disks');
+
+    document.getElementById('wizAddDiskBtn').addEventListener('click', function() {
+        extraDiskIdx++;
+        var num = extraDiskIdx;
+        var div = document.createElement('div');
+        div.className = 'wiz-hw-item';
+        div.id = 'wiz-extra-disk-' + num;
+        div.innerHTML =
+            '<div class="wiz-hw-icon"><span class="material-symbols-outlined">hard_drive</span></div>' +
+            '<div class="wiz-hw-body">' +
+                '<span class="wiz-hw-label">Hard Disk ' + (num + 1) +
+                    '<button type="button" class="wiz-hw-rm" data-rm-disk="' + num + '" title="Remove">' +
+                        '<span class="material-symbols-outlined" style="font-size:16px">delete</span>' +
+                    '</button>' +
+                '</span>' +
+                '<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">' +
+                    '<div class="vm-f" style="flex:1;min-width:140px"><label>Datastore</label>' +
+                        '<select class="extra-disk-ds">' + buildSelectHtml(cachedDatastores, 'label') + '</select></div>' +
+                    '<div class="vm-f" style="width:100px"><label>Size (GB)</label>' +
+                        '<input type="number" class="extra-disk-size" min="1" value="16"></div>' +
+                    '<div class="vm-f" style="flex:1;min-width:120px"><label>Provisioning</label>' +
+                        '<select class="extra-disk-type">' + buildSelectHtml(cachedDiskTypes) + '</select></div>' +
+                '</div>' +
+            '</div>';
+        extraDisksEl.appendChild(div);
+        div.querySelector('[data-rm-disk]').addEventListener('click', function() { div.remove(); });
+    });
+
+    // ── Collect extra hardware ──
+    function collectExtraNics() {
+        var nics = [];
+        extraNicsEl.querySelectorAll('.wiz-hw-item').forEach(function(item) {
+            nics.push({
+                network: item.querySelector('.extra-nic-net').value,
+                type: item.querySelector('.extra-nic-type').value,
+            });
+        });
+        return nics;
+    }
+
+    function collectExtraDisks() {
+        var disks = [];
+        extraDisksEl.querySelectorAll('.wiz-hw-item').forEach(function(item) {
+            disks.push({
+                size_gb: parseInt(item.querySelector('.extra-disk-size').value, 10) || 16,
+                type: item.querySelector('.extra-disk-type').value,
+                datastore: item.querySelector('.extra-disk-ds').value,
+            });
+        });
+        return disks;
+    }
+
+    async function loadHosts() {
+        const res = await fetch('/api/v1/hosts/all');
+        if (!res.ok) throw new Error('Cannot load hosts (' + res.status + ')');
+        const hosts = await res.json();
+        hostSel.innerHTML = '';
+        if (!hosts.length) {
+            hostSel.innerHTML = '<option value="">No active hosts found</option>';
+            return;
+        }
+        hosts.forEach(h => {
+            const o = document.createElement('option');
+            o.value = h.name;
+            o.textContent = h.name + ' (' + h.ip + ')';
+            hostSel.appendChild(o);
+        });
+    }
+
+    function fmtSize(val) {
+        var n = parseInt(val, 10);
+        if (isNaN(n) || n <= 0) return String(val);
+        if (n > 1099511627776) return (n / 1099511627776).toFixed(1) + ' TB';
+        if (n > 1073741824) return (n / 1073741824).toFixed(1) + ' GB';
+        if (n > 1048576) return (n / 1048576).toFixed(1) + ' MB';
+        return String(val);
+    }
+
+    async function loadOptions() {
+        const host = hostSel.value;
+        if (!host) { setStatus('error', 'Select a host first.'); return; }
+        setStatus('', '');
+        const res = await fetch('/api/v1/vms/' + encodeURIComponent(host) + '/create/options');
+        if (!res.ok) throw new Error('Cannot load options for ' + host + ' (' + res.status + ')');
+        const data = await res.json();
+        if (data && data.status === 'error') {
+            setStatus('error', data.message || ('Cannot load options for ' + host));
+        }
+        const defs = data.defaults || {};
+
+        fillSel('wiz_datastore',
+            (data.datastores || []).map(d => ({ value: d.name, label: d.name + ' (' + fmtSize(d.free) + ' free)' })),
+            'label'
+        );
+        fillSel('wiz_network_name', (data.networks || []).length ? data.networks : ['VM Network']);
+        fillSel('wiz_disk_type',       data.disk_type_options          || ['thin']);
+        fillSel('wiz_nic_type',        data.nic_options                || ['e1000']);
+        fillSel('wiz_scsi_controller', data.scsi_controller_options    || ['lsilogic']);
+        fillSel('wiz_firmware',        data.firmware_options           || ['bios']);
+        fillSel('wiz_hw_version',      data.hw_version_options         || ['13']);
+        fillSel('wiz_guest_os',        data.guest_os_options           || [], 'label');
+
+        var pciSel = document.getElementById('wiz_pci_passthrough_devices');
+        pciSel.innerHTML = '';
+        cachedPciDevices = data.pci_devices || [];
+        if (cachedPciDevices.length) {
+            cachedPciDevices.forEach(function(dev) {
+                var o = document.createElement('option');
+                o.value = dev.id;
+                o.textContent = dev.label || dev.id;
+                pciSel.appendChild(o);
+            });
+        } else {
+            var empty = document.createElement('option');
+            empty.value = '';
+            empty.disabled = true;
+            empty.textContent = 'No PCI passthrough devices reported by this host';
+            pciSel.appendChild(empty);
+        }
+
+        var capabilities = data.capabilities || {};
+        var cpuHpEl = document.getElementById('wiz_cpu_hotplug');
+        var memHpEl = document.getElementById('wiz_memory_hotplug');
+        var hvEl = document.getElementById('wiz_hardware_virtualization');
+        cpuHpEl.disabled = capabilities.cpu_hotplug === false;
+        memHpEl.disabled = capabilities.memory_hotplug === false;
+        hvEl.disabled = capabilities.hardware_virtualization === false;
+        pciSel.disabled = capabilities.pci_passthrough === false;
+
+        // Cache for extra NIC/disk selects
+        cachedDatastores = (data.datastores || []).map(d => ({ value: d.name, label: d.name + ' (' + fmtSize(d.free) + ' free)' }));
+        cachedNetworks = (data.networks || []).length ? data.networks : ['VM Network'];
+        cachedNicTypes = data.nic_options || ['e1000', 'e1000e', 'vmxnet3'];
+        cachedDiskTypes = data.disk_type_options || ['thin', 'zeroedthick', 'eagerzeroedthick'];
+
+        document.getElementById('wiz_cpu').value          = defs.cpu          || 2;
+        document.getElementById('wiz_ram').value          = ((defs.ram || 2048) / 1024);
+        document.getElementById('wiz_disk_size_gb').value = defs.disk_size_gb || 16;
+        document.getElementById('wiz_power_on').checked   = Boolean(defs.power_on);
+        cpuHpEl.checked = Boolean(defs.cpu_hotplug);
+        memHpEl.checked = Boolean(defs.memory_hotplug);
+        hvEl.checked = Boolean(defs.hardware_virtualization);
+
+        const isoSel = document.getElementById('wiz_cd_iso');
+        // Pre-populate from options if ISOs were found (user can still browse)
+        if ((data.isos || []).length) {
+            isoSel.value = '';
+            isoSel.placeholder = data.isos.length + ' ISO(s) found — click Browse to pick one';
+        } else {
+            isoSel.placeholder = 'No ISO selected — click Browse';
+        }
+
+        if (defs.disk_type)        document.getElementById('wiz_disk_type').value        = defs.disk_type;
+        if (defs.nic_type)         document.getElementById('wiz_nic_type').value         = defs.nic_type;
+        if (defs.scsi_controller)  document.getElementById('wiz_scsi_controller').value  = defs.scsi_controller;
+        if (defs.firmware)         document.getElementById('wiz_firmware').value         = defs.firmware;
+        if (defs.hw_version)       document.getElementById('wiz_hw_version').value       = String(defs.hw_version);
+        if (defs.guest_os)         document.getElementById('wiz_guest_os').value         = defs.guest_os;
+    }
+
+    async function createVm() {
+        const host = hostSel.value;
+        const payload = {
+            name:            document.getElementById('wiz_name').value.trim(),
+            datastore:       document.getElementById('wiz_datastore').value,
+            network_name:    document.getElementById('wiz_network_name').value,
+            cpu:             Number(document.getElementById('wiz_cpu').value          || 2),
+            ram:             Math.round(Number(document.getElementById('wiz_ram').value || 2) * 1024),
+            disk_size_gb:    Number(document.getElementById('wiz_disk_size_gb').value || 16),
+            disk_type:       document.getElementById('wiz_disk_type').value,
+            guest_os:        document.getElementById('wiz_guest_os').value,
+            nic_type:        document.getElementById('wiz_nic_type').value,
+            scsi_controller: document.getElementById('wiz_scsi_controller').value,
+            firmware:        document.getElementById('wiz_firmware').value,
+            hw_version:      document.getElementById('wiz_hw_version').value,
+            power_on:        document.getElementById('wiz_power_on').checked,
+            cd_iso_path:     document.getElementById('wiz_cd_iso').value,
+            cpu_hotplug:     document.getElementById('wiz_cpu_hotplug').checked,
+            memory_hotplug:  document.getElementById('wiz_memory_hotplug').checked,
+            hardware_virtualization: document.getElementById('wiz_hardware_virtualization').checked,
+            pci_passthrough_devices: Array.from(document.getElementById('wiz_pci_passthrough_devices').selectedOptions)
+                                        .map(function(o){ return o.value; })
+                                        .filter(function(v){ return v; }),
+            extra_disks:     collectExtraDisks(),
+            extra_nics:      collectExtraNics(),
+        };
+
+        if (!host)            { setStatus('error', 'Select a host.');              return; }
+        if (!payload.name)    { setStatus('error', 'VM Name is required.');        return; }
+        if (!payload.datastore){ setStatus('error', 'Datastore is required.');     return; }
+
+        createBtn.disabled = true;
+        createBtn.innerHTML = '<span class="vm-spinner"></span> Creating...';
+        setStatus('', '');
+
+        try {
+            const res = await fetch('/api/v1/vms/' + encodeURIComponent(host) + '/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok || data.status === 'error') {
+                throw new Error(data.message || data.output || 'Create VM failed');
+            }
+            setStatus('success', '✓ VM "' + payload.name + '" created on ' + host + '. Redirecting...');
+            setTimeout(() => { window.location.href = '/admin/manager/virtualmachine/'; }, 1200);
+        } catch (err) {
+            setStatus('error', err.message || 'Create VM failed');
+            createBtn.disabled = false;
+            createBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">add</span> Create VM';
+        }
+    }
+
+    hostSel.addEventListener('change', () => loadOptions().catch(e => setStatus('error', e.message)));
+    reloadBtn.addEventListener('click', () => loadOptions().catch(e => setStatus('error', e.message)));
+    createBtn.addEventListener('click', createVm);
+
+    loadHosts()
+        .then(() => loadOptions())
+        .catch(e => setStatus('error', e.message));
+
+    // ===== ISO BROWSER MODAL =====
+    const isoModal      = document.getElementById('isoModal');
+    const isoFileList   = document.getElementById('isoFileList');
+    const isoBreadcrumb = document.getElementById('isoBreadcrumb');
+    const isoSelectBtn  = document.getElementById('isoModalSelect');
+    const isoInput      = document.getElementById('wiz_cd_iso');
+    let isoCurrentPath  = '/vmfs/volumes';
+    let isoSelectedPath = '';
+
+    function openIsoModal() {
+        const host = hostSel.value;
+        if (!host) { setStatus('error', 'Select a host first.'); return; }
+        isoSelectedPath = '';
+        isoSelectBtn.disabled = true;
+        isoModal.classList.add('open');
+        isoNavigate('/vmfs/volumes');
+    }
+
+    function closeIsoModal() {
+        isoModal.classList.remove('open');
+    }
+
+    function renderBreadcrumb(path) {
+        const parts = path.replace('/vmfs/volumes', '').split('/').filter(Boolean);
+        let html = '<a data-path="/vmfs/volumes">/vmfs/volumes</a>';
+        let accumulated = '/vmfs/volumes';
+        parts.forEach(p => {
+            accumulated += '/' + p;
+            html += '<span class="sep">/</span><a data-path="' + accumulated + '">' + p + '</a>';
+        });
+        isoBreadcrumb.innerHTML = html;
+        isoBreadcrumb.querySelectorAll('a').forEach(a => {
+            a.addEventListener('click', () => isoNavigate(a.dataset.path));
+        });
+    }
+
+    async function isoNavigate(path) {
+        const host = hostSel.value;
+        isoCurrentPath = path;
+        isoSelectedPath = '';
+        isoSelectBtn.disabled = true;
+        renderBreadcrumb(path);
+        isoFileList.innerHTML = '<div class="iso-loading"><span class="vm-spinner" style="border-color: rgba(100,116,139,0.3); border-top-color: #64748b;"></span> Loading...</div>';
+
+        try {
+            const res = await fetch('/api/v1/storage/' + encodeURIComponent(host) + '/explorer/browse?path=' + encodeURIComponent(path));
+            if (!res.ok) throw new Error('Failed to load directory');
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            const entries = (data.entries || [])
+                .filter(e => e.is_dir || e.name.toLowerCase().endsWith('.iso'))
+                .sort((a, b) => {
+                    if (a.is_dir && !b.is_dir) return -1;
+                    if (!a.is_dir && b.is_dir) return 1;
+                    return a.name.localeCompare(b.name);
+                });
+
+            if (!entries.length) {
+                isoFileList.innerHTML = '<div class="iso-file-empty">No folders or ISO files found here.</div>';
+                return;
+            }
+
+            isoFileList.innerHTML = '';
+            entries.forEach(entry => {
+                const div = document.createElement('div');
+                const isIso = !entry.is_dir && entry.name.toLowerCase().endsWith('.iso');
+                div.className = 'iso-file-item' + (entry.is_dir ? ' is-dir' : '') + (isIso ? ' is-iso' : '');
+
+                const icon = entry.is_dir ? 'folder' : 'album';
+                div.innerHTML =
+                    '<span class="material-symbols-outlined fi-icon">' + icon + '</span>' +
+                    '<span class="fi-name">' + entry.name + '</span>' +
+                    (entry.size ? '<span class="fi-size">' + entry.size + '</span>' : '');
+
+                if (entry.is_dir) {
+                    div.addEventListener('click', () => isoNavigate(entry.path));
+                } else if (isIso) {
+                    div.addEventListener('click', () => {
+                        isoFileList.querySelectorAll('.iso-file-item').forEach(el => el.classList.remove('selected'));
+                        div.classList.add('selected');
+                        isoSelectedPath = entry.path;
+                        isoSelectBtn.disabled = false;
+                    });
+                    div.addEventListener('dblclick', () => {
+                        isoSelectedPath = entry.path;
+                        confirmIsoSelection();
+                    });
+                }
+                isoFileList.appendChild(div);
+            });
+        } catch (err) {
+            isoFileList.innerHTML = '<div class="iso-file-empty" style="color: #dc2626;">Error: ' + err.message + '</div>';
+        }
+    }
+
+    function confirmIsoSelection() {
+        if (isoSelectedPath) {
+            isoInput.value = isoSelectedPath;
+        }
+        closeIsoModal();
+    }
+
+    document.getElementById('isoBrowseBtn').addEventListener('click', openIsoModal);
+    document.getElementById('isoClearBtn').addEventListener('click', () => { isoInput.value = ''; });
+    document.getElementById('isoModalClose').addEventListener('click', closeIsoModal);
+    document.getElementById('isoModalCancel').addEventListener('click', closeIsoModal);
+    isoSelectBtn.addEventListener('click', confirmIsoSelection);
+    isoModal.addEventListener('click', (e) => { if (e.target === isoModal) closeIsoModal(); });
+})();
+</script>
+{% endif %}

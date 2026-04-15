@@ -1,0 +1,547 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        :root {
+            --nebula-primary: #417690;
+            --nebula-secondary: #2c5aa0;
+            --nebula-accent: #0066cc;
+            --nebula-light: #f5f7fa;
+            --nebula-border: #e0e0e0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        
+        #header {
+            background: linear-gradient(90deg, var(--nebula-primary) 0%, var(--nebula-secondary) 100%);
+            color: white;
+            padding: 20px 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        #header h1 {
+            margin: 0;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .main-container {
+            display: flex;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .sidebar {
+            width: 280px;
+            background: white;
+            padding: 30px 20px;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.08);
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+        }
+        
+        .sidebar-section {
+            margin-bottom: 30px;
+        }
+        
+        .sidebar-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .sidebar-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--nebula-primary);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 12px;
+        }
+        
+        .sidebar-title i {
+            font-size: 14px;
+        }
+        
+        .sidebar-items {
+            background: var(--nebula-light);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--nebula-border);
+        }
+        
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            text-decoration: none;
+            color: #333;
+            transition: all 0.2s ease;
+            font-size: 13px;
+        }
+        
+        .sidebar-item:last-child {
+            border-bottom: none;
+        }
+        
+        .sidebar-item:hover {
+            background: white;
+            color: var(--nebula-accent);
+            padding-left: 18px;
+        }
+        
+        .sidebar-item i {
+            min-width: 18px;
+            text-align: center;
+            color: var(--nebula-secondary);
+        }
+        
+        .sidebar-item.has-badge::after {
+            content: attr(data-count);
+            margin-left: auto;
+            background: var(--nebula-accent);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
+        .content {
+            flex: 1;
+            padding: 30px;
+        }
+        
+        .dashboard-header {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+        
+        .dashboard-header h2 {
+            margin: 0 0 10px 0;
+            color: var(--nebula-primary);
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .dashboard-header p {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .management-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .management-panel {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+        }
+        
+        .management-panel:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+        
+        .panel-header {
+            background: linear-gradient(135deg, var(--nebula-primary) 0%, var(--nebula-secondary) 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .panel-header i {
+            font-size: 24px;
+        }
+        
+        .panel-header h3 {
+            margin: 0;
+            flex: 1;
+            font-size: 16px;
+        }
+        
+        .panel-body {
+            padding: 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .panel-items {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .panel-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--nebula-border);
+            text-decoration: none;
+            color: #333;
+            transition: all 0.2s ease;
+            font-size: 13px;
+        }
+        
+        .panel-link:last-child {
+            border-bottom: none;
+        }
+        
+        .panel-link:hover {
+            background: var(--nebula-light);
+            color: var(--nebula-accent);
+            padding-left: 18px;
+        }
+        
+        .panel-link i {
+            min-width: 16px;
+            color: var(--nebula-secondary);
+            text-align: center;
+        }
+        
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: #999;
+        }
+        
+        .empty-state i {
+            font-size: 32px;
+            margin-bottom: 10px;
+            display: block;
+            opacity: 0.5;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                max-height: none;
+                padding: 20px 30px;
+            }
+            
+            .management-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .management-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .content {
+                padding: 15px;
+            }
+            
+            .dashboard-header {
+                padding: 20px;
+            }
+            
+            .dashboard-header h2 {
+                font-size: 22px;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="main-container">
+    <!-- LEFT SIDEBAR -->
+    <div class="sidebar">
+        <!-- Host Management -->
+        <div class="sidebar-section">
+            <div class="sidebar-title">
+                <i class="fas fa-server"></i> Host Management
+            </div>
+            <div class="sidebar-items">
+                <a href="/admin/manager/host/" class="sidebar-item">
+                    <i class="fas fa-list"></i>
+                    All Hosts
+                </a>
+                <a href="/admin/manager/host/add/" class="sidebar-item">
+                    <i class="fas fa-plus"></i>
+                    Add Host
+                </a>
+                <a href="/admin/manager/host/?is_active__exact=1" class="sidebar-item">
+                    <i class="fas fa-check-circle"></i>
+                    Active Hosts
+                </a>
+                <a href="/admin/manager/host/?is_active__exact=0" class="sidebar-item">
+                    <i class="fas fa-times-circle"></i>
+                    Inactive Hosts
+                </a>
+            </div>
+        </div>
+        
+        <!-- Network Management -->
+        <div class="sidebar-section">
+            <div class="sidebar-title">
+                <i class="fas fa-network-wired"></i> Network Management
+            </div>
+            <div class="sidebar-items">
+                <a href="/api-docs/#network-management" class="sidebar-item">
+                    <i class="fas fa-ethernet"></i>
+                    VSwitches
+                </a>
+                <a href="/api-docs/#network-management" class="sidebar-item">
+                    <i class="fas fa-layer-group"></i>
+                    Port Groups
+                </a>
+                <a href="/api-docs/#network-management" class="sidebar-item">
+                    <i class="fas fa-network-wired"></i>
+                    NICs
+                </a>
+                <a href="/api-docs/#network-management" class="sidebar-item">
+                    <i class="fas fa-diagram-project"></i>
+                    Network Config
+                </a>
+            </div>
+        </div>
+        
+        <!-- Storage Management -->
+        <div class="sidebar-section">
+            <div class="sidebar-title">
+                <i class="fas fa-database"></i> Storage Management
+            </div>
+            <div class="sidebar-items">
+                <a href="/api-docs/#storage-management" class="sidebar-item">
+                    <i class="fas fa-hdd"></i>
+                    Datastores
+                </a>
+                <a href="/api-docs/#storage-management" class="sidebar-item">
+                    <i class="fas fa-server"></i>
+                    VMFS Volumes
+                </a>
+                <a href="/api-docs/#storage-management" class="sidebar-item">
+                    <i class="fas fa-memory"></i>
+                    Storage Info
+                </a>
+                <a href="/api-docs/#storage-management" class="sidebar-item">
+                    <i class="fas fa-chart-bar"></i>
+                    Capacity Analysis
+                </a>
+            </div>
+        </div>
+        
+        <!-- Virtual Machine Management -->
+        <div class="sidebar-section">
+            <div class="sidebar-title">
+                <i class="fas fa-cube"></i> Virtual Machines
+            </div>
+            <div class="sidebar-items">
+                <a href="/api-docs/#vm-management" class="sidebar-item">
+                    <i class="fas fa-list"></i>
+                    All VMs
+                </a>
+                <a href="/api-docs/#vm-management" class="sidebar-item">
+                    <i class="fas fa-play"></i>
+                    Running VMs
+                </a>
+                <a href="/api-docs/#vm-management" class="sidebar-item">
+                    <i class="fas fa-square"></i>
+                    Stopped VMs
+                </a>
+                <a href="/api-docs/#vm-management" class="sidebar-item">
+                    <i class="fas fa-plus"></i>
+                    Create VM
+                </a>
+            </div>
+        </div>
+        
+        <!-- Tools & Resources -->
+        <div class="sidebar-section">
+            <div class="sidebar-title">
+                <i class="fas fa-tools"></i> Tools & Resources
+            </div>
+            <div class="sidebar-items">
+                <a href="/api-docs/" class="sidebar-item">
+                    <i class="fas fa-book"></i>
+                    API Documentation
+                </a>
+                <a href="/api/v1/docs/" target="_blank" class="sidebar-item">
+                    <i class="fas fa-code"></i>
+                    API Swagger UI
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MAIN CONTENT -->
+    <div class="content">
+        <div class="dashboard-header">
+            <h2>
+                <i class="fas fa-gauge-high"></i>
+                Jupiter Dashboard
+            </h2>
+            <p>Centralized management for ESXi hosts, networks, storage, and virtual machines</p>
+        </div>
+        
+        <!-- Management Panels Grid -->
+        <div class="management-grid">
+            <!-- Host Management Panel -->
+            <div class="management-panel">
+                <div class="panel-header">
+                    <i class="fas fa-server"></i>
+                    <h3>Host Management</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="panel-items">
+                        <a href="/admin/manager/host/" class="panel-link">
+                            <i class="fas fa-list-ul"></i>
+                            Manage All Hosts
+                        </a>
+                        <a href="/admin/manager/host/add/" class="panel-link">
+                            <i class="fas fa-plus-circle"></i>
+                            Add New Host
+                        </a>
+                        <a href="/admin/manager/host/?is_active__exact=1" class="panel-link">
+                            <i class="fas fa-check-circle"></i>
+                            View Active Hosts
+                        </a>
+                        <a href="/admin/manager/host/?is_active__exact=0" class="panel-link">
+                            <i class="fas fa-exclamation-circle"></i>
+                            View Inactive Hosts
+                        </a>
+                        <a href="/api-docs/#host-management" class="panel-link">
+                            <i class="fas fa-book"></i>
+                            Host API Endpoints
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Network Management Panel -->
+            <div class="management-panel">
+                <div class="panel-header">
+                    <i class="fas fa-network-wired"></i>
+                    <h3>Network Management</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="panel-items">
+                        <a href="/api-docs/#network-management" class="panel-link">
+                            <i class="fas fa-ethernet"></i>
+                            VSwitches Configuration
+                        </a>
+                        <a href="/api-docs/#network-management" class="panel-link">
+                            <i class="fas fa-layer-group"></i>
+                            Port Groups
+                        </a>
+                        <a href="/api-docs/#network-management" class="panel-link">
+                            <i class="fas fa-network-wired"></i>
+                            Network Adapters
+                        </a>
+                        <a href="/api-docs/#network-management" class="panel-link">
+                            <i class="fas fa-wifi"></i>
+                            vLAN Configuration
+                        </a>
+                        <a href="/api-docs/#network-management" class="panel-link">
+                            <i class="fas fa-book"></i>
+                            Network API Endpoints
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Storage Management Panel -->
+            <div class="management-panel">
+                <div class="panel-header">
+                    <i class="fas fa-database"></i>
+                    <h3>Storage Management</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="panel-items">
+                        <a href="/api-docs/#storage-management" class="panel-link">
+                            <i class="fas fa-hdd"></i>
+                            Datastores
+                        </a>
+                        <a href="/api-docs/#storage-management" class="panel-link">
+                            <i class="fas fa-cube"></i>
+                            VMFS Volumes
+                        </a>
+                        <a href="/api-docs/#storage-management" class="panel-link">
+                            <i class="fas fa-chart-pie"></i>
+                            Storage Capacity
+                        </a>
+                        <a href="/api-docs/#storage-management" class="panel-link">
+                            <i class="fas fa-server"></i>
+                            Storage Health
+                        </a>
+                        <a href="/api-docs/#storage-management" class="panel-link">
+                            <i class="fas fa-book"></i>
+                            Storage API Endpoints
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Virtual Machine Management Panel -->
+            <div class="management-panel">
+                <div class="panel-header">
+                    <i class="fas fa-cube"></i>
+                    <h3>Virtual Machines</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="panel-items">
+                        <a href="/api-docs/#vm-management" class="panel-link">
+                            <i class="fas fa-list-ul"></i>
+                            All Virtual Machines
+                        </a>
+                        <a href="/api-docs/#vm-management" class="panel-link">
+                            <i class="fas fa-play-circle"></i>
+                            Running VMs
+                        </a>
+                        <a href="/api-docs/#vm-management" class="panel-link">
+                            <i class="fas fa-stop-circle"></i>
+                            Stopped VMs
+                        </a>
+                        <a href="/api-docs/#vm-management" class="panel-link">
+                            <i class="fas fa-plus-circle"></i>
+                            Create New VM
+                        </a>
+                        <a href="/api-docs/#vm-management" class="panel-link">
+                            <i class="fas fa-book"></i>
+                            VM API Endpoints
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

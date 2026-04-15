@@ -1,0 +1,19 @@
+{{- if .Values.redis.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nebula.fullname" . }}-redis
+  namespace: {{ include "nebula.namespace" . }}
+  labels:
+    {{- include "nebula.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  selector:
+    {{- include "nebula.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+  ports:
+    - name: redis
+      protocol: TCP
+      port: {{ .Values.redis.port }}
+      targetPort: redis
+{{- end }}

@@ -1,0 +1,20 @@
+Nebula has been deployed.
+
+Namespace:
+  {{ include "nebula.namespace" . }}
+
+Release:
+  {{ .Release.Name }}
+
+Web service:
+  {{ include "nebula.fullname" . }}-web:{{ .Values.web.service.port }}
+
+If ingress is enabled, browse to:
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+  Ingress is disabled. Port-forward:
+  kubectl --namespace {{ include "nebula.namespace" . }} port-forward svc/{{ include "nebula.fullname" . }}-web 8000:{{ .Values.web.service.port }}
+{{- end }}

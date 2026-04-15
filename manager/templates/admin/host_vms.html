@@ -1,0 +1,883 @@
+{% extends 'admin/base_site.html' %}
+
+{% block title %}{{ title }} - Jupiter Admin{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    {% include 'admin/management_nav.html' %}
+    
+    <style>
+        .vm-list-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .vm-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .vm-table thead th {
+            padding: 12px;
+            text-align: left;
+            background: #f5f5f5;
+            border-bottom: 2px solid #ddd;
+            font-weight: bold;
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .vm-table tbody tr {
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s ease;
+        }
+        
+        .vm-table tbody tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .vm-table td {
+            padding: 12px;
+            font-size: 13px;
+        }
+        
+        .vm-name-col {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .vm-status {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        
+        .vm-status.poweredon {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .vm-status.poweredoff {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .vm-status.suspended {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .vm-status.unknown {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .vm-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        
+        .action-btn {
+            padding: 6px 12px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .action-btn-primary {
+            background: #0066cc;
+            color: white;
+        }
+        
+        .action-btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .action-btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+        
+        .action-btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .action-btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .action-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin: 20px 0;
+        }
+        
+        .button-group a, .button-group button {
+            padding: 12px;
+            background: #0066cc;
+            color: white;
+            border-radius: 6px;
+            text-decoration: none;
+            text-align: center;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .button-group a:hover, .button-group button:hover {
+            background: #0052a3;
+        }
+        
+        .button-group .btn-success {
+            background: #28a745;
+        }
+        
+        .button-group .btn-success:hover {
+            background: #218838;
+        }
+        
+        .button-group .btn-info {
+            background: #17a2b8;
+        }
+        
+        .button-group .btn-info:hover {
+            background: #138496;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            display: block;
+            opacity: 0.5;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .header-with-refresh {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .refresh-info {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-size: 13px;
+        }
+        
+        .refresh-btn {
+            padding: 8px 16px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .refresh-btn:hover {
+            background: #0052a3;
+        }
+        
+        .refresh-btn.loading {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .refresh-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .last-updated {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .status-changed {
+            background: #fffacd !important;
+            animation: highlight-fade 2s ease;
+        }
+        
+        @keyframes highlight-fade {
+            0% { background: #ffeb3b; }
+            100% { background: inherit; }
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 16px;
+        }
+
+        .modal-backdrop.show {
+            display: flex;
+        }
+
+        .create-vm-modal {
+            background: #ffffff;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 880px;
+            max-height: 90vh;
+            overflow: auto;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+        }
+
+        .create-vm-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .create-vm-body {
+            padding: 18px 20px;
+        }
+
+        .create-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px 16px;
+        }
+
+        .form-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-field label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #334155;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .form-field input,
+        .form-field select {
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 9px 10px;
+            font-size: 13px;
+            background: #fff;
+        }
+
+        .form-field input:focus,
+        .form-field select:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        }
+
+        .form-field.full {
+            grid-column: span 2;
+        }
+
+        .modal-actions {
+            padding: 14px 20px 18px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .secondary-btn {
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #334155;
+            border-radius: 6px;
+            padding: 9px 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .primary-btn {
+            border: 0;
+            background: #2563eb;
+            color: #fff;
+            border-radius: 6px;
+            padding: 9px 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .primary-btn:disabled,
+        .secondary-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status-box {
+            margin-top: 10px;
+            border-radius: 6px;
+            padding: 10px 12px;
+            display: none;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-box.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+            display: block;
+        }
+
+        .status-box.success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+            display: block;
+        }
+
+        @media (max-width: 900px) {
+            .create-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-field.full {
+                grid-column: auto;
+            }
+        }
+    </style>
+    
+    <div class="header-with-refresh">
+        <h1 style="margin: 0;"><i class="fas fa-cube"></i> Virtual Machines on {{ host.name }}</h1>
+        <div class="refresh-info">
+            <button id="refreshBtn" class="refresh-btn" onclick="refreshVMs()">
+                <span id="refreshIcon"><i class="fas fa-sync-alt"></i></span>
+                <span>Refresh Now</span>
+            </button>
+            <span class="last-updated">Last updated: <span id="lastUpdated">Just now</span></span>
+        </div>
+    </div>
+    
+    <div class="vm-list-container">
+        {% if error_message %}
+            <div class="error-message">
+                <i class="fas fa-exclamation-circle"></i> {{ error_message }}
+            </div>
+        {% endif %}
+        
+        <div class="button-group">
+            <a href="#" class="btn-success" onclick="openCreateVmModal(event)">
+                <i class="fas fa-plus"></i> Create VM
+            </a>
+            <a href="#" class="btn-info" onclick="alert('VM migration coming soon')">
+                <i class="fas fa-exchange-alt"></i> Migrate VM
+            </a>
+        </div>
+        
+        {% if vms %}
+            <h2 style="color: #333; border-bottom: 2px solid #0066cc; padding-bottom: 10px; margin-top: 0;">
+                <i class="fas fa-list"></i> {{ vms|length }} Virtual Machine(s)
+            </h2>
+            
+            <table class="vm-table">
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-cube"></i> VM Name</th>
+                        <th>VM ID</th>
+                        <th>State</th>
+                        <th>Guest OS</th>
+                        <th>IP Address</th>
+                        <th style="text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vm in vms %}
+                        <tr>
+                            <td class="vm-name-col">{{ vm.name|default:"Unknown" }}</td>
+                            <td>{{ vm.vmid|default:"--" }}</td>
+                            <td>
+                                <span class="vm-status {{ vm.state|lower }}">
+                                    {{ vm.state|default:"Unknown" }}
+                                </span>
+                            </td>
+                            <td>{{ vm.guest_name|default:"--" }}</td>
+                            <td>{{ vm.ip_address|default:"--" }}</td>
+                            <td style="text-align: center;">
+                                <div class="vm-actions">
+                                    {% if vm.is_running %}
+                                        <button class="action-btn action-btn-danger" onclick="alert('Stop VM - Coming soon')" style="padding: 4px 8px; font-size: 11px;">
+                                            <i class="fas fa-stop"></i> Stop
+                                        </button>
+                                    {% else %}
+                                        <button class="action-btn action-btn-success" onclick="alert('Start VM - Coming soon')" style="padding: 4px 8px; font-size: 11px;">
+                                            <i class="fas fa-play"></i> Start
+                                        </button>
+                                    {% endif %}
+                                    <button class="action-btn action-btn-info" onclick="alert('VM Console - Coming soon')" style="padding: 4px 8px; font-size: 11px;">
+                                        <i class="fas fa-terminal"></i> Console
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-cube"></i>
+                <h3>No Virtual Machines Found</h3>
+                <p>This host doesn't have any registered virtual machines yet.</p>
+                <p style="color: #ccc; font-size: 12px;">Create a new VM to get started</p>
+            </div>
+        {% endif %}
+        
+    </div>
+
+    <div id="createVmModalBackdrop" class="modal-backdrop" onclick="onCreateVmBackdropClick(event)">
+        <div class="create-vm-modal" role="dialog" aria-modal="true" aria-labelledby="createVmTitle">
+            <div class="create-vm-header">
+                <h2 id="createVmTitle" style="margin: 0; color: #1e293b; font-size: 18px;">
+                    <i class="fas fa-plus-circle"></i> Create Virtual Machine
+                </h2>
+                <button type="button" class="secondary-btn" onclick="closeCreateVmModal()">Close</button>
+            </div>
+
+            <form id="createVmForm" class="create-vm-body" onsubmit="submitCreateVm(event)">
+                <div class="create-grid">
+                    <div class="form-field full">
+                        <label for="vm_name">VM Name</label>
+                        <input id="vm_name" name="vm_name" type="text" required placeholder="my-app-vm-01">
+                    </div>
+
+                    <div class="form-field">
+                        <label for="datastore">Datastore</label>
+                        <select id="datastore" name="datastore" required></select>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="network_name">Network Port Group</label>
+                        <select id="network_name" name="network_name" required></select>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="cpu">vCPU Count</label>
+                        <input id="cpu" name="cpu" type="number" min="1" max="128" value="2" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="ram">Memory (MB)</label>
+                        <input id="ram" name="ram" type="number" min="256" step="256" value="2048" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="disk_size_gb">Disk Size (GB)</label>
+                        <input id="disk_size_gb" name="disk_size_gb" type="number" min="1" value="16" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="disk_type">Disk Provisioning</label>
+                        <select id="disk_type" name="disk_type"></select>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="guest_os">Guest OS</label>
+                        <select id="guest_os" name="guest_os"></select>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="nic_type">Network Adapter</label>
+                        <select id="nic_type" name="nic_type"></select>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="scsi_controller">SCSI Controller</label>
+                        <select id="scsi_controller" name="scsi_controller"></select>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="firmware">Firmware</label>
+                        <select id="firmware" name="firmware"></select>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="hw_version">Hardware Version</label>
+                        <select id="hw_version" name="hw_version"></select>
+                    </div>
+
+                    <div class="form-field full">
+                        <label style="text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 600; color: #1f2937;">
+                            <input id="power_on" name="power_on" type="checkbox" style="margin-right: 8px;">
+                            Power on VM after creation
+                        </label>
+                    </div>
+                </div>
+
+                <div id="createVmStatus" class="status-box"></div>
+            </form>
+
+            <div class="modal-actions">
+                <button type="button" class="secondary-btn" onclick="closeCreateVmModal()">Cancel</button>
+                <button id="createVmSubmitBtn" type="submit" form="createVmForm" class="primary-btn">Create VM</button>
+            </div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 30px;">
+        <a href="{% url 'admin:manager_host_change' host.pk %}" class="button" style="
+            display: inline-block;
+            padding: 10px 20px;
+            background: #417690;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+        ">
+            ← Back to Host
+        </a>
+    </div>
+</div>
+
+<script>
+// Configuration
+const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
+const HOST_NAME = '{{ host.name }}';
+const API_ENDPOINT = `/api/v1/vms/${encodeURIComponent(HOST_NAME)}/db/list`;
+const CREATE_VM_OPTIONS_ENDPOINT = `/api/v1/vms/${encodeURIComponent(HOST_NAME)}/create/options`;
+const CREATE_VM_ENDPOINT = `/api/v1/vms/${encodeURIComponent(HOST_NAME)}/create`;
+let autoRefreshTimer = null;
+let isRefreshing = false;
+let createOptionsLoaded = false;
+
+console.log('VMs Page Loaded for Host:', HOST_NAME);
+console.log('API Endpoint:', API_ENDPOINT);
+
+// Update last updated time display
+function updateLastUpdatedTime() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit',
+        hour12: true 
+    });
+    document.getElementById('lastUpdated').textContent = timeStr;
+}
+
+// Fetch VMs from API and update table
+async function refreshVMs() {
+    if (isRefreshing) return;
+    
+    isRefreshing = true;
+    const btn = document.getElementById('refreshBtn');
+    const icon = document.getElementById('refreshIcon');
+    
+    btn.classList.add('loading');
+    icon.innerHTML = '<span class="refresh-spinner"></span>';
+    
+    try {
+        console.log('Fetching from:', API_ENDPOINT);
+        const response = await fetch(API_ENDPOINT);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('VM Data received:', data);
+        
+        if (data.error) {
+            console.error('API Error:', data.error);
+            return;
+        }
+        
+        // Update table with new data
+        updateVMTable(data.vms);
+        updateLastUpdatedTime();
+        
+    } catch (error) {
+        console.error('Error refreshing VMs:', error);
+    } finally {
+        isRefreshing = false;
+        btn.classList.remove('loading');
+        icon.innerHTML = '<i class="fas fa-sync-alt"></i>';
+    }
+}
+
+// Update table rows with new VM data
+function updateVMTable(newVMs) {
+    const tableBody = document.querySelector('.vm-table tbody');
+    if (!tableBody) return;
+    
+    const rows = Array.from(tableBody.querySelectorAll('tr'));
+    
+    newVMs.forEach(newVM => {
+        let vmRow = rows.find(row => {
+            const vmidCell = row.cells[1];
+            return vmidCell && vmidCell.textContent.trim() === newVM.vmid;
+        });
+        
+        if (!vmRow) return; // VM row not found, skip
+        
+        // Update State (power_state)
+        const stateCell = vmRow.cells[2];
+        const stateSpan = stateCell.querySelector('.vm-status');
+        const oldState = stateSpan.textContent.trim();
+        const newState = newVM.power_state;
+        
+        if (oldState !== newState) {
+            stateSpan.textContent = newState;
+            stateSpan.className = 'vm-status ' + newState.toLowerCase();
+            vmRow.classList.add('status-changed');
+            setTimeout(() => vmRow.classList.remove('status-changed'), 2000);
+        }
+        
+        // Update IP Address
+        const ipCell = vmRow.cells[4];
+        if (ipCell.textContent.trim() !== newVM.ip_address) {
+            ipCell.textContent = newVM.ip_address;
+            vmRow.classList.add('status-changed');
+            setTimeout(() => vmRow.classList.remove('status-changed'), 2000);
+        }
+        
+        // Update Guest OS if changed
+        const osCell = vmRow.cells[3];
+        if (osCell.textContent.trim() !== newVM.guest_name) {
+            osCell.textContent = newVM.guest_name;
+        }
+    });
+}
+
+// Start auto-refresh when page loads
+function startAutoRefresh() {
+    console.log('Starting auto-refresh...');
+    // Initial refresh
+    refreshVMs();
+    
+    // Set up interval for auto-refresh
+    autoRefreshTimer = setInterval(() => {
+        refreshVMs();
+    }, AUTO_REFRESH_INTERVAL);
+}
+
+// Stop auto-refresh when page is unloaded
+window.addEventListener('beforeunload', () => {
+    if (autoRefreshTimer) {
+        clearInterval(autoRefreshTimer);
+    }
+});
+
+// Start auto-refresh on page load
+document.addEventListener('DOMContentLoaded', startAutoRefresh);
+
+// Allow manual stopping of auto-refresh if needed
+function stopAutoRefresh() {
+    if (autoRefreshTimer) {
+        clearInterval(autoRefreshTimer);
+        autoRefreshTimer = null;
+    }
+}
+
+function setCreateVmStatus(type, message) {
+    const box = document.getElementById('createVmStatus');
+    box.className = 'status-box';
+    box.textContent = message || '';
+    if (!message) return;
+    box.classList.add(type === 'error' ? 'error' : 'success');
+}
+
+function fillSelect(selectId, items, valueKey = 'value', labelKey = 'label', defaultValue = null) {
+    const select = document.getElementById(selectId);
+    select.innerHTML = '';
+
+    items.forEach(item => {
+        const option = document.createElement('option');
+        if (typeof item === 'string') {
+            option.value = item;
+            option.textContent = item;
+        } else {
+            option.value = item[valueKey];
+            option.textContent = item[labelKey];
+        }
+        select.appendChild(option);
+    });
+
+    if (defaultValue !== null && defaultValue !== undefined) {
+        select.value = String(defaultValue);
+    }
+}
+
+async function loadCreateVmOptions() {
+    const response = await fetch(CREATE_VM_OPTIONS_ENDPOINT);
+    if (!response.ok) {
+        throw new Error(`Failed to load create options (${response.status})`);
+    }
+
+    const data = await response.json();
+    const defaults = data.defaults || {};
+
+    const dsItems = (data.datastores || []).map(ds => ({
+        value: ds.name,
+        label: `${ds.name} (${ds.free || 'unknown'} free)`
+    }));
+    if (!dsItems.length) {
+        dsItems.push({ value: '', label: 'No datastores found' });
+    }
+    fillSelect('datastore', dsItems, 'value', 'label');
+
+    const networkItems = (data.networks || []).length ? data.networks : ['VM Network'];
+    fillSelect('network_name', networkItems, 'value', 'label');
+
+    fillSelect('guest_os', data.guest_os_options || [], 'value', 'label', defaults.guest_os);
+    fillSelect('nic_type', data.nic_options || ['e1000'], 'value', 'label', defaults.nic_type);
+    fillSelect('scsi_controller', data.scsi_controller_options || ['lsilogic'], 'value', 'label', defaults.scsi_controller);
+    fillSelect('disk_type', data.disk_type_options || ['thin'], 'value', 'label', defaults.disk_type);
+    fillSelect('firmware', data.firmware_options || ['bios'], 'value', 'label', defaults.firmware);
+    fillSelect('hw_version', data.hw_version_options || ['13'], 'value', 'label', defaults.hw_version);
+
+    document.getElementById('cpu').value = defaults.cpu || 2;
+    document.getElementById('ram').value = defaults.ram || 2048;
+    document.getElementById('disk_size_gb').value = defaults.disk_size_gb || 16;
+    document.getElementById('power_on').checked = Boolean(defaults.power_on);
+
+    createOptionsLoaded = true;
+}
+
+async function openCreateVmModal(event) {
+    event.preventDefault();
+    document.getElementById('createVmModalBackdrop').classList.add('show');
+    setCreateVmStatus('', '');
+
+    if (createOptionsLoaded) return;
+
+    try {
+        await loadCreateVmOptions();
+    } catch (error) {
+        console.error('Create options load error:', error);
+        setCreateVmStatus('error', error.message || 'Failed to load create options');
+    }
+}
+
+function closeCreateVmModal() {
+    document.getElementById('createVmModalBackdrop').classList.remove('show');
+}
+
+function onCreateVmBackdropClick(event) {
+    if (event.target.id === 'createVmModalBackdrop') {
+        closeCreateVmModal();
+    }
+}
+
+async function submitCreateVm(event) {
+    event.preventDefault();
+
+    const submitBtn = document.getElementById('createVmSubmitBtn');
+    submitBtn.disabled = true;
+    setCreateVmStatus('', '');
+
+    try {
+        const payload = {
+            name: document.getElementById('vm_name').value.trim(),
+            datastore: document.getElementById('datastore').value,
+            cpu: Number(document.getElementById('cpu').value || 2),
+            ram: Number(document.getElementById('ram').value || 2048),
+            disk_size_gb: Number(document.getElementById('disk_size_gb').value || 16),
+            disk_type: document.getElementById('disk_type').value,
+            guest_os: document.getElementById('guest_os').value,
+            network_name: document.getElementById('network_name').value,
+            nic_type: document.getElementById('nic_type').value,
+            scsi_controller: document.getElementById('scsi_controller').value,
+            firmware: document.getElementById('firmware').value,
+            hw_version: document.getElementById('hw_version').value,
+            power_on: document.getElementById('power_on').checked
+        };
+
+        if (!payload.name || !payload.datastore) {
+            throw new Error('VM name and datastore are required');
+        }
+
+        const response = await fetch(CREATE_VM_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        if (!response.ok || data.status === 'error') {
+            throw new Error(data.message || data.output || 'Create VM failed');
+        }
+
+        setCreateVmStatus('success', 'VM create task submitted. Refreshing inventory...');
+        document.getElementById('createVmForm').reset();
+        await refreshVMs();
+        setTimeout(() => {
+            closeCreateVmModal();
+            window.location.reload();
+        }, 800);
+    } catch (error) {
+        console.error('Create VM submit error:', error);
+        setCreateVmStatus('error', error.message || 'Create VM failed');
+    } finally {
+        submitBtn.disabled = false;
+    }
+}
+</script>
+{% endblock %}
+

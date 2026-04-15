@@ -1,0 +1,281 @@
+{% extends 'admin/base_site.html' %}
+
+{% block title %}{{ title }} - Jupiter Admin{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    {% include 'admin/management_nav.html' %}
+    
+    <style>
+        .section-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            color: #333;
+            border-bottom: 2px solid #17a2b8;
+            padding-bottom: 10px;
+            margin: 0 0 20px 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .network-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .network-table thead th {
+            padding: 12px;
+            text-align: left;
+            background: #f5f5f5;
+            border-bottom: 2px solid #ddd;
+            font-weight: bold;
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .network-table tbody tr {
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s ease;
+        }
+        
+        .network-table tbody tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .network-table td {
+            padding: 12px;
+            font-size: 13px;
+        }
+        
+        .network-name-col {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .network-label {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            background: #d4edff;
+            color: #0066cc;
+        }
+        
+        .network-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        
+        .action-btn {
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 11px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .action-btn-primary {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .action-btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .action-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            display: block;
+            opacity: 0.5;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+    
+    <h1 style="margin-bottom: 20px;"><i class="fas fa-network-wired"></i> Network Management on {{ host.name }}</h1>
+    
+    {% if error_message %}
+        <div class="error-message">
+            <i class="fas fa-exclamation-circle"></i> {{ error_message }}
+        </div>
+    {% endif %}
+    
+    <!-- vSwitches Section -->
+    <div class="section-container">
+        <h2 class="section-title">
+            <i class="fas fa-sitemap"></i> Virtual Switches (vSwitches)
+        </h2>
+        
+        {% if network_data.vswitches %}
+            <table class="network-table">
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-ethernet"></i> vSwitch Name</th>
+                        <th>Ports</th>
+                        <th>MTU</th>
+                        <th>Uplinks</th>
+                        <th style="text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vswitch in network_data.vswitches %}
+                        <tr>
+                            <td class="network-name-col">{{ vswitch.name|default:"vSwitch" }}</td>
+                            <td>{{ vswitch.num_ports|default:"--" }}</td>
+                            <td>{{ vswitch.mtu|default:"--" }}</td>
+                            <td>{{ vswitch.uplinks|join:", "|default:"--" }}</td>
+                            <td style="text-align: center;">
+                                <div class="network-actions">
+                                    <button class="action-btn action-btn-primary" onclick="alert('Edit vSwitch - Coming soon')">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-sitemap"></i>
+                <h3>No vSwitches Found</h3>
+                <p>This host doesn't have any configured vSwitches yet.</p>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Port Groups Section -->
+    <div class="section-container">
+        <h2 class="section-title">
+            <i class="fas fa-layer-group"></i> Port Groups
+        </h2>
+        
+        {% if network_data.portgroups %}
+            <table class="network-table">
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-layer-group"></i> Port Group Name</th>
+                        <th>vSwitch</th>
+                        <th>VLAN ID</th>
+                        <th>MTU</th>
+                        <th style="text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for portgroup in network_data.portgroups %}
+                        <tr>
+                            <td class="network-name-col">{{ portgroup.name|default:"Port Group" }}</td>
+                            <td>{{ portgroup.vswitch|default:"--" }}</td>
+                            <td>{{ portgroup.vlan|default:"--" }}</td>
+                            <td>{{ portgroup.mtu|default:"--" }}</td>
+                            <td style="text-align: center;">
+                                <div class="network-actions">
+                                    <button class="action-btn action-btn-primary" onclick="alert('Edit Port Group - Coming soon')">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-layer-group"></i>
+                <h3>No Port Groups Found</h3>
+                <p>No port groups are configured on this host.</p>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Physical NICs Section -->
+    <div class="section-container">
+        <h2 class="section-title">
+            <i class="fas fa-network-wired"></i> Physical Network Adapters
+        </h2>
+        
+        {% if network_data.physical_nics %}
+            <table class="network-table">
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-network-wired"></i> NIC Name</th>
+                        <th>MAC Address</th>
+                        <th>Driver</th>
+                        <th>Speed</th>
+                        <th style="text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for nic in network_data.physical_nics %}
+                        <tr>
+                            <td class="network-name-col">{{ nic.name|default:"NIC" }}</td>
+                            <td>{{ nic.mac|default:"--" }}</td>
+                            <td>{{ nic.driver|default:"--" }}</td>
+                            <td>{{ nic.speed|default:"--" }}</td>
+                            <td style="text-align: center;">
+                                <div class="network-actions">
+                                    <button class="action-btn action-btn-primary" onclick="alert('NIC Details - Coming soon')">
+                                        <i class="fas fa-info-circle"></i> Info
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-network-wired"></i>
+                <h3>No Physical NICs Found</h3>
+                <p>Unable to retrieve physical network adapter information.</p>
+            </div>
+        {% endif %}
+    </div>
+    
+    
+    <div style="margin-top: 30px;">
+        <a href="{% url 'admin:manager_host_change' host.pk %}" class="button" style="
+            display: inline-block;
+            padding: 10px 20px;
+            background: #417690;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+        ">
+            ← Back to Host
+        </a>
+    </div>
+</div>
+{% endblock %}

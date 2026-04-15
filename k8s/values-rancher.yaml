@@ -1,0 +1,66 @@
+namespace:
+  create: true
+  name: nebula
+
+imagePullSecrets:
+  - harbor-regcred
+
+app:
+  debug: false
+  allowedHosts: "nebula.prod.home,localhost,127.0.0.1"
+
+web:
+  image:
+    repository: build.home/home/nebula_web
+    tag: latest
+    pullPolicy: Always
+
+syncWorker:
+  enabled: true
+  image:
+    repository: build.home/home/nebula_sync_worker
+    tag: latest
+    pullPolicy: Always
+
+database:
+  enabled: true
+  image:
+    repository: build.home/home/nebula_postgres
+    tag: latest
+    pullPolicy: Always
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClassName: ""
+
+redis:
+  enabled: true
+  image:
+    repository: build.home/home/nebula_redis
+    tag: latest
+    pullPolicy: Always
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  hosts:
+    - host: nebula.prod.home
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+secrets:
+  create: true
+  existingSecret: ""
+  dbPassword: "REPLACE_ME_DB_PASSWORD"
+  djangoSecretKey: "REPLACE_ME_DJANGO_SECRET"
+  djangoSuperuserUsername: "admin"
+  djangoSuperuserPassword: "REPLACE_ME_ADMIN_PASSWORD"
+  djangoSuperuserEmail: "admin@example.com"
+  sshPublicKeyEncryptionKey: "REPLACE_ME_OR_LEAVE_EMPTY"
+  sshPrivateKeyB64: "REPLACE_ME_WITH_BASE64_PRIVATE_KEY"
+  sshKeyContainerPath: /run/secrets/ssh_key
+  sshKeyPassphrase: ""

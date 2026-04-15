@@ -1,0 +1,14 @@
+django
+django-ninja
+django-unfold
+django-redis
+paramiko
+python-dotenv
+requests
+psycopg[binary]
+channels
+channels-redis
+daphne
+whitenoise
+cryptography
+pyvmomi

@@ -1,0 +1,217 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        :root {
+            --nebula-primary: #417690;
+            --nebula-secondary: #2c5aa0;
+            --nebula-accent: #0066cc;
+            --nebula-light: #f5f5f5;
+            --nebula-border: #e0e0e0;
+            --nebula-sidebar-width: clamp(220px, 18vw, 280px);
+            --nebula-ui-scale: 0.9;
+        }
+
+        html {
+            /* Fluid root sizing keeps layout proportional across window sizes */
+            font-size: clamp(13px, 0.3vw + 12px, 16px);
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body.nebula-admin {
+            zoom: var(--nebula-ui-scale);
+        }
+
+        @supports not (zoom: 1) {
+            body.nebula-admin {
+                transform: scale(var(--nebula-ui-scale));
+                transform-origin: top left;
+                width: calc(100% / var(--nebula-ui-scale));
+            }
+        }
+        
+        #container {
+            display: flex;
+            gap: 0;
+            max-width: 100%;
+        }
+        
+        #sidebar {
+            width: var(--nebula-sidebar-width);
+            background: linear-gradient(180deg, var(--nebula-primary) 0%, var(--nebula-secondary) 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        
+        #main {
+            margin-left: var(--nebula-sidebar-width);
+            flex: 1;
+            background: var(--nebula-light);
+            min-width: 0;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .sidebar-header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .sidebar-header .subtitle {
+            font-size: 12px;
+            color: rgba(255,255,255,0.8);
+            margin-top: 5px;
+        }
+        
+        .sidebar-panel {
+            margin: 0 10px 15px 10px;
+        }
+        
+        .panel-title {
+            font-size: 12px;
+            font-weight: bold;
+            color: rgba(255,255,255,0.7);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .panel-title i {
+            font-size: 14px;
+        }
+        
+        .panel-items {
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .panel-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            text-decoration: none;
+            color: white;
+            transition: all 0.2s ease;
+            font-size: 14px;
+        }
+        
+        .panel-item:hover {
+            background: rgba(255,255,255,0.15);
+            padding-left: 18px;
+        }
+        
+        .panel-item i {
+            min-width: 16px;
+            text-align: center;
+        }
+        
+        .panel-item.active {
+            background: rgba(0,0,0,0.2);
+            font-weight: bold;
+            border-left: 3px solid white;
+            padding-left: 12px;
+        }
+        
+        #content {
+            padding: clamp(12px, 2vw, 30px);
+        }
+        
+        .content-header {
+            background: white;
+            padding: clamp(16px, 2vw, 30px);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .content-header h1 {
+            margin: 0 0 10px 0;
+            color: var(--nebula-primary);
+            font-size: 32px;
+        }
+        
+        .content-header p {
+            margin: 0;
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            #sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            
+            #main {
+                margin-left: 0;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} nebula-admin{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>
+        // Smart table-only refresh (not full page reload)
+        // Only refresh on list pages, not on add/delete pages
+        if (!window.location.pathname.includes('/add/') && 
+            !window.location.pathname.includes('/delete/') &&
+            !document.querySelector('input[name="_saveasnew"]')) {
+            
+            setInterval(function() {
+                // Fetch current page HTML
+                fetch(window.location.href, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.text())
+                .then(html => {
+                    // Parse the response HTML
+                    const parser = new DOMParser();
+                    const newDoc = parser.parseFromString(html, 'text/html');
+                    
+                    // Find the table in current page and new response
+                    const currentTable = document.querySelector('#result_list');
+                    const newTable = newDoc.querySelector('#result_list');
+                    
+                    // Replace only the table if it exists
+                    if (currentTable && newTable) {
+                        currentTable.innerHTML = newTable.innerHTML;
+                    }
+                })
+                .catch(error => console.log('Table refresh error:', error));
+            }, 5000); // Every 5 seconds
+        }
+    </script>
+{% endblock %}

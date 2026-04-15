@@ -1,0 +1,19 @@
+{{- if .Values.database.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nebula.fullname" . }}-postgresql
+  namespace: {{ include "nebula.namespace" . }}
+  labels:
+    {{- include "nebula.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  selector:
+    {{- include "nebula.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+  ports:
+    - name: postgresql
+      protocol: TCP
+      port: {{ .Values.database.port }}
+      targetPort: postgresql
+{{- end }}

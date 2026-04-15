@@ -1,0 +1,227 @@
+{% extends 'admin/base_site.html' %}
+
+{% block title %}{{ title }} - Jupiter Admin{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    {% include 'admin/management_nav.html' %}
+    
+    <h1 style="margin-bottom: 10px;">
+        <i class="fas fa-tachometer-alt"></i> Management Dashboard
+    </h1>
+    
+    <!-- Status Card -->
+    <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2 style="margin-top: 0; color: #333;">Host Status</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+            <div style="text-align: center; padding: 15px; background: #f0f9ff; border-radius: 6px;">
+                <div style="color: #0066cc; font-size: 24px; margin-bottom: 5px;">
+                    <i class="fas fa-network-wired"></i>
+                </div>
+                <div style="font-size: 12px; color: #666;">IP Address</div>
+                <div style="font-weight: bold; color: #333;">{{ host.ip_address }}</div>
+            </div>
+            <div style="text-align: center; padding: 15px; background: #f0fff4; border-radius: 6px;">
+                <div style="color: #28a745; font-size: 24px; margin-bottom: 5px;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div style="font-size: 12px; color: #666;">Status</div>
+                <div style="font-weight: bold; color: #28a745;">Online</div>
+            </div>
+            <div style="text-align: center; padding: 15px; background: #fff9f0; border-radius: 6px;">
+                <div style="color: #ff8c00; font-size: 24px; margin-bottom: 5px;">
+                    <i class="fas fa-microchip"></i>
+                </div>
+                <div style="font-size: 12px; color: #666;">Processor</div>
+                <div style="font-weight: bold; color: #333;">Querying...</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2 style="margin-top: 0; color: #333;">
+            <i class="fas fa-bolt"></i> Quick Actions
+        </h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <a href="{% url 'host-info' host.pk %}" class="button" style="
+                padding: 15px; 
+                background: #417690; 
+                color: white; 
+                border-radius: 6px; 
+                text-decoration: none; 
+                text-align: center;
+                border: none;
+                cursor: pointer;
+                font-weight: bold;
+            ">
+                <i class="fas fa-info-circle"></i> Host Info
+            </a>
+            <a href="{% url 'host-vms' host.pk %}" class="button" style="
+                padding: 15px; 
+                background: #0066cc; 
+                color: white; 
+                border-radius: 6px; 
+                text-decoration: none; 
+                text-align: center;
+                border: none;
+                cursor: pointer;
+                font-weight: bold;
+            ">
+                <i class="fas fa-cube"></i> Virtual Machines
+            </a>
+            <a href="{% url 'host-network' host.pk %}" class="button" style="
+                padding: 15px; 
+                background: #17a2b8; 
+                color: white; 
+                border-radius: 6px; 
+                text-decoration: none; 
+                text-align: center;
+                border: none;
+                cursor: pointer;
+                font-weight: bold;
+            ">
+                <i class="fas fa-network-wired"></i> Network
+            </a>
+            <a href="{% url 'host-storage' host.pk %}" class="button" style="
+                padding: 15px; 
+                background: #6f42c1; 
+                color: white; 
+                border-radius: 6px; 
+                text-decoration: none; 
+                text-align: center;
+                border: none;
+                cursor: pointer;
+                font-weight: bold;
+            ">
+                <i class="fas fa-hdd"></i> Storage
+            </a>
+            <a href="{% url 'host-services' host.pk %}" class="button" style="
+                padding: 15px; 
+                background: #f39c12; 
+                color: white; 
+                border-radius: 6px; 
+                text-decoration: none; 
+                text-align: center;
+                border: none;
+                cursor: pointer;
+                font-weight: bold;
+            ">
+                <i class="fas fa-cogs"></i> Services
+            </a>
+            <a href="{% url 'host-maintenance' host.pk %}" class="button" style="
+                padding: 15px; 
+                background: #e74c3c; 
+                color: white; 
+                border-radius: 6px; 
+                text-decoration: none; 
+                text-align: center;
+                border: none;
+                cursor: pointer;
+                font-weight: bold;
+            ">
+                <i class="fas fa-tools"></i> Maintenance
+            </a>
+        </div>
+    </div>
+    
+    <!-- Power Actions -->
+    <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2 style="margin-top: 0; color: #333;">
+            <i class="fas fa-power-off"></i> Power Management
+        </h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+            <form method="POST" action="{% url 'host-reboot' host.pk %}" style="margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="button" style="
+                    width: 100%;
+                    padding: 15px; 
+                    background: #f39c12; 
+                    color: white; 
+                    border-radius: 6px; 
+                    border: none;
+                    cursor: pointer;
+                    font-weight: bold;
+                    font-size: 14px;
+                " onclick="return confirm('Reboot {{ host.name }}?')">
+                    <i class="fas fa-redo"></i> Reboot
+                </button>
+            </form>
+            <form method="POST" action="{% url 'host-shutdown' host.pk %}" style="margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="button" style="
+                    width: 100%;
+                    padding: 15px; 
+                    background: #dc3545; 
+                    color: white; 
+                    border-radius: 6px; 
+                    border: none;
+                    cursor: pointer;
+                    font-weight: bold;
+                    font-size: 14px;
+                " onclick="return confirm('Shutdown {{ host.name }}? This cannot be undone!')">
+                    <i class="fas fa-power-off"></i> Shutdown
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Information Panels -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+        <!-- Host Details -->
+        <div style="background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin-top: 0; color: #333; border-bottom: 2px solid #0066cc; padding-bottom: 10px;">
+                <i class="fas fa-info-circle"></i> Host Details
+            </h3>
+            <div style="font-size: 13px;">
+                <div style="margin: 10px 0; display: flex; justify-content: space-between;">
+                    <strong>Name:</strong> <span style="color: #666;">{{ host.name }}</span>
+                </div>
+                <div style="margin: 10px 0; display: flex; justify-content: space-between;">
+                    <strong>IP Address:</strong> <span style="color: #666;">{{ host.ip_address }}</span>
+                </div>
+                <div style="margin: 10px 0; display: flex; justify-content: space-between;">
+                    <strong>Username:</strong> <span style="color: #666;">{{ host.username }}</span>
+                </div>
+                <div style="margin: 10px 0; display: flex; justify-content: space-between;">
+                    <strong>Status:</strong> 
+                    <span style="color: #28a745; font-weight: bold;">
+                        {% if host.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- API Documentation -->
+        <div style="background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin-top: 0; color: #333; border-bottom: 2px solid #0066cc; padding-bottom: 10px;">
+                <i class="fas fa-code"></i> API Endpoints
+            </h3>
+            <p style="margin: 10px 0; font-size: 12px; color: #666;">
+                All operations for this host are available via the Jupiter API.
+            </p>
+            <a href="/api/v1/docs/" target="_blank" class="button" style="
+                display: inline-block;
+                padding: 8px 12px;
+                background: #0066cc;
+                color: white;
+                border-radius: 4px;
+                text-decoration: none;
+                font-size: 12px;
+            ">
+                <i class="fas fa-external-link-alt"></i> View API Docs
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .button {
+        transition: all 0.3s ease;
+    }
+    .button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+</style>
+{% endblock %}

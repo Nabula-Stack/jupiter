@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Helm is the deployment source for this directory.
+# This kustomization file is intentionally minimal for compatibility with tooling
+# that expects it to exist in GitOps repositories.
+resources: []

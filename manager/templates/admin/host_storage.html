@@ -1,0 +1,196 @@
+{% extends 'admin/base_site.html' %}
+
+{% block title %}{{ title }} - Jupiter Admin{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    {% include 'admin/management_nav.html' %}
+    
+    <style>
+        .section-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            color: #333;
+            border-bottom: 2px solid #6f42c1;
+            padding-bottom: 10px;
+            margin: 0 0 20px 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .storage-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .storage-table thead th {
+            padding: 12px;
+            text-align: left;
+            background: #f5f5f5;
+            border-bottom: 2px solid #ddd;
+            font-weight: bold;
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .storage-table tbody tr {
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s ease;
+        }
+        
+        .storage-table tbody tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .storage-table td {
+            padding: 12px;
+            font-size: 13px;
+        }
+        
+        .storage-name-col {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .storage-label {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            background: #e7d4f5;
+            color: #6f42c1;
+        }
+        
+        .storage-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        
+        .action-btn {
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 11px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .action-btn-primary {
+            background: #6f42c1;
+            color: white;
+        }
+        
+        .action-btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+        
+        .action-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            display: block;
+            opacity: 0.5;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+    
+    <h1 style="margin-bottom: 20px;"><i class="fas fa-database"></i> Storage Management on {{ host.name }}</h1>
+    
+    {% if error_message %}
+        <div class="error-message">
+            <i class="fas fa-exclamation-circle"></i> {{ error_message }}
+        </div>
+    {% endif %}
+    
+    <!-- Datastores Section -->
+    <div class="section-container">
+        <h2 class="section-title">
+            <i class="fas fa-hdd"></i> Datastores
+        </h2>
+        
+        {% if storage_data.datastores %}
+            <table class="storage-table">
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-hdd"></i> Datastore Name</th>
+                        <th>Type</th>
+                        <th>Total</th>
+                        <th>Used</th>
+                        <th>Free</th>
+                        <th style="text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for datastore in storage_data.datastores %}
+                        <tr>
+                            <td class="storage-name-col">{{ datastore.name|default:"Datastore" }}</td>
+                            <td><span class="storage-label">{{ datastore.type|default:"VMFS" }}</span></td>
+                            <td>{{ datastore.capacity|default:"--" }}</td>
+                            <td>{{ datastore.used|default:"--" }}</td>
+                            <td>{{ datastore.free|default:"--" }}</td>
+                            <td style="text-align: center;">
+                                <div class="storage-actions">
+                                    <button class="action-btn action-btn-primary" onclick="alert('Browse Datastore - Coming soon')">
+                                        <i class="fas fa-folder-open"></i> Browse
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-hdd"></i>
+                <h3>No Datastores Found</h3>
+                <p>This host doesn't have any configured datastores yet.</p>
+            </div>
+        {% endif %}
+    </div>
+    
+
+    
+    <div style="margin-top: 30px;">
+        <a href="{% url 'admin:manager_host_change' host.pk %}" class="button" style="
+            display: inline-block;
+            padding: 10px 20px;
+            background: #417690;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+        ">
+            ← Back to Host
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,1801 @@
+{# Injected after the host changelist form via list_after_template #}
+<style>
+.tab-panel-table{width:100%;border-collapse:collapse;margin-bottom:16px}
+.tab-panel-table thead th{padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--color-font-subtle,#6b7280);background:var(--color-base-100,#f9fafb);border-bottom:1px solid var(--color-base-200,#e5e7eb)}
+.tab-panel-table tbody tr{border-bottom:1px solid var(--color-base-200,#f3f4f6);transition:background .12s}
+.tab-panel-table tbody tr:hover{background:var(--color-base-100,#f9fafb)}
+.tab-panel-table td{padding:10px 14px;font-size:13px}
+.tab-name-col{font-weight:600;color:var(--color-font-important,#1e293b)}
+.tab-section-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--color-font-subtle,#6b7280);margin:18px 0 8px;padding-bottom:6px;border-bottom:2px solid var(--color-base-200,#e5e7eb)}
+.tab-host-section{background:var(--color-base-100,#fff);border:1px solid var(--color-base-200,#e5e7eb);border-radius:12px;padding:20px;margin-bottom:16px}
+.tab-host-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--color-base-200,#e5e7eb)}
+.tab-host-header h3{font-size:15px;font-weight:600;margin:0;display:flex;align-items:center;gap:8px}
+.tab-refresh-btn,.tab-collapse-btn,.tab-link-btn,.neb-ds-actions-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;box-sizing:border-box;border-radius:6px;border:1px solid var(--color-base-200,#d1d5db);background:transparent;cursor:pointer;font-size:13px;font-weight:700;line-height:1;color:var(--color-font-important,#374151);transition:all .15s;appearance:none;-webkit-appearance:none}
+.tab-refresh-btn:hover,.tab-collapse-btn:hover,.tab-link-btn:hover,.neb-ds-actions-btn:hover{background:var(--color-base-200,#f3f4f6)}
+.tab-link-btn{color:var(--color-font-important,#374151)!important;text-decoration:none!important}
+.tab-refresh-btn .material-symbols-outlined,
+.tab-collapse-btn .material-symbols-outlined,
+.tab-link-btn .material-symbols-outlined,
+.neb-ds-actions-btn .material-symbols-outlined{
+    font-size:16px!important;
+    line-height:1!important;
+}
+.tab-bulk-actions{display:flex;justify-content:flex-end;margin:0}
+.tab-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600}
+.tab-badge-up{background:#d1fae5;color:#065f46}
+.tab-badge-down{background:#fee2e2;color:#991b1b}
+.tab-badge-info{background:#dbeafe;color:#1e40af}
+.tab-badge-type{background:#e0e7ff;color:#1e293b}
+.tab-mono{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px}
+#storage-panel{color:#1e293b}
+#storage-panel .tab-section-title{color:#6b7280!important}
+#storage-panel .tab-host-header h3 span.material-symbols-outlined{color:#06b6d4!important}
+#storage-panel .tab-loading{color:#9ca3af!important}
+#storage-panel .tab-error{color:#991b1b!important}
+#storage-panel .tab-empty{color:#94a3b8!important}
+#storage-panel .tab-refresh-btn{color:#374151!important}
+.dark #storage-panel{color:#dbe4ef}
+#services-panel{color:#1e293b}
+#services-panel .tab-section-title{color:#6b7280!important}
+#services-panel .tab-host-header h3 span.material-symbols-outlined{color:#06b6d4!important}
+#services-panel .tab-loading{color:#9ca3af!important}
+#services-panel .tab-error{color:#991b1b!important}
+#services-panel .tab-empty{color:#94a3b8!important}
+#services-panel .tab-refresh-btn{color:#374151!important}
+#vms-panel{color:#1e293b}
+.dark #services-panel,.dark #vms-panel{color:#dbe4ef}
+/* Reposition the host changelist action bar from fixed-bottom to inline */
+#changelist-form > div:has(> #changelist-actions-wrapper){
+    position:static!important;inset:auto!important;height:auto!important;z-index:10!important;padding:0!important;margin:0!important;
+}
+#changelist-actions-wrapper{width:100%!important;padding:0!important;margin:0!important}
+#changelist-actions{margin:0!important;width:100%!important}
+#changelist-actions > div{margin:0!important;border-radius:0!important;padding:6px 12px!important}
+/* Actions dropdown */
+.neb-ds-actions-wrap{position:relative;display:inline-block}
+.neb-ds-actions-menu{display:none;position:absolute;right:0;top:100%;margin-top:4px;z-index:200;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:180px;padding:4px 0}
+.dark .neb-ds-actions-menu{background:#1e293b;border-color:#334155}
+.neb-ds-actions-menu.open{display:block}
+.neb-ds-actions-item{display:flex;align-items:center;gap:6px;min-height:36px;padding:7px 14px;font-size:13px;font-weight:700;line-height:1;cursor:pointer;color:inherit;white-space:nowrap}
+.neb-ds-actions-item:hover{background:#f5f3ff;color:#7c3aed}
+.dark .neb-ds-actions-item:hover{background:rgba(124,58,237,.15)}
+.neb-ds-actions-item.danger:hover{background:#fee2e2;color:#dc2626}
+.neb-ds-actions-item .material-symbols-outlined{font-size:16px;line-height:1}
+/* Network sub-tabs */
+.net-subtab-bar{display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--color-base-200,#e5e7eb);padding-bottom:0}
+.net-subtab{padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;border-radius:6px 6px 0 0;border:1px solid transparent;margin-bottom:-1px;color:var(--color-font-subtle,#6b7280)}
+.net-subtab:hover{background:var(--color-base-100,#f9fafb)}
+.net-subtab.active{background:#fff;border-color:var(--color-base-200,#e5e7eb);border-bottom-color:#fff;color:#7c3aed;font-weight:700}
+.dark .net-subtab.active{background:#1e293b;border-color:#334155;border-bottom-color:#1e293b}
+.tab-loading{text-align:center;padding:40px;color:var(--color-font-subtle,#9ca3af)}
+.tab-spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--color-base-200,#e5e7eb);border-top-color:#6366f1;border-radius:50%;animation:tabspin .7s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes tabspin{to{transform:rotate(360deg)}}
+.tab-error{background:#fef2f2;color:#991b1b;padding:12px 16px;border-radius:8px;border:1px solid #fecaca;font-size:13px}
+.tab-empty{text-align:center;padding:30px;color:var(--color-font-subtle,#94a3b8);font-size:13px}
+.tab-usage-bar-bg{background:var(--color-base-200,#e5e7eb);border-radius:4px;height:8px;width:100%;overflow:hidden}
+.tab-usage-bar-fill{height:100%;border-radius:4px;transition:width .4s}
+/* dark mode */
+.dark .tab-host-section{background:var(--color-base-900,#111827);border-color:var(--color-base-800,#1f2937)}
+.dark .tab-host-header{border-color:var(--color-base-800,#1f2937)}
+.dark .tab-panel-table thead th{background:transparent;border-color:var(--color-base-800,#1f2937)}
+.dark .tab-panel-table td{color:#cbd5e1}
+.dark .tab-panel-table tbody tr{border-color:var(--color-base-800,#1f2937)}
+.dark .tab-panel-table tbody tr:hover{background:rgba(255,255,255,.03)}
+.dark .tab-name-col{color:var(--color-font-important,#e5e7eb)}
+.dark .tab-section-title{color:#94a3b8}
+.dark .tab-badge-up{background:#064e3b;color:#bbf7d0}
+.dark .tab-badge-down{background:#7f1d1d;color:#fecaca}
+.dark .tab-badge-info{background:#1e3a8a;color:#bfdbfe}
+/* File Browser Modal */
+.fb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center}
+.fb-overlay.open{display:flex}
+.fb-modal{background:#fff;border-radius:12px;width:700px;max-width:94vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
+.dark .fb-modal{background:#1e293b;border:1px solid #334155}
+.fb-header{padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;background:#f8fafc}
+.dark .fb-header{background:#0f172a;border-color:#334155}
+.fb-header h3{margin:0;font-size:15px;font-weight:700;color:#1e293b}
+.dark .fb-header h3{color:#e2e8f0}
+.fb-close{margin-left:auto;background:none;border:none;cursor:pointer;color:#64748b;padding:4px;border-radius:4px}
+.fb-close:hover{background:#f1f5f9;color:#1e293b}
+.fb-breadcrumb{padding:8px 18px;font-size:12px;color:#64748b;background:#fafbfc;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-height:34px}
+.dark .fb-breadcrumb{background:#0f172a;border-color:#1e293b;color:#94a3b8}
+.fb-breadcrumb a{color:#2563eb;text-decoration:none!important;cursor:pointer;font-weight:600}
+.fb-breadcrumb a:hover{text-decoration:underline!important}
+.fb-breadcrumb .sep{color:#cbd5e1}
+.fb-list{flex:1;overflow-y:auto;padding:6px 0;min-height:220px;max-height:56vh}
+.fb-item{display:flex;align-items:center;gap:10px;padding:8px 18px;cursor:pointer;font-size:13px;color:#334155;transition:background .1s}
+.dark .fb-item{color:#e2e8f0}
+.fb-item:hover{background:#f1f5f9}
+.dark .fb-item:hover{background:rgba(255,255,255,.06)}
+.fb-item .fi-icon{font-size:20px;color:#94a3b8}
+.fb-item.is-dir .fi-icon{color:#f59e0b}
+.fb-item.is-iso .fi-icon{color:#8b5cf6}
+.fb-item.is-vmdk .fi-icon{color:#06b6d4}
+.fb-item .fi-name{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fb-item .fi-size{color:#94a3b8;font-size:12px;white-space:nowrap}
+.fb-item .fi-actions{display:flex;gap:2px;opacity:0;transition:opacity .12s;flex-shrink:0}
+.fb-item:hover .fi-actions{opacity:1}
+.fb-act{background:none;border:none;cursor:pointer;padding:4px;border-radius:4px;color:#64748b;display:flex;align-items:center;justify-content:center}
+.fb-act:hover{background:#e2e8f0;color:#1e293b}
+.fb-act.danger:hover{background:#fee2e2;color:#dc2626}
+.dark .fb-act:hover{background:rgba(255,255,255,.1);color:#e2e8f0}
+.dark .fb-act.danger:hover{background:rgba(239,68,68,.15);color:#ef4444}
+.fb-prompt-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);z-index:10001;align-items:center;justify-content:center}
+.fb-prompt-overlay.open{display:flex}
+.fb-prompt{background:#fff;border-radius:10px;width:460px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden}
+.dark .fb-prompt{background:#1e293b;border:1px solid #334155}
+.fb-prompt-header{padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px}
+.dark .fb-prompt-header{border-color:#334155}
+.fb-prompt-header h3{margin:0;font-size:14px;font-weight:700;color:#1e293b}
+.dark .fb-prompt-header h3{color:#e2e8f0}
+.fb-prompt-body{padding:16px 18px}
+.fb-prompt-body label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:6px}
+.fb-prompt-body input{width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:monospace;box-sizing:border-box}
+.dark .fb-prompt-body input{background:#0f172a;border-color:#475569;color:#e2e8f0}
+.fb-prompt-body input:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.fb-prompt-footer{padding:10px 18px 14px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid #f1f5f9}
+.dark .fb-prompt-footer{border-color:#1e293b}
+.fb-dest-item{display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;color:#334155;transition:background .1s}
+.fb-dest-item:hover{background:#eef2ff}
+.dark .fb-dest-item{color:#e2e8f0}
+.dark .fb-dest-item:hover{background:rgba(255,255,255,.06)}
+.fb-dest-item .material-symbols-outlined{font-size:18px;color:#f59e0b}
+.fb-dest-item.fb-dest-up .material-symbols-outlined{color:#64748b}
+.fb-dest-crumb{padding:6px 12px;font-size:11px;color:#64748b;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:4px;flex-wrap:wrap;background:#f8fafc;border-radius:6px 6px 0 0}
+.dark .fb-dest-crumb{background:#0f172a;border-color:#1e293b;color:#94a3b8}
+.fb-dest-crumb a{color:#2563eb;cursor:pointer;font-weight:600;text-decoration:none}
+.fb-dest-crumb a:hover{text-decoration:underline}
+.fb-empty{padding:30px 18px;text-align:center;color:#94a3b8;font-size:13px}
+.fb-loading{display:flex;align-items:center;justify-content:center;padding:40px;gap:10px;color:#64748b;font-size:13px}
+.fb-footer{padding:10px 18px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:flex-end;background:#f8fafc}
+.dark .fb-footer{background:#0f172a;border-color:#334155}
+.fb-footer button{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:700;border:0;cursor:pointer}
+.fb-btn-close{background:#f1f5f9;color:#334155;border:1px solid #cbd5e1!important}
+.fb-btn-close:hover{background:#e2e8f0}
+.fb-btn-upload{display:inline-flex!important;align-items:center;gap:6px}
+.fb-btn-upload:hover{background:#1d4ed8!important}
+/* Datastore wizard */
+.dsw-overlay{display:none;position:fixed;inset:0;background:rgba(2,6,23,.58);z-index:10003;align-items:center;justify-content:center}
+.dsw-overlay.open{display:flex}
+.dsw-modal{width:740px;max-width:96vw;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 26px 80px rgba(2,6,23,.35);overflow:hidden}
+.dark .dsw-modal{background:#111827;border-color:#334155}
+.dsw-head{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid #e5e7eb;background:linear-gradient(180deg,#f8fafc,#eef2ff)}
+.dark .dsw-head{border-color:#334155;background:linear-gradient(180deg,#0b1220,#111827)}
+.dsw-head h3{margin:0;font-size:15px;font-weight:800;color:#0f172a}
+.dark .dsw-head h3{color:#e2e8f0}
+.dsw-steps{display:flex;gap:8px;padding:12px 20px;border-bottom:1px dashed #dbe3f0;background:#f8fafc;flex-wrap:wrap}
+.dark .dsw-steps{background:#0b1220;border-color:#334155}
+.dsw-step{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#64748b;background:#e2e8f0}
+.dark .dsw-step{background:#1f2937;color:#93c5fd}
+.dsw-step.active{background:#2563eb;color:#fff}
+.dsw-step.done{background:#16a34a;color:#fff}
+.dsw-body{padding:18px 20px;min-height:240px}
+.dsw-field{margin-bottom:14px}
+.dsw-field label{display:block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:6px}
+.dsw-field input,.dsw-field select{width:100%;height:40px;padding:0 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff;color:#0f172a}
+.dark .dsw-field input,.dark .dsw-field select{background:#0f172a;border-color:#475569;color:#e2e8f0}
+.dsw-field input:focus,.dsw-field select:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.14)}
+.dsw-hint{font-size:12px;color:#64748b;margin-top:6px}
+.dsw-status{min-height:18px;font-size:12px;font-weight:700;color:#b91c1c}
+.dsw-summary{padding:10px 12px;border:1px solid #dbeafe;background:#eff6ff;border-radius:8px;font-size:13px;color:#1e3a8a}
+.dark .dsw-summary{background:rgba(30,58,138,.2);border-color:#334155;color:#bfdbfe}
+.dsw-footer{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-top:1px solid #e5e7eb;background:#f8fafc}
+.dark .dsw-footer{border-color:#334155;background:#0b1220}
+.dsw-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#334155;font-size:13px;font-weight:700;cursor:pointer}
+.dsw-btn:hover{background:#f1f5f9}
+.dark .dsw-btn{background:#1f2937;border-color:#475569;color:#e2e8f0}
+.dark .dsw-btn:hover{background:#334155}
+.dsw-btn.primary{background:#2563eb;border-color:#1d4ed8;color:#fff}
+.dsw-btn.primary:hover{background:#1d4ed8}
+.dsw-btn[disabled]{opacity:.5;cursor:not-allowed}
+</style>
+
+<div id="network-panel" style="display:none;"></div>
+<div id="storage-panel" style="display:none;"></div>
+<div id="services-panel" style="display:none;"></div>
+<div id="vms-panel" style="display:none;"></div>
+<!-- File Browser Modal -->
+<div id="fbModal" class="fb-overlay">
+    <div class="fb-modal">
+        <div class="fb-header">
+            <span class="material-symbols-outlined" style="color:#06b6d4;font-size:20px">folder_open</span>
+            <h3 id="fbTitle">File Browser</h3>
+            <button type="button" class="fb-close" id="fbClose">
+                <span class="material-symbols-outlined" style="font-size:20px">close</span>
+            </button>
+        </div>
+        <div class="fb-breadcrumb" id="fbBreadcrumb"></div>
+        <div class="fb-list" id="fbList"></div>
+        <div class="fb-footer">
+            <input type="file" id="fbFileInput" multiple style="display:none">
+            <button type="button" class="fb-btn-upload" id="fbUploadBtn" style="background:#2563eb;color:#fff;margin-right:auto">
+                <span class="material-symbols-outlined" style="font-size:16px">upload_file</span> Upload
+            </button>
+            <div id="fbUploadStatus" style="flex:1;font-size:12px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+            <button type="button" class="fb-btn-close" id="fbCancel">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Move/Copy Prompt Modal -->
+<div id="fbPromptModal" class="fb-prompt-overlay">
+    <div class="fb-prompt" style="width:520px">
+        <div class="fb-prompt-header">
+            <span class="material-symbols-outlined" id="fbPromptIcon" style="font-size:20px;color:#2563eb">drive_file_move</span>
+            <h3 id="fbPromptTitle">Move</h3>
+        </div>
+        <div class="fb-prompt-body">
+            <label>Source</label>
+            <input type="text" id="fbPromptSrc" readonly style="margin-bottom:12px;background:#f8fafc;color:#64748b">
+            <label>Destination</label>
+            <input type="text" id="fbPromptDest" placeholder="/vmfs/volumes/datastore1/" style="margin-bottom:8px">
+            <div id="fbDestBrowser" style="border:1px solid #d1d5db;border-radius:6px;max-height:200px;overflow-y:auto;background:#fafbfc">
+                <div style="padding:12px;text-align:center;color:#94a3b8;font-size:12px">Loading datastores...</div>
+            </div>
+        </div>
+        <div class="fb-prompt-footer">
+            <button type="button" class="fb-btn-close" id="fbPromptCancel">Cancel</button>
+            <button type="button" id="fbPromptOk" style="background:#2563eb;color:#fff">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Create Datastore Wizard -->
+<div id="dsWizardModal" class="dsw-overlay">
+    <div class="dsw-modal">
+        <div class="dsw-head">
+            <span class="material-symbols-outlined" style="font-size:20px;color:#2563eb">storage</span>
+            <h3>Create VMFS Datastore</h3>
+        </div>
+        <div class="dsw-steps" id="dsWizardSteps"></div>
+        <div class="dsw-body" id="dsWizardBody"></div>
+        <div class="dsw-footer">
+            <div class="dsw-status" id="dsWizardStatus"></div>
+            <div style="display:flex;gap:8px;">
+                <button type="button" id="dsWizardCancel" class="dsw-btn">Cancel</button>
+                <button type="button" id="dsWizardBack" class="dsw-btn">Back</button>
+                <button type="button" id="dsWizardNext" class="dsw-btn primary">Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// File Browser — must be defined before the main tabs script uses it
+(function() {
+    var fbModal      = document.getElementById('fbModal');
+    var fbList       = document.getElementById('fbList');
+    var fbBreadcrumb = document.getElementById('fbBreadcrumb');
+    var fbTitle      = document.getElementById('fbTitle');
+    var fbHost       = '';
+
+    function closeFb() { fbModal.classList.remove('open'); }
+
+    function fbRenderBreadcrumb(path) {
+        var parts = path.replace('/vmfs/volumes', '').split('/').filter(Boolean);
+        var html = '<a data-path="/vmfs/volumes">/vmfs/volumes</a>';
+        var acc = '/vmfs/volumes';
+        parts.forEach(function(p) {
+            acc += '/' + p;
+            html += '<span class="sep">/</span><a data-path="' + acc + '">' + p + '</a>';
+        });
+        fbBreadcrumb.innerHTML = html;
+        fbBreadcrumb.querySelectorAll('a').forEach(function(a) {
+            a.addEventListener('click', function() { fbNavigate(a.dataset.path); });
+        });
+    }
+
+    function fileIcon(name, isDir) {
+        if (isDir) return 'folder';
+        var lower = name.toLowerCase();
+        if (lower.endsWith('.iso')) return 'album';
+        if (lower.endsWith('.vmdk')) return 'hard_drive';
+        if (lower.endsWith('.vmx')) return 'description';
+        if (lower.endsWith('.log')) return 'article';
+        return 'draft';
+    }
+
+    function fileClass(name, isDir) {
+        if (isDir) return ' is-dir';
+        var lower = name.toLowerCase();
+        if (lower.endsWith('.iso')) return ' is-iso';
+        if (lower.endsWith('.vmdk')) return ' is-vmdk';
+        return '';
+    }
+
+    function fbNavigate(path) {
+        fbRenderBreadcrumb(path);
+        fbList.innerHTML = '<div class="fb-loading"><span class="tab-spinner"></span> Loading...</div>';
+
+        fetch('/api/v1/storage/' + encodeURIComponent(fbHost) + '/explorer/browse?path=' + encodeURIComponent(path))
+            .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function(data) {
+                if (data.error) throw new Error(data.error);
+                var entries = (data.entries || []).sort(function(a, b) {
+                    if (a.is_dir && !b.is_dir) return -1;
+                    if (!a.is_dir && b.is_dir) return 1;
+                    return a.name.localeCompare(b.name);
+                });
+                if (!entries.length) {
+                    fbList.innerHTML = '<div class="fb-empty">This directory is empty.</div>';
+                    return;
+                }
+                fbList.innerHTML = '';
+                entries.forEach(function(entry) {
+                    var div = document.createElement('div');
+                    div.className = 'fb-item' + fileClass(entry.name, entry.is_dir);
+                    div.innerHTML =
+                        '<span class="material-symbols-outlined fi-icon">' + fileIcon(entry.name, entry.is_dir) + '</span>' +
+                        '<span class="fi-name">' + entry.name + '</span>' +
+                        (entry.size ? '<span class="fi-size">' + entry.size + '</span>' : '') +
+                        '<span class="fi-actions">' +
+                            '<button type="button" class="fb-act" data-act="copy" data-path="' + entry.path + '" title="Copy">' +
+                                '<span class="material-symbols-outlined" style="font-size:16px">content_copy</span></button>' +
+                            '<button type="button" class="fb-act" data-act="move" data-path="' + entry.path + '" title="Move / Rename">' +
+                                '<span class="material-symbols-outlined" style="font-size:16px">drive_file_move</span></button>' +
+                            '<button type="button" class="fb-act danger" data-act="delete" data-path="' + entry.path + '" data-name="' + entry.name.replace(/"/g, '&quot;') + '" title="Delete">' +
+                                '<span class="material-symbols-outlined" style="font-size:16px">delete</span></button>' +
+                        '</span>';
+                    // Directory click navigates (only on name/icon, not action buttons)
+                    if (entry.is_dir) {
+                        div.querySelector('.fi-name').style.cursor = 'pointer';
+                        div.querySelector('.fi-icon').style.cursor = 'pointer';
+                        div.querySelector('.fi-name').addEventListener('click', function() { fbNavigate(entry.path); });
+                        div.querySelector('.fi-icon').addEventListener('click', function() { fbNavigate(entry.path); });
+                    }
+                    fbList.appendChild(div);
+                });
+                // Bind action buttons
+                fbList.querySelectorAll('[data-act]').forEach(function(btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        var act = btn.dataset.act;
+                        var p = btn.dataset.path;
+                        if (act === 'delete') fbDeleteItem(p, btn.dataset.name);
+                        else if (act === 'move') fbPromptAction('move', p);
+                        else if (act === 'copy') fbPromptAction('copy', p);
+                    });
+                });
+            })
+            .catch(function(err) {
+                fbList.innerHTML = '<div class="fb-empty" style="color:#dc2626">Error: ' + err.message + '</div>';
+            });
+    }
+
+    window.openFileBrowser = function(hostName) {
+        fbHost = hostName;
+        fbTitle.textContent = 'File Browser \u2014 ' + hostName;
+        fbModal.classList.add('open');
+        fbNavigate('/vmfs/volumes');
+    };
+
+    // ── Delete / Move / Copy actions ──
+    var fbUploadStatus = document.getElementById('fbUploadStatus');
+
+    function fbSetStatus(msg, color) {
+        fbUploadStatus.style.color = color || '#64748b';
+        fbUploadStatus.textContent = msg;
+    }
+
+    function fbConfirm(opts) {
+        return new Promise(function(resolve) {
+            var ov = document.createElement('div');
+            ov.className = 'fb-prompt-overlay';
+            ov.style.zIndex = '10002';
+            var iconColor = opts.danger ? '#ef4444' : '#2563eb';
+            var iconBg = opts.danger ? '#fee2e2' : '#dbeafe';
+            var btnBg = opts.danger ? '#ef4444' : '#2563eb';
+            ov.innerHTML =
+                '<div class="fb-prompt">' +
+                    '<div class="fb-prompt-header">' +
+                        '<span class="material-symbols-outlined" style="font-size:20px;color:' + iconColor + '">' + (opts.icon || 'warning') + '</span>' +
+                        '<h3>' + (opts.title || 'Confirm') + '</h3>' +
+                    '</div>' +
+                    '<div class="fb-prompt-body" style="font-size:13px;color:#475569;line-height:1.6">' + (opts.message || 'Are you sure?') + '</div>' +
+                    '<div class="fb-prompt-footer">' +
+                        '<button type="button" class="fb-btn-close" data-r="no">Cancel</button>' +
+                        '<button type="button" style="background:' + btnBg + ';color:#fff" data-r="yes">' + (opts.confirmLabel || 'Confirm') + '</button>' +
+                    '</div>' +
+                '</div>';
+            document.body.appendChild(ov);
+            requestAnimationFrame(function(){ ov.classList.add('open'); });
+            function close(val) { ov.classList.remove('open'); setTimeout(function(){ ov.remove(); }, 120); resolve(val); }
+            ov.querySelector('[data-r="no"]').addEventListener('click', function(){ close(false); });
+            ov.querySelector('[data-r="yes"]').addEventListener('click', function(){ close(true); });
+            ov.addEventListener('click', function(e){ if (e.target === ov) close(false); });
+        });
+    }
+
+    function fbDeleteItem(path, name) {
+        fbConfirm({
+            title: 'Delete',
+            icon: 'delete_forever',
+            danger: true,
+            message: 'Permanently delete <strong>' + name + '</strong>?<br><br><span style="color:#dc2626;font-weight:600">This cannot be undone.</span>',
+            confirmLabel: 'Delete'
+        }).then(function(ok) {
+            if (!ok) return;
+            fbSetStatus('Deleting ' + name + '...', '#dc2626');
+            fetch('/api/v1/storage/' + encodeURIComponent(fbHost) + '/explorer/rm?path=' + encodeURIComponent(path), {method:'DELETE'})
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.status === 'error') { fbSetStatus('Delete failed: ' + d.message, '#dc2626'); return; }
+                    fbSetStatus('Deleted.', '#16a34a');
+                    fbNavigate(currentBrowsePath);
+                })
+                .catch(function(e) { fbSetStatus('Delete error: ' + e.message, '#dc2626'); });
+        });
+    }
+
+    // Prompt modal wiring
+    var promptModal = document.getElementById('fbPromptModal');
+    var promptSrc   = document.getElementById('fbPromptSrc');
+    var promptDest  = document.getElementById('fbPromptDest');
+    var promptTitle = document.getElementById('fbPromptTitle');
+    var promptIcon  = document.getElementById('fbPromptIcon');
+    var promptOk    = document.getElementById('fbPromptOk');
+    var destBrowser = document.getElementById('fbDestBrowser');
+    var pendingAction = null;
+    var destCurrentPath = '/vmfs/volumes';
+    var srcFilename = '';
+
+    document.body.appendChild(promptModal);
+
+    document.getElementById('fbPromptCancel').addEventListener('click', function() { promptModal.classList.remove('open'); });
+    promptModal.addEventListener('click', function(e) { if (e.target === promptModal) promptModal.classList.remove('open'); });
+
+    function destRenderCrumb(path) {
+        var parts = path.replace('/vmfs/volumes', '').split('/').filter(Boolean);
+        var html = '<a data-p="/vmfs/volumes">/vmfs/volumes</a>';
+        var acc = '/vmfs/volumes';
+        parts.forEach(function(p) {
+            acc += '/' + p;
+            html += '<span style="color:#cbd5e1"> / </span><a data-p="' + acc + '">' + p + '</a>';
+        });
+        return html;
+    }
+
+    function destNavigate(path) {
+        destCurrentPath = path;
+        promptDest.value = path.replace(/\/$/, '') + '/' + srcFilename;
+        destBrowser.innerHTML = '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:12px"><span class="tab-spinner" style="width:14px;height:14px;margin-right:6px"></span> Loading...</div>';
+
+        fetch('/api/v1/storage/' + encodeURIComponent(fbHost) + '/explorer/browse?path=' + encodeURIComponent(path))
+            .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function(data) {
+                if (data.error) throw new Error(data.error);
+                var dirs = (data.entries || []).filter(function(e) { return e.is_dir; }).sort(function(a, b) {
+                    return a.name.localeCompare(b.name);
+                });
+                var html = '<div class="fb-dest-crumb">' + destRenderCrumb(path) + '</div>';
+                // Up button (if not at root)
+                if (path !== '/vmfs/volumes') {
+                    var parent = path.replace(/\/[^/]+$/, '') || '/vmfs/volumes';
+                    html += '<div class="fb-dest-item fb-dest-up" data-nav="' + parent + '">' +
+                        '<span class="material-symbols-outlined" style="color:#64748b">arrow_upward</span>' +
+                        '<span style="color:#64748b;font-weight:600">..</span></div>';
+                }
+                if (!dirs.length && path === '/vmfs/volumes') {
+                    html += '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:12px">No datastores found</div>';
+                } else if (!dirs.length) {
+                    html += '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:12px">No subfolders</div>';
+                }
+                dirs.forEach(function(d) {
+                    html += '<div class="fb-dest-item" data-nav="' + d.path + '">' +
+                        '<span class="material-symbols-outlined">folder</span>' +
+                        '<span>' + d.name + '</span></div>';
+                });
+                destBrowser.innerHTML = html;
+                // Bind clicks
+                destBrowser.querySelectorAll('[data-nav]').forEach(function(el) {
+                    el.addEventListener('click', function() { destNavigate(el.dataset.nav); });
+                });
+                destBrowser.querySelectorAll('.fb-dest-crumb a').forEach(function(a) {
+                    a.addEventListener('click', function() { destNavigate(a.dataset.p); });
+                });
+            })
+            .catch(function(e) {
+                destBrowser.innerHTML = '<div style="padding:12px;text-align:center;color:#dc2626;font-size:12px">Error: ' + e.message + '</div>';
+            });
+    }
+
+    function fbPromptAction(action, srcPath) {
+        pendingAction = action;
+        var isMove = action === 'move';
+        promptTitle.textContent = isMove ? 'Move / Rename' : 'Copy';
+        promptIcon.textContent = isMove ? 'drive_file_move' : 'content_copy';
+        promptIcon.style.color = isMove ? '#f59e0b' : '#2563eb';
+        promptOk.textContent = isMove ? 'Move' : 'Copy';
+        promptOk.style.background = isMove ? '#f59e0b' : '#2563eb';
+        promptSrc.value = srcPath;
+        // Extract filename and parent directory
+        var parts = srcPath.split('/');
+        srcFilename = parts.pop();
+        var parentDir = parts.join('/') || '/vmfs/volumes';
+        promptDest.value = srcPath;
+        promptModal.classList.add('open');
+        // Start the mini browser at the parent of the source
+        destNavigate(parentDir);
+    }
+
+    // Sync dest input when user manually types
+    promptDest.addEventListener('input', function() { /* allow manual edits */ });
+
+    promptOk.addEventListener('click', function() {
+        var src = promptSrc.value.trim();
+        var dest = promptDest.value.trim();
+        if (!src || !dest) return;
+        if (src === dest) { fbSetStatus('Source and destination are the same.', '#dc2626'); promptModal.classList.remove('open'); return; }
+        if (!dest.startsWith('/vmfs/volumes')) { fbSetStatus('Destination must be under /vmfs/volumes', '#dc2626'); return; }
+        promptModal.classList.remove('open');
+
+        var endpoint = pendingAction === 'move' ? 'move' : 'copy';
+        var label = pendingAction === 'move' ? 'Moving' : 'Copying';
+        fbSetStatus(label + '...', '#64748b');
+
+        fetch('/api/v1/storage/' + encodeURIComponent(fbHost) + '/explorer/' + endpoint +
+              '?src=' + encodeURIComponent(src) + '&dest=' + encodeURIComponent(dest), {method:'POST'})
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.status === 'error') { fbSetStatus('Failed: ' + d.message, '#dc2626'); return; }
+                fbSetStatus((pendingAction === 'move' ? 'Moved' : 'Copied') + ' successfully.', '#16a34a');
+                fbNavigate(currentBrowsePath);
+            })
+            .catch(function(e) { fbSetStatus('Error: ' + e.message, '#dc2626'); });
+    });
+
+    // Allow Enter key in prompt destination
+    promptDest.addEventListener('keydown', function(e) { if (e.key === 'Enter') promptOk.click(); });
+
+    // Move modal to body so it's not trapped inside the changelist form
+    document.body.appendChild(fbModal);
+
+    document.getElementById('fbClose').addEventListener('click', closeFb);
+    document.getElementById('fbCancel').addEventListener('click', closeFb);
+    fbModal.addEventListener('click', function(e) { if (e.target === fbModal) closeFb(); });
+
+    // ── Upload logic ──
+    var fbFileInput = document.getElementById('fbFileInput');
+    var currentBrowsePath = '/vmfs/volumes';
+
+    // Patch fbNavigate to track current path
+    var _origFbNavigate = fbNavigate;
+    fbNavigate = function(path) {
+        currentBrowsePath = path;
+        _origFbNavigate(path);
+    };
+
+    document.getElementById('fbUploadBtn').addEventListener('click', function() {
+        fbFileInput.click();
+    });
+
+    fbFileInput.addEventListener('change', function() {
+        var files = fbFileInput.files;
+        if (!files || !files.length || !fbHost) return;
+        var total = files.length;
+        var done = 0;
+        var failed = 0;
+
+        function uploadNext(idx) {
+            if (idx >= total) {
+                fbFileInput.value = '';
+                if (failed === 0) {
+                    fbUploadStatus.style.color = '#16a34a';
+                    fbUploadStatus.textContent = 'Uploaded ' + done + ' file(s) successfully.';
+                } else {
+                    fbUploadStatus.style.color = '#dc2626';
+                    fbUploadStatus.textContent = done + ' uploaded, ' + failed + ' failed.';
+                }
+                // Refresh current directory
+                fbNavigate(currentBrowsePath);
+                return;
+            }
+            var file = files[idx];
+            fbUploadStatus.style.color = '#64748b';
+            fbUploadStatus.textContent = 'Uploading ' + (idx + 1) + '/' + total + ': ' + file.name + '...';
+
+            var formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/api/v1/storage/' + encodeURIComponent(fbHost) + '/explorer/upload?path=' + encodeURIComponent(currentBrowsePath), {
+                method: 'POST',
+                body: formData
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.status === 'error') { failed++; } else { done++; }
+                uploadNext(idx + 1);
+            })
+            .catch(function() {
+                failed++;
+                uploadNext(idx + 1);
+            });
+        }
+        uploadNext(0);
+    });
+
+    // Document-level event delegation — catches clicks on [data-browse-host] buttons
+    // regardless of where they are in the DOM or what form wraps them
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-browse-host]');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        var hostName = btn.getAttribute('data-browse-host');
+        if (hostName) {
+            fbHost = hostName;
+            fbTitle.textContent = 'File Browser \u2014 ' + hostName;
+            fbModal.classList.add('open');
+            fbNavigate('/vmfs/volumes');
+        }
+    }, true);  // <-- 'true' = capture phase, fires BEFORE any other handler
+
+    console.log('[File Browser] ready — capture-phase listener registered');
+})();
+</script>
+
+<script>
+(function() {
+    var ALL_HOSTS = {{ all_hosts_json|safe }};
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var form = document.getElementById('changelist-form');
+        if (!form) return;
+
+        var formParent = form.parentElement;
+        var networkPanel = document.getElementById('network-panel');
+        var storagePanel = document.getElementById('storage-panel');
+        var servicesPanel = document.getElementById('services-panel');
+        var vmsPanel = document.getElementById('vms-panel');
+        var sidebarLinks = {
+            hosts: document.querySelector('#nav-sidebar a[href="/admin/manager/host/"]'),
+            network: document.querySelector('#nav-sidebar a[href*="/admin/manager/host/"][href*="tab=network"]'),
+            storage: document.querySelector('#nav-sidebar a[href*="/admin/manager/host/"][href*="tab=storage"]'),
+            services: document.querySelector('#nav-sidebar a[href*="/admin/manager/host/"][href*="tab=services"]')
+        };
+
+        function ensureServicesSidebarLink() {
+            var nav = document.getElementById('nav-sidebar');
+            if (!nav) return;
+            var existing = nav.querySelector('a[href*="/admin/manager/host/"][href*="tab=services"]');
+            if (existing) {
+                sidebarLinks.services = existing;
+                return;
+            }
+
+            var hostLink = nav.querySelector('a[href="/admin/manager/host/"]');
+            if (!hostLink) return;
+            var hostItem = hostLink.closest('li') || hostLink.parentElement;
+            if (!hostItem) return;
+
+            var li = document.createElement('li');
+            li.innerHTML =
+                '<a href="/admin/manager/host/?tab=services#main-tab-bar" style="display:flex;align-items:center;gap:8px;">' +
+                '<span class="material-symbols-outlined" style="font-size:18px">settings</span> Services</a>';
+            hostItem.insertAdjacentElement('afterend', li);
+            sidebarLinks.services = li.querySelector('a');
+        }
+
+        ensureServicesSidebarLink();
+
+        // Collect every original child that belongs to the "Hosts" view
+        // (before we insert anything). Exclude our injected panels.
+        var hostViewEls = [];
+        var child = formParent.firstElementChild;
+        while (child) {
+            var isOverlayModal = child.id === 'fbModal' || child.id === 'fbPromptModal' || child.id === 'dsWizardModal';
+            if (!isOverlayModal && child !== networkPanel && child !== storagePanel && child !== servicesPanel && child !== vmsPanel) {
+                hostViewEls.push(child);
+            }
+            child = child.nextElementSibling;
+        }
+
+        // Build the Unfold-style tab bar (uses exact same Tailwind classes as fieldsets_tabs.html)
+        var tabBar = document.createElement('div');
+        tabBar.id = 'main-tab-bar';
+        tabBar.className = 'border-b border-base-200 border-dashed dark:border-base-800 mb-4';
+        tabBar.innerHTML =
+            '<nav class="bg-base-100 cursor-pointer flex flex-col font-medium gap-1 m-2 p-1 rounded-default text-important dark:border-base-700 md:inline-flex md:flex-row md:w-auto dark:bg-white/[.06] *:flex *:flex-row *:gap-1 *:items-center *:px-2.5 *:py-[5px] *:rounded-default *:hover:bg-base-700/[.06] *:dark:hover:bg-white/[.06] [&>.active]:bg-white [&>.active]:shadow-xs [&>.active]:dark:bg-base-700 [&>.active]:hover:bg-white [&>.active]:dark:hover:bg-base-700">' +
+                '<a class="active" data-tab="hosts">' +
+                    '<span class="material-symbols-outlined" style="font-size:18px">dns</span>' +
+                    'Host Management' +
+                '</a>' +
+                '<a data-tab="virtual-machines">' +
+                    '<span class="material-symbols-outlined" style="font-size:18px">laptop_windows</span>' +
+                    'Virtual Machines' +
+                '</a>' +
+                '<a data-tab="network">' +
+                    '<span class="material-symbols-outlined" style="font-size:18px">lan</span>' +
+                    'Network' +
+                '</a>' +
+                '<a data-tab="storage">' +
+                    '<span class="material-symbols-outlined" style="font-size:18px">storage</span>' +
+                    'Storage' +
+                '</a>' +
+                '<a data-tab="services">' +
+                    '<span class="material-symbols-outlined" style="font-size:18px">settings</span>' +
+                    'Services' +
+                '</a>' +
+            '</nav>';
+        formParent.insertBefore(tabBar, formParent.firstChild);
+
+        // Filter sidebar (sibling of formParent inside result-list-wrapper)
+        var filterSidebar = formParent.nextElementSibling;
+        var pendingFocus = null;
+        var urlParams = new URLSearchParams(window.location.search);
+
+        function setSidebarActive(tab) {
+            Object.keys(sidebarLinks).forEach(function(key) {
+                var link = sidebarLinks[key];
+                if (!link) return;
+                var isActive = key === tab;
+                link.classList.toggle('active', isActive);
+                link.classList.toggle('bg-base-100', isActive);
+                link.classList.toggle('font-semibold', isActive);
+                link.classList.toggle('text-primary-600', isActive);
+                link.classList.toggle('dark:bg-white/[.06]', isActive);
+                link.classList.toggle('dark:text-primary-500', isActive);
+            });
+        }
+
+        function bindSidebarTabs() {
+            Object.keys(sidebarLinks).forEach(function(key) {
+                var link = sidebarLinks[key];
+                if (!link) return;
+                link.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    pendingFocus = null;
+                    switchTab(key);
+                    var anchor = document.getElementById('main-tab-bar');
+                    if (anchor) {
+                        anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
+            });
+        }
+
+        // ── Tab Switching ──
+        function switchTab(tab) {
+            tabBar.querySelectorAll('nav a').forEach(function(a) {
+                a.classList.toggle('active', a.dataset.tab === tab);
+            });
+            setSidebarActive(tab);
+
+            hostViewEls.forEach(function(el) { el.style.display = (tab === 'hosts') ? '' : 'none'; });
+            networkPanel.style.display = (tab === 'network') ? '' : 'none';
+            storagePanel.style.display = (tab === 'storage') ? '' : 'none';
+            servicesPanel.style.display = (tab === 'services') ? '' : 'none';
+            vmsPanel.style.display = (tab === 'virtual-machines') ? '' : 'none';
+
+            if (filterSidebar) filterSidebar.style.display = (tab === 'hosts') ? '' : 'none';
+
+            if (tab === 'network' && !networkPanel.dataset.loaded) {
+                networkPanel.dataset.loaded = 'true';
+                buildNetworkPanel();
+            } else if (tab === 'network') {
+                focusHostSection('net', pendingFocus);
+            }
+            if (tab === 'storage' && !storagePanel.dataset.loaded) {
+                storagePanel.dataset.loaded = 'true';
+                buildStoragePanel();
+            } else if (tab === 'storage') {
+                focusHostSection('stor', pendingFocus);
+            }
+            if (tab === 'services' && !servicesPanel.dataset.loaded) {
+                servicesPanel.dataset.loaded = 'true';
+                buildServicesPanel();
+            } else if (tab === 'services') {
+                focusHostSection('srv', pendingFocus);
+            }
+            if (tab === 'virtual-machines' && !vmsPanel.dataset.loaded) {
+                vmsPanel.dataset.loaded = 'true';
+                buildVmsPanel();
+            } else if (tab === 'virtual-machines') {
+                focusHostSection('vm', pendingFocus);
+            }
+
+            var nextUrl = new URL(window.location.href);
+            if (tab === 'hosts') {
+                nextUrl.searchParams.delete('tab');
+                nextUrl.searchParams.delete('host');
+            } else {
+                nextUrl.searchParams.set('tab', tab);
+                if (pendingFocus) {
+                    nextUrl.searchParams.set('host', pendingFocus);
+                } else {
+                    nextUrl.searchParams.delete('host');
+                }
+            }
+            nextUrl.hash = 'main-tab-bar';
+            window.history.replaceState({}, '', nextUrl.toString());
+        }
+
+        function focusHostSection(prefix, hostPk) {
+            if (!hostPk) return;
+            var section = document.getElementById(prefix + '-section-' + hostPk);
+            if (!section) return;
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            section.style.boxShadow = '0 0 0 2px rgba(99, 102, 241, 0.35)';
+            window.setTimeout(function() {
+                section.style.boxShadow = '';
+            }, 1400);
+            pendingFocus = null;
+        }
+
+        window.nebulaHostTabs = {
+            open: function(tab, hostPk) {
+                pendingFocus = hostPk || null;
+                switchTab(tab);
+                var anchor = document.getElementById('main-tab-bar');
+                if (anchor) {
+                    anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                return false;
+            }
+        };
+
+        tabBar.querySelectorAll('nav a').forEach(function(a) {
+            a.addEventListener('click', function() { switchTab(a.dataset.tab); });
+        });
+        bindSidebarTabs();
+
+        // ── Helpers ──
+        function esc(t) { var d = document.createElement('div'); d.textContent = t || ''; return d.innerHTML; }
+
+        function fmtBytes(val) {
+            if (val === undefined || val === null || val === '--') return '--';
+            var n = parseInt(String(val).replace(/[^0-9]/g, ''), 10);
+            if (isNaN(n) || n === 0) return String(val);
+            if (n > 1099511627776) return (n / 1099511627776).toFixed(2) + ' TB';
+            if (n > 1073741824)    return (n / 1073741824).toFixed(2) + ' GB';
+            if (n > 1048576)       return (n / 1048576).toFixed(2) + ' MB';
+            return String(val);
+        }
+
+        function usageBar(used, total) {
+            var u = parseInt(String(used).replace(/[^0-9]/g, ''), 10);
+            var t = parseInt(String(total).replace(/[^0-9]/g, ''), 10);
+            if (isNaN(u) || isNaN(t) || t === 0) return '';
+            var pct = Math.min(100, Math.round((u / t) * 100));
+            var color = pct > 85 ? '#ef4444' : pct > 60 ? '#f59e0b' : '#22c55e';
+            return '<div class="tab-usage-bar-bg"><div class="tab-usage-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+                   '<span style="font-size:11px;color:#888">' + pct + '% used</span>';
+        }
+
+        function hostCard(h, idPrefix, iconColor, icon) {
+            var browseBtn = (idPrefix === 'stor')
+                ? '<button type="button" class="tab-refresh-btn" data-browse-host="' + h.name.replace(/"/g, '&quot;') + '" style="margin-right:6px;">' +
+                      '<span class="material-symbols-outlined" style="font-size:14px">folder_open</span> File Browser</button>'
+                : '';
+            return '<div class="tab-host-section" id="' + idPrefix + '-section-' + h.pk + '">' +
+                '<div class="tab-host-header">' +
+                    '<h3><span class="material-symbols-outlined" style="font-size:20px;color:' + iconColor + '">' + icon + '</span> ' +
+                        esc(h.name) + ' <span style="font-weight:400;color:#94a3b8;font-size:13px">(' + esc(h.ip) + ')</span></h3>' +
+                    '<div style="display:flex;gap:6px;">' + browseBtn +
+                    '<button type="button" class="tab-collapse-btn" data-collapse-target="' + idPrefix + '-' + h.pk + '">' +
+                        '<span class="material-symbols-outlined" style="font-size:14px">expand_less</span><span>Collapse</span></button>' +
+                    '<button type="button" class="tab-refresh-btn" data-reload="' + idPrefix + '-' + h.pk + '">' +
+                        '<span class="material-symbols-outlined" style="font-size:14px">refresh</span> Refresh</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div id="' + idPrefix + '-' + h.pk + '"><div class="tab-loading"><span class="tab-spinner"></span> Loading…</div></div>' +
+            '</div>';
+        }
+
+        function wireCollapseButtons(container) {
+            container.querySelectorAll('[data-collapse-target]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var targetId = btn.getAttribute('data-collapse-target');
+                    var body = document.getElementById(targetId);
+                    if (!body) return;
+                    var isCollapsed = body.style.display === 'none';
+                    body.style.display = isCollapsed ? '' : 'none';
+                    var icon = btn.querySelector('.material-symbols-outlined');
+                    var label = btn.querySelector('span:last-child');
+                    if (icon) icon.textContent = isCollapsed ? 'expand_less' : 'expand_more';
+                    if (label) label.textContent = isCollapsed ? 'Collapse' : 'Expand';
+                });
+            });
+        }
+
+        function setAllCollapsed(container, idPrefix, collapsed) {
+            container.querySelectorAll('.tab-host-section').forEach(function(section) {
+                var sectionId = section.id || '';
+                var hostPk = sectionId.replace(idPrefix + '-section-', '');
+                var body = document.getElementById(idPrefix + '-' + hostPk);
+                if (!body) return;
+                body.style.display = collapsed ? 'none' : '';
+
+                var btn = section.querySelector('[data-collapse-target]');
+                if (!btn) return;
+                var icon = btn.querySelector('.material-symbols-outlined');
+                var label = btn.querySelector('span:last-child');
+                if (icon) icon.textContent = collapsed ? 'expand_more' : 'expand_less';
+                if (label) label.textContent = collapsed ? 'Expand' : 'Collapse';
+            });
+
+            var bulkBtn = container.querySelector('[data-collapse-all]');
+            if (bulkBtn) {
+                bulkBtn.setAttribute('data-collapsed', collapsed ? '1' : '0');
+                var bulkIcon = bulkBtn.querySelector('.material-symbols-outlined');
+                var bulkLabel = bulkBtn.querySelector('span:last-child');
+                if (bulkIcon) bulkIcon.textContent = collapsed ? 'unfold_more' : 'unfold_less';
+                if (bulkLabel) bulkLabel.textContent = collapsed ? 'Expand All' : 'Collapse All';
+            }
+        }
+
+        function wireBulkCollapseButton(container, idPrefix) {
+            var bulkBtn = container.querySelector('[data-collapse-all]');
+            if (!bulkBtn) return;
+            bulkBtn.addEventListener('click', function() {
+                var currentlyCollapsed = bulkBtn.getAttribute('data-collapsed') === '1';
+                setAllCollapsed(container, idPrefix, !currentlyCollapsed);
+            });
+        }
+
+        // ── Network Panel ──
+        function buildNetworkPanel() {
+            if (!ALL_HOSTS.length) {
+                networkPanel.innerHTML = '<div class="tab-empty" style="padding:60px">No active hosts found.</div>';
+                return;
+            }
+            networkPanel.innerHTML =
+                '<div class="tab-bulk-actions" style="margin-bottom:10px;">' +
+                    '<button type="button" class="tab-collapse-btn" data-collapse-all="net" data-collapsed="0">' +
+                        '<span class="material-symbols-outlined" style="font-size:14px">unfold_less</span><span>Collapse All</span>' +
+                    '</button>' +
+                '</div>' +
+                ALL_HOSTS.map(function(h) { return hostCard(h, 'net', '#06b6d4', 'dns'); }).join('');
+
+            // Wire refresh buttons
+            networkPanel.querySelectorAll('[data-reload]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var pk = parseInt(btn.dataset.reload.replace('net-', ''), 10);
+                    var h = ALL_HOSTS.find(function(x) { return x.pk === pk; });
+                    if (h) fetchNetwork(h);
+                });
+            });
+
+            wireCollapseButtons(networkPanel);
+            wireBulkCollapseButton(networkPanel, 'net');
+
+            ALL_HOSTS.forEach(function(h) { fetchNetwork(h); });
+            focusHostSection('net', pendingFocus);
+        }
+
+        function fetchNetwork(h) {
+            var el = document.getElementById('net-' + h.pk);
+            if (!el) return;
+            el.innerHTML = '<div class="tab-loading"><span class="tab-spinner"></span> Fetching from ' + esc(h.name) + '…</div>';
+
+            fetch('/api/v1/network/' + encodeURIComponent(h.name) + '/inventory')
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(base) {
+                    el.innerHTML = renderNetworkSubTabs(h, base, null);
+                    wireNetworkSubTabs(h, el, base);
+                    // Lazy-load advanced data in background
+                    fetch('/api/v1/network/' + encodeURIComponent(h.name) + '/advanced')
+                        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                        .then(function(adv) { wireNetworkSubTabs(h, el, base, adv); })
+                        .catch(function() { /* advanced data optional */ });
+                })
+                .catch(function(e) { el.innerHTML = '<div class="tab-error">Failed to load: ' + esc(e.message) + '</div>'; });
+        }
+
+        function renderNetworkSubTabs(h, base, adv) {
+            return '<div class="net-subtab-bar">' +
+                '<span class="net-subtab active" data-net-tab="vswitch">Port Groups &amp; vSwitches</span>' +
+                '<span class="net-subtab" data-net-tab="nics">Physical &amp; VMkernel NICs</span>' +
+                '<span class="net-subtab" data-net-tab="advanced">TCP/IP Stacks &amp; Firewall</span>' +
+            '</div>' +
+            '<div id="netsub-vswitch-' + h.pk + '">' + renderNetVswitches(base) + '</div>' +
+            '<div id="netsub-nics-' + h.pk + '" style="display:none">' + renderNetNics(base, adv) + '</div>' +
+            '<div id="netsub-advanced-' + h.pk + '" style="display:none">' + renderNetAdvanced(adv) + '</div>';
+        }
+
+        function wireNetworkSubTabs(h, el, base, adv) {
+            // If adv just arrived, refresh nics and advanced sub-panels
+            if (adv) {
+                var nicsEl = el.querySelector('#netsub-nics-' + h.pk);
+                var advEl  = el.querySelector('#netsub-advanced-' + h.pk);
+                if (nicsEl) nicsEl.innerHTML = renderNetNics(base, adv);
+                if (advEl)  advEl.innerHTML  = renderNetAdvanced(adv);
+                return;
+            }
+            el.querySelectorAll('.net-subtab').forEach(function(tab) {
+                tab.addEventListener('click', function() {
+                    el.querySelectorAll('.net-subtab').forEach(function(t) { t.classList.remove('active'); });
+                    tab.classList.add('active');
+                    var which = tab.getAttribute('data-net-tab');
+                    el.querySelector('#netsub-vswitch-' + h.pk).style.display  = which === 'vswitch'   ? '' : 'none';
+                    el.querySelector('#netsub-nics-' + h.pk).style.display     = which === 'nics'      ? '' : 'none';
+                    el.querySelector('#netsub-advanced-' + h.pk).style.display = which === 'advanced'  ? '' : 'none';
+                });
+            });
+        }
+
+        function renderNetVswitches(d) {
+            var html = '<div class="tab-section-title">Virtual Switches</div>';
+            if (d.vswitches && d.vswitches.length) {
+                html += '<table class="tab-panel-table"><thead><tr><th>vSwitch</th><th>Ports</th><th>MTU</th><th>Uplinks</th></tr></thead><tbody>';
+                d.vswitches.forEach(function(v) {
+                    html += '<tr><td class="tab-name-col">' + esc(v.name) + '</td><td>' + esc(String(v.num_ports||'--')) + '</td><td>' + esc(String(v.mtu||'--')) + '</td><td>' + esc((v.uplinks||[]).join(', ')||'--') + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            } else { html += '<div class="tab-empty">No vSwitches found</div>'; }
+            html += '<div class="tab-section-title">Port Groups</div>';
+            if (d.portgroups && d.portgroups.length) {
+                html += '<table class="tab-panel-table"><thead><tr><th>Port Group</th><th>vSwitch</th><th>VLAN</th><th>MTU</th></tr></thead><tbody>';
+                d.portgroups.forEach(function(p) {
+                    html += '<tr><td class="tab-name-col">' + esc(p.name) + '</td><td>' + esc(p.vswitch||'--') + '</td><td><span class="tab-badge tab-badge-info">' + esc(String(p.vlan||'0')) + '</span></td><td>' + esc(String(p.mtu||'--')) + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            } else { html += '<div class="tab-empty">No Port Groups found</div>'; }
+            return html;
+        }
+
+        function renderNetNics(base, adv) {
+            var html = '<div class="tab-section-title">Physical NICs</div>';
+            var pnics = base.physical_nics || [];
+            if (pnics.length) {
+                html += '<table class="tab-panel-table"><thead><tr><th>Interface</th><th>Driver</th><th>Admin</th><th>Link</th><th>Speed</th><th>Duplex</th><th>MAC</th><th>MTU</th></tr></thead><tbody>';
+                pnics.forEach(function(n) {
+                    var up = (n.link_status||'').toLowerCase().indexOf('up') !== -1;
+                    html += '<tr><td class="tab-name-col">' + esc(n.interface) + '</td><td>' + esc(n.driver||'--') + '</td><td>' + esc(n.admin_status||'--') + '</td><td><span class="tab-badge ' + (up?'tab-badge-up':'tab-badge-down') + '">' + esc(n.link_status||'--') + '</span></td><td>' + esc(n.speed||'--') + '</td><td>' + esc(n.duplex||'--') + '</td><td class="tab-mono">' + esc(n.mac||'--') + '</td><td>' + esc(n.mtu||'--') + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            } else { html += '<div class="tab-empty">No Physical NICs found</div>'; }
+
+            html += '<div class="tab-section-title">VMkernel NICs</div>';
+            var vmknics = adv && adv.vmkernel_nics ? adv.vmkernel_nics : [];
+            if (vmknics.length) {
+                html += '<table class="tab-panel-table"><thead><tr><th>Interface</th><th>IP Address</th><th>Netmask</th><th>Type</th><th>MTU</th><th>Enabled</th></tr></thead><tbody>';
+                vmknics.forEach(function(n) {
+                    html += '<tr><td class="tab-name-col">' + esc(n.interface) + '</td><td class="tab-mono">' + esc(n.ip||'--') + '</td><td class="tab-mono">' + esc(n.netmask||'--') + '</td><td>' + esc(n.type||'--') + '</td><td>' + esc(n.mtu||'--') + '</td><td>' + esc(String(n.enabled||'--')) + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            } else if (!adv) {
+                html += '<div class="tab-loading"><span class="tab-spinner"></span> Loading VMkernel NICs…</div>';
+            } else {
+                html += '<div class="tab-empty">No VMkernel NICs found</div>';
+            }
+            return html;
+        }
+
+        function renderNetAdvanced(adv) {
+            if (!adv) return '<div class="tab-loading"><span class="tab-spinner"></span> Loading advanced network data…</div>';
+
+            function pick(obj, keys, fallback) {
+                for (var i = 0; i < keys.length; i++) {
+                    var key = keys[i];
+                    var value = obj && obj[key];
+                    if (value !== undefined && value !== null && String(value).trim() !== '') {
+                        return String(value);
+                    }
+                }
+                return fallback;
+            }
+
+            function asBoolLike(value) {
+                var s = String(value || '').toLowerCase();
+                return s === 'true' || s === '1' || s === 'yes' || s === 'enabled' || s === 'on';
+            }
+
+            var html = '<div class="tab-section-title">TCP/IP Stacks</div>';
+            var stacks = adv.tcp_ip_stacks || [];
+            if (stacks.length) {
+                html += '<table class="tab-panel-table"><thead><tr><th>Name</th><th>Enabled</th><th>CC Algorithm</th></tr></thead><tbody>';
+                stacks.forEach(function(s) {
+                    var stackName = pick(s, ['name', 'key', 'netstack_instance', 'stack_name'], '--');
+                    var stackEnabled = pick(s, ['enabled', 'is_enabled', 'active'], '--');
+                    var stackCc = pick(s, ['ccalgo', 'congestion_control_algorithm', 'default_congestion_control_algorithm', 'cca'], '--');
+                    html += '<tr><td class="tab-name-col">' + esc(stackName) + '</td><td>' + esc(stackEnabled) + '</td><td>' + esc(stackCc) + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            } else { html += '<div class="tab-empty">No TCP/IP stacks found</div>'; }
+
+            html += '<div class="tab-section-title">Firewall Rules</div>';
+            var rules = adv.firewall_rules || [];
+            if (rules.length) {
+                html += '<table class="tab-panel-table"><thead><tr><th>Ruleset</th><th>Enabled</th><th>Allow In</th><th>Allow Out</th><th>Required</th></tr></thead><tbody>';
+                rules.forEach(function(r) {
+                    var ruleName = pick(r, ['name', 'ruleset', 'ruleset_name'], '--');
+                    var ruleEnabled = pick(r, ['enabled', 'is_enabled'], '--');
+                    var allowIn = pick(r, ['allow_incoming', 'allowincoming', 'allow_in', 'allowed_all_ip', 'allowedallip'], '--');
+                    var allowOut = pick(r, ['allow_outgoing', 'allowoutgoing', 'allow_out', 'allowed_ip_addresses', 'allowedipaddresses'], '--');
+                    var required = pick(r, ['required', 'mandatory'], '--');
+                    var en = asBoolLike(ruleEnabled);
+                    html += '<tr><td class="tab-name-col">' + esc(ruleName) + '</td>' +
+                        '<td><span class="tab-badge ' + (en?'tab-badge-up':'tab-badge-down') + '">' + esc(ruleEnabled) + '</span></td>' +
+                        '<td>' + esc(allowIn) + '</td>' +
+                        '<td>' + esc(allowOut) + '</td>' +
+                        '<td>' + esc(required) + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            } else { html += '<div class="tab-empty">No firewall rules found</div>'; }
+            return html;
+        }
+
+        // ── Storage Panel ──
+        function buildStoragePanel() {
+            if (!ALL_HOSTS.length) {
+                storagePanel.innerHTML = '<div class="tab-empty" style="padding:60px">No active hosts found.</div>';
+                return;
+            }
+            storagePanel.innerHTML =
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+                    '<div class="tab-bulk-actions" style="flex:1;">' +
+                        '<button type="button" class="tab-collapse-btn" data-collapse-all="stor" data-collapsed="0">' +
+                            '<span class="material-symbols-outlined" style="font-size:14px">unfold_less</span><span>Collapse All</span>' +
+                        '</button>' +
+                    '</div>' +
+                    '<button type="button" id="storCreateDsBtn" class="tab-link-btn">' +
+                        '<span class="material-symbols-outlined" style="font-size:16px">add</span>New Datastore' +
+                    '</button>' +
+                '</div>' +
+                ALL_HOSTS.map(function(h) { return hostCard(h, 'stor', '#06b6d4', 'storage'); }).join('');
+
+            storagePanel.querySelectorAll('[data-reload]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var pk = parseInt(btn.dataset.reload.replace('stor-', ''), 10);
+                    var h = ALL_HOSTS.find(function(x) { return x.pk === pk; });
+                    if (h) fetchStorage(h);
+                });
+            });
+
+            var createBtn = document.getElementById('storCreateDsBtn');
+            if (createBtn) {
+                createBtn.addEventListener('click', function() {
+                    openCreateDatastoreWizard();
+                });
+            }
+
+            wireCollapseButtons(storagePanel);
+            wireBulkCollapseButton(storagePanel, 'stor');
+
+            ALL_HOSTS.forEach(function(h) { fetchStorage(h); });
+            focusHostSection('stor', pendingFocus);
+        }
+
+        var dsWizard = {
+            open: false,
+            step: 1,
+            hostName: '',
+            diskId: '',
+            dsName: '',
+            disks: [],
+            loadingDisks: false,
+            submitting: false
+        };
+
+        function extractNaaIds(rawDevices) {
+            var text = String(rawDevices || '');
+            var seen = {};
+            var list = [];
+            (text.match(/naa\.[A-Za-z0-9._-]+/g) || []).forEach(function(id) {
+                if (!seen[id]) {
+                    seen[id] = true;
+                    list.push(id);
+                }
+            });
+            return list;
+        }
+
+        function closeCreateDatastoreWizard() {
+            var modal = document.getElementById('dsWizardModal');
+            if (modal) modal.classList.remove('open');
+            dsWizard.open = false;
+        }
+
+        function updateCreateDatastoreWizardStepUI() {
+            var stepsEl = document.getElementById('dsWizardSteps');
+            if (!stepsEl) return;
+            var labels = ['Host', 'Disk', 'Name & Confirm'];
+            stepsEl.innerHTML = labels.map(function(label, idx) {
+                var n = idx + 1;
+                var cls = 'dsw-step';
+                if (n < dsWizard.step) cls += ' done';
+                if (n === dsWizard.step) cls += ' active';
+                return '<span class="' + cls + '"><span>' + n + '</span><span>' + label + '</span></span>';
+            }).join('');
+        }
+
+        function setCreateDatastoreWizardStatus(message, isError) {
+            var statusEl = document.getElementById('dsWizardStatus');
+            if (!statusEl) return;
+            statusEl.style.color = isError ? '#b91c1c' : '#0f766e';
+            statusEl.textContent = message || '';
+        }
+
+        function renderCreateDatastoreWizardBody() {
+            updateCreateDatastoreWizardStepUI();
+
+            var bodyEl = document.getElementById('dsWizardBody');
+            var backBtn = document.getElementById('dsWizardBack');
+            var nextBtn = document.getElementById('dsWizardNext');
+            if (!bodyEl || !backBtn || !nextBtn) return;
+
+            backBtn.style.display = dsWizard.step === 1 ? 'none' : '';
+            backBtn.disabled = dsWizard.loadingDisks || dsWizard.submitting;
+
+            if (dsWizard.step === 3) {
+                nextBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">check</span>Create Datastore';
+            } else {
+                nextBtn.innerHTML = 'Next';
+            }
+            nextBtn.disabled = dsWizard.loadingDisks || dsWizard.submitting;
+
+            if (dsWizard.step === 1) {
+                bodyEl.innerHTML =
+                    '<div class="dsw-field">' +
+                        '<label>Target Host</label>' +
+                        '<select id="dsWizardHostSelect">' +
+                            ALL_HOSTS.map(function(h) {
+                                return '<option value="' + h.name.replace(/"/g, '&quot;') + '">' + esc(h.name) + ' (' + esc(h.ip) + ')</option>';
+                            }).join('') +
+                        '</select>' +
+                        '<div class="dsw-hint">Select the ESXi host where the VMFS datastore will be created.</div>' +
+                    '</div>';
+                var hostSelect = document.getElementById('dsWizardHostSelect');
+                if (hostSelect) {
+                    hostSelect.value = dsWizard.hostName;
+                    hostSelect.addEventListener('change', function() {
+                        dsWizard.hostName = hostSelect.value;
+                    });
+                }
+                setCreateDatastoreWizardStatus('', false);
+                return;
+            }
+
+            if (dsWizard.step === 2) {
+                var options = dsWizard.disks.map(function(id) {
+                    return '<option value="' + id + '">' + esc(id) + '</option>';
+                }).join('');
+
+                bodyEl.innerHTML =
+                    '<div class="dsw-field">' +
+                        '<label>Target Disk (NAA ID)</label>' +
+                        '<select id="dsWizardDiskSelect" ' + (dsWizard.loadingDisks ? 'disabled' : '') + '>' +
+                            (options || '<option value="">No eligible disks found</option>') +
+                        '</select>' +
+                        '<div class="dsw-hint">Only local/raw devices that can be used for VMFS should be selected.</div>' +
+                    '</div>' +
+                    '<button type="button" id="dsWizardRefreshDisks" class="dsw-btn">' +
+                        '<span class="material-symbols-outlined" style="font-size:16px">refresh</span>Refresh Disk List' +
+                    '</button>' +
+                    (dsWizard.loadingDisks ? '<div class="tab-loading" style="padding:16px 0"><span class="tab-spinner"></span>Loading disks from host...</div>' : '');
+
+                var diskSelect = document.getElementById('dsWizardDiskSelect');
+                if (diskSelect) {
+                    if (dsWizard.diskId && dsWizard.disks.indexOf(dsWizard.diskId) !== -1) {
+                        diskSelect.value = dsWizard.diskId;
+                    } else if (!dsWizard.diskId && dsWizard.disks.length) {
+                        dsWizard.diskId = dsWizard.disks[0];
+                        diskSelect.value = dsWizard.diskId;
+                    }
+                    diskSelect.addEventListener('change', function() {
+                        dsWizard.diskId = diskSelect.value;
+                    });
+                }
+                var refreshBtn = document.getElementById('dsWizardRefreshDisks');
+                if (refreshBtn) {
+                    refreshBtn.addEventListener('click', function() {
+                        loadCreateDatastoreWizardDisks(dsWizard.hostName);
+                    });
+                }
+                setCreateDatastoreWizardStatus('', false);
+                return;
+            }
+
+            bodyEl.innerHTML =
+                '<div class="dsw-field">' +
+                    '<label>Datastore Name</label>' +
+                    '<input id="dsWizardNameInput" type="text" value="' + esc(dsWizard.dsName) + '" placeholder="datastore-prod-01" />' +
+                    '<div class="dsw-hint">Use a clear, stable name (letters, numbers, dashes).</div>' +
+                '</div>' +
+                '<div class="dsw-summary">' +
+                    '<div><strong>Host:</strong> ' + esc(dsWizard.hostName) + '</div>' +
+                    '<div><strong>Disk:</strong> ' + esc(dsWizard.diskId || '--') + '</div>' +
+                    '<div><strong>Filesystem:</strong> VMFS</div>' +
+                '</div>';
+
+            var nameInput = document.getElementById('dsWizardNameInput');
+            if (nameInput) {
+                nameInput.addEventListener('input', function() {
+                    dsWizard.dsName = nameInput.value;
+                });
+                nameInput.focus();
+            }
+            setCreateDatastoreWizardStatus('', false);
+        }
+
+        function loadCreateDatastoreWizardDisks(hostName) {
+            dsWizard.loadingDisks = true;
+            dsWizard.disks = [];
+            dsWizard.diskId = '';
+            setCreateDatastoreWizardStatus('Loading available disks from ' + hostName + '...', false);
+            renderCreateDatastoreWizardBody();
+
+            fetch('/api/v1/storage/' + encodeURIComponent(hostName) + '/disks/available')
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(payload) {
+                    dsWizard.disks = extractNaaIds(payload && payload.raw_devices);
+                    dsWizard.diskId = dsWizard.disks[0] || '';
+                    if (!dsWizard.disks.length) {
+                        setCreateDatastoreWizardStatus('No NAA disks detected for this host.', true);
+                    } else {
+                        setCreateDatastoreWizardStatus('Detected ' + dsWizard.disks.length + ' disk(s).', false);
+                    }
+                })
+                .catch(function(err) {
+                    setCreateDatastoreWizardStatus('Disk discovery failed: ' + err.message, true);
+                })
+                .finally(function() {
+                    dsWizard.loadingDisks = false;
+                    renderCreateDatastoreWizardBody();
+                });
+        }
+
+        function submitCreateDatastoreWizard() {
+            var name = (dsWizard.dsName || '').trim();
+            var validName = /^[A-Za-z0-9._-]{1,64}$/.test(name);
+            if (!validName) {
+                setCreateDatastoreWizardStatus('Datastore name must be 1-64 chars using letters, numbers, dot, underscore, or dash.', true);
+                return;
+            }
+            if (!dsWizard.hostName || !dsWizard.diskId) {
+                setCreateDatastoreWizardStatus('Host and disk are required.', true);
+                return;
+            }
+
+            dsWizard.submitting = true;
+            renderCreateDatastoreWizardBody();
+            setCreateDatastoreWizardStatus('Creating datastore ' + name + '...', false);
+
+            var url = '/api/v1/storage/' + encodeURIComponent(dsWizard.hostName) + '/datastore/create' +
+                '?disk_id=' + encodeURIComponent(dsWizard.diskId) +
+                '&ds_name=' + encodeURIComponent(name);
+
+            fetch(url, { method: 'POST' })
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(resp) {
+                    if (resp.status === 'error') {
+                        throw new Error(resp.message || 'Failed to create datastore');
+                    }
+                    closeCreateDatastoreWizard();
+                    var hObj = ALL_HOSTS.find(function(h) { return h.name === dsWizard.hostName; });
+                    if (hObj) fetchStorage(hObj);
+                    else ALL_HOSTS.forEach(function(h) { fetchStorage(h); });
+                })
+                .catch(function(err) {
+                    setCreateDatastoreWizardStatus('Create datastore failed: ' + err.message, true);
+                })
+                .finally(function() {
+                    dsWizard.submitting = false;
+                    renderCreateDatastoreWizardBody();
+                });
+        }
+
+        function openCreateDatastoreWizard() {
+            if (!ALL_HOSTS.length) {
+                alert('No active hosts available.');
+                return;
+            }
+
+            var defaultHost = ALL_HOSTS[0];
+            if (pendingFocus) {
+                var focused = ALL_HOSTS.find(function(h) { return h.pk === pendingFocus; });
+                if (focused) defaultHost = focused;
+            }
+
+            dsWizard.open = true;
+            dsWizard.step = 1;
+            dsWizard.hostName = defaultHost.name;
+            dsWizard.diskId = '';
+            dsWizard.dsName = 'datastore-' + Date.now().toString().slice(-5);
+            dsWizard.disks = [];
+            dsWizard.loadingDisks = false;
+            dsWizard.submitting = false;
+
+            var modal = document.getElementById('dsWizardModal');
+            if (modal) modal.classList.add('open');
+            renderCreateDatastoreWizardBody();
+        }
+
+        var dsWizardCancelBtn = document.getElementById('dsWizardCancel');
+        if (dsWizardCancelBtn) {
+            dsWizardCancelBtn.addEventListener('click', closeCreateDatastoreWizard);
+        }
+
+        var dsWizardBackBtn = document.getElementById('dsWizardBack');
+        if (dsWizardBackBtn) {
+            dsWizardBackBtn.addEventListener('click', function() {
+                if (dsWizard.step > 1 && !dsWizard.loadingDisks && !dsWizard.submitting) {
+                    dsWizard.step -= 1;
+                    renderCreateDatastoreWizardBody();
+                }
+            });
+        }
+
+        var dsWizardNextBtn = document.getElementById('dsWizardNext');
+        if (dsWizardNextBtn) {
+            dsWizardNextBtn.addEventListener('click', function() {
+                if (dsWizard.loadingDisks || dsWizard.submitting) return;
+                if (dsWizard.step === 1) {
+                    if (!dsWizard.hostName) {
+                        setCreateDatastoreWizardStatus('Please select a host.', true);
+                        return;
+                    }
+                    dsWizard.step = 2;
+                    renderCreateDatastoreWizardBody();
+                    loadCreateDatastoreWizardDisks(dsWizard.hostName);
+                    return;
+                }
+                if (dsWizard.step === 2) {
+                    if (!dsWizard.diskId) {
+                        setCreateDatastoreWizardStatus('Select a disk before continuing.', true);
+                        return;
+                    }
+                    dsWizard.step = 3;
+                    renderCreateDatastoreWizardBody();
+                    return;
+                }
+                submitCreateDatastoreWizard();
+            });
+        }
+
+        var dsWizardModal = document.getElementById('dsWizardModal');
+        if (dsWizardModal) {
+            dsWizardModal.addEventListener('click', function(e) {
+                if (e.target === dsWizardModal) closeCreateDatastoreWizard();
+            });
+        }
+
+        // ── Services Panel ──
+        function buildServicesPanel() {
+            if (!ALL_HOSTS.length) {
+                servicesPanel.innerHTML = '<div class="tab-empty" style="padding:60px">No active hosts found.</div>';
+                return;
+            }
+
+            servicesPanel.innerHTML =
+                '<div class="tab-bulk-actions" style="margin-bottom:10px;">' +
+                    '<button type="button" class="tab-collapse-btn" data-collapse-all="srv" data-collapsed="0">' +
+                        '<span class="material-symbols-outlined" style="font-size:14px">unfold_less</span><span>Collapse All</span>' +
+                    '</button>' +
+                '</div>' +
+                ALL_HOSTS.map(function(h) { return hostCard(h, 'srv', '#f59e0b', 'settings'); }).join('');
+
+            servicesPanel.querySelectorAll('[data-reload]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var pk = parseInt(btn.dataset.reload.replace('srv-', ''), 10);
+                    var h = ALL_HOSTS.find(function(x) { return x.pk === pk; });
+                    if (h) fetchServices(h);
+                });
+            });
+
+            wireCollapseButtons(servicesPanel);
+            wireBulkCollapseButton(servicesPanel, 'srv');
+            ALL_HOSTS.forEach(function(h) { fetchServices(h); });
+            focusHostSection('srv', pendingFocus);
+        }
+
+        // ── Virtual Machines Panel ──
+        function buildVmsPanel() {
+            if (!ALL_HOSTS.length) {
+                vmsPanel.innerHTML = '<div class="tab-empty" style="padding:60px">No active hosts found.</div>';
+                return;
+            }
+            vmsPanel.innerHTML =
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+                    '<div class="tab-bulk-actions" style="flex:1;">' +
+                        '<button type="button" class="tab-collapse-btn" data-collapse-all="vm" data-collapsed="0">' +
+                            '<span class="material-symbols-outlined" style="font-size:14px">unfold_less</span><span>Collapse All</span>' +
+                        '</button>' +
+                    '</div>' +
+                    '<a href="/admin/manager/virtualmachine/" class="tab-link-btn">' +
+                        '<span class="material-symbols-outlined" style="font-size:16px">open_in_new</span>Full VM Manager' +
+                    '</a>' +
+                '</div>' +
+                ALL_HOSTS.map(function(h) { return hostCard(h, 'vm', '#7c3aed', 'laptop_windows'); }).join('');
+
+            vmsPanel.querySelectorAll('[data-reload]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var pk = parseInt(btn.dataset.reload.replace('vm-', ''), 10);
+                    var h = ALL_HOSTS.find(function(x) { return x.pk === pk; });
+                    if (h) fetchVmsForHost(h);
+                });
+            });
+            wireCollapseButtons(vmsPanel);
+            wireBulkCollapseButton(vmsPanel, 'vm');
+            ALL_HOSTS.forEach(function(h) { fetchVmsForHost(h); });
+            focusHostSection('vm', pendingFocus);
+        }
+
+        function fetchVmsForHost(h) {
+            var el = document.getElementById('vm-' + h.pk);
+            if (!el) return;
+            el.innerHTML = '<div class="tab-loading"><span class="tab-spinner"></span> Fetching VMs from ' + esc(h.name) + '…</div>';
+            fetch('/api/v1/vms/' + encodeURIComponent(h.name) + '/list')
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(d) { el.innerHTML = renderVms(h, d); })
+                .catch(function(e) { el.innerHTML = '<div class="tab-error">Failed to load VMs: ' + esc(e.message) + '</div>'; });
+        }
+
+        function renderVms(h, d) {
+            var vms = (d && d.vms) ? d.vms : [];
+            if (!vms.length) return '<div class="tab-empty">No VMs found on this host.</div>';
+            var html = '<table class="tab-panel-table"><thead><tr>' +
+                '<th>Name</th><th>Status</th><th>Guest OS</th><th>IP Address</th>' +
+                '<th>CPU (MHz)</th><th>RAM (MB)</th><th>Storage Used</th><th>Actions</th>' +
+                '</tr></thead><tbody>';
+            vms.forEach(function(vm) {
+                var powerRaw = String(vm.power_state || vm.state || vm.power || '').toLowerCase();
+                var on = powerRaw.indexOf('on') !== -1 || powerRaw.indexOf('running') !== -1;
+                var guest = vm.guest_os || vm.guest_name || '--';
+                var ip = vm.ip_address || vm.ip || '--';
+                var cpu = vm.cpu_usage_mhz || vm.cpu_mhz || vm.host_cpu || 0;
+                var ram = vm.mem_active_mb || vm.memory_mb || vm.host_memory || 0;
+                var used = vm.storage_used_gb || vm.used_gb || '--';
+                var manageUrl = vm.id
+                    ? ('/admin/manager/virtualmachine/' + vm.id + '/change/')
+                    : ('/admin/manager/virtualmachine/?q=' + encodeURIComponent(vm.name || vm.vmid || ''));
+                var statusBadge = '<span class="tab-badge ' + (on ? 'tab-badge-up' : 'tab-badge-down') + '">' +
+                    (on ? '● Running' : '● Stopped') + '</span>';
+                html += '<tr>' +
+                    '<td class="tab-name-col">' + esc(vm.name) + '</td>' +
+                    '<td>' + statusBadge + '</td>' +
+                    '<td>' + esc(guest) + '</td>' +
+                    '<td class="tab-mono">' + esc(ip) + '</td>' +
+                    '<td>' + esc(String(cpu)) + '</td>' +
+                    '<td>' + esc(String(ram)) + '</td>' +
+                    '<td>' + esc(String(used)) + '</td>' +
+                    '<td><a href="' + manageUrl + '" class="tab-link-btn">' +
+                        '<span class="material-symbols-outlined" style="font-size:14px">open_in_new</span>Manage</a></td>' +
+                    '</tr>';
+            });
+            return html + '</tbody></table>';
+        }
+
+        function fetchServices(h) {
+            var el = document.getElementById('srv-' + h.pk);
+            if (!el) return;
+            el.innerHTML = '<div class="tab-loading"><span class="tab-spinner"></span> Fetching from ' + esc(h.name) + '…</div>';
+
+            fetch('/api/v1/hosts/' + encodeURIComponent(h.name) + '/services')
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(d) { el.innerHTML = renderServices(h, d); wireServiceControls(h); })
+                .catch(function(e) { el.innerHTML = '<div class="tab-error">Failed to load: ' + esc(e.message) + '</div>'; });
+        }
+
+        function renderServices(h, d) {
+            var services = (d && d.services) ? d.services : [];
+            var runningCount = 0;
+            var stoppedCount = 0;
+
+            function classifyStatus(raw) {
+                var s = String(raw || '').toLowerCase();
+                if (!s) return 'unknown';
+                if (s.indexOf('running') !== -1 || s.indexOf('started') !== -1 || s.indexOf('on') !== -1) return 'running';
+                if (s.indexOf('stopped') !== -1 || s.indexOf('off') !== -1 || s.indexOf('dead') !== -1) return 'stopped';
+                return 'unknown';
+            }
+
+            services.forEach(function(s) {
+                var cls = classifyStatus(s.status);
+                if (cls === 'running') runningCount += 1;
+                if (cls === 'stopped') stoppedCount += 1;
+            });
+
+            var options = services.length
+                ? services.map(function(s) {
+                    return '<option value="' + esc(s.name) + '">' + esc(s.name) + '</option>';
+                }).join('')
+                : '<option value="">No services found</option>';
+
+            return '' +
+                '<div class="tab-section-title">Service Control</div>' +
+                '<div style="display:grid;grid-template-columns:1fr 220px auto;gap:10px;align-items:end;margin-bottom:12px;">' +
+                    '<div><label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">Service Name</label>' +
+                        '<select id="srv-name-' + h.pk + '" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">' + options + '</select></div>' +
+                    '<div><label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">State</label>' +
+                        '<select id="srv-action-' + h.pk + '" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">' +
+                            '<option value="start">start</option>' +
+                            '<option value="stop">stop</option>' +
+                            '<option value="enable">enable</option>' +
+                            '<option value="disable">disable</option>' +
+                        '</select></div>' +
+                    '<button type="button" class="tab-refresh-btn" id="srv-run-' + h.pk + '">Run</button>' +
+                '</div>' +
+                '<div id="srv-result-' + h.pk + '" class="tab-empty" style="padding:10px 12px;text-align:left;display:none"></div>' +
+                '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px;">' +
+                    '<span class="tab-badge tab-badge-up">Running: ' + runningCount + '</span>' +
+                    '<span class="tab-badge tab-badge-down">Stopped: ' + stoppedCount + '</span>' +
+                    '<span class="tab-badge tab-badge-info">Total: ' + services.length + '</span>' +
+                '</div>' +
+                '<div class="tab-section-title">Detected Services</div>' +
+                '<table class="tab-panel-table"><thead><tr><th>Service</th><th>State</th><th>Details</th></tr></thead><tbody>' +
+                    (services.length ? services.map(function(s) {
+                        var statusClass = classifyStatus(s.status);
+                        var badgeClass = statusClass === 'running' ? 'tab-badge-up' : (statusClass === 'stopped' ? 'tab-badge-down' : 'tab-badge-info');
+                        var label = statusClass === 'running' ? 'Running' : (statusClass === 'stopped' ? 'Stopped' : 'Unknown');
+                        return '<tr>' +
+                            '<td class="tab-name-col">' + esc(s.name) + '</td>' +
+                            '<td><span class="tab-badge ' + badgeClass + '">' + label + '</span></td>' +
+                            '<td><span class="tab-mono">' + esc(s.status || '--') + '</span></td>' +
+                        '</tr>';
+                    }).join('') : '<tr><td colspan="3" class="tab-empty">No services found</td></tr>') +
+                '</tbody></table>';
+        }
+
+        function wireServiceControls(h) {
+            var runBtn = document.getElementById('srv-run-' + h.pk);
+            var nameSel = document.getElementById('srv-name-' + h.pk);
+            var actionSel = document.getElementById('srv-action-' + h.pk);
+            var resultEl = document.getElementById('srv-result-' + h.pk);
+            if (!runBtn || !nameSel || !actionSel || !resultEl) return;
+
+            runBtn.addEventListener('click', function() {
+                var serviceName = nameSel.value;
+                var action = actionSel.value;
+                if (!serviceName) {
+                    resultEl.style.display = 'block';
+                    resultEl.className = 'tab-error';
+                    resultEl.textContent = 'Please choose a service name.';
+                    return;
+                }
+
+                runBtn.disabled = true;
+                runBtn.textContent = 'Running...';
+                fetch('/api/v1/hosts/' + encodeURIComponent(h.name) + '/services/control', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({service_name: serviceName, action: action}),
+                })
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(resp) {
+                    resultEl.style.display = 'block';
+                    if (resp.status === 'success') {
+                        resultEl.className = 'tab-section-title';
+                        resultEl.style.margin = '0';
+                        resultEl.style.borderBottom = '0';
+                        resultEl.textContent = 'Success: ' + serviceName + ' ' + action;
+                        fetchServices(h);
+                    } else {
+                        resultEl.className = 'tab-error';
+                        resultEl.textContent = 'Failed: ' + (resp.message || 'Unknown error');
+                    }
+                })
+                .catch(function(err) {
+                    resultEl.style.display = 'block';
+                    resultEl.className = 'tab-error';
+                    resultEl.textContent = 'Error: ' + err.message;
+                })
+                .finally(function() {
+                    runBtn.disabled = false;
+                    runBtn.textContent = 'Run';
+                });
+            });
+        }
+
+        function fetchStorage(h) {
+            var el = document.getElementById('stor-' + h.pk);
+            if (!el) return;
+            el.innerHTML = '<div class="tab-loading"><span class="tab-spinner"></span> Fetching from ' + esc(h.name) + '…</div>';
+
+            fetch('/api/v1/storage/' + encodeURIComponent(h.name) + '/datastores')
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(d) { d._host = h.name; el.innerHTML = renderStorage(d); wireStorageActions(h, el); })
+                .catch(function(e) { el.innerHTML = '<div class="tab-error">Failed to load: ' + esc(e.message) + '</div>'; });
+        }
+
+        function wireStorageActions(h, container) {
+            // Toggle menus open/close
+            container.querySelectorAll('[data-menu]').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var menuId = btn.getAttribute('data-menu');
+                    var menu = document.getElementById(menuId);
+                    if (!menu) return;
+                    var isOpen = menu.classList.contains('open');
+                    document.querySelectorAll('.neb-ds-actions-menu.open').forEach(function(m) { m.classList.remove('open'); });
+                    if (!isOpen) menu.classList.add('open');
+                });
+            });
+            document.addEventListener('click', function() {
+                document.querySelectorAll('.neb-ds-actions-menu.open').forEach(function(m) { m.classList.remove('open'); });
+            });
+            container.querySelectorAll('[data-stor-action]').forEach(function(item) {
+                item.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var action = item.getAttribute('data-stor-action');
+                    var hostName = item.getAttribute('data-host') || h.name;
+                    var ds = item.getAttribute('data-ds');
+                    document.querySelectorAll('.neb-ds-actions-menu.open').forEach(function(m) { m.classList.remove('open'); });
+
+                    if (action === 'browse') {
+                        if (window.openFileBrowser) window.openFileBrowser(hostName);
+                    } else if (action === 'refresh') {
+                        fetchStorage(h);
+                    } else if (action === 'register') {
+                        window.location.href = '/admin/manager/virtualmachine/add/?host=' + encodeURIComponent(hostName);
+                    } else if (action === 'rename') {
+                        var newName = prompt('Rename datastore "' + ds + '" to:');
+                        if (!newName || newName.trim() === ds) return;
+                        alert('Datastore rename requires vmkfstools and must be run directly on the host shell. New name: ' + newName.trim());
+                    } else if (action === 'increase') {
+                        alert('To increase VMFS datastore capacity, use:\nvmkfstools --growfs /vmfs/volumes/' + ds + '\nRun this on the ESXi host after adding a new disk or extending the underlying LUN.');
+                    } else if (action === 'permissions') {
+                        alert('Permissions are managed via ESXi host access control.\nUse: esxcli system permission list\nOr manage via the Host → Permissions admin action on the Hosts tab.');
+                    } else if (action === 'unmount') {
+                        if (!confirm('Unmount datastore "' + ds + '" from ' + hostName + '?\n\nAll VMs must be powered off first.')) return;
+                        fetch('/api/v1/storage/' + encodeURIComponent(hostName) + '/datastores/' + encodeURIComponent(ds) + '/unmount', {method: 'POST'})
+                            .then(function(r) { return r.json(); })
+                            .then(function(resp) {
+                                if (resp.status === 'success') { alert('Unmounted successfully.'); fetchStorage(h); }
+                                else alert('Unmount failed: ' + (resp.message || 'Unknown error'));
+                            })
+                            .catch(function(err) { alert('Error: ' + err.message); });
+                    } else if (action === 'delete') {
+                        if (!confirm('WARNING: Delete datastore "' + ds + '" from ' + hostName + '?\n\nThis will unmount the datastore. Data on the underlying disk is NOT erased, but the VMFS volume will be inaccessible.')) return;
+                        fetch('/api/v1/storage/' + encodeURIComponent(hostName) + '/datastores/' + encodeURIComponent(ds) + '/unmount', {method: 'POST'})
+                            .then(function(r) { return r.json(); })
+                            .then(function(resp) {
+                                if (resp.status === 'success') { alert('Datastore removed from ' + hostName + '.'); fetchStorage(h); }
+                                else alert('Failed: ' + (resp.message || 'Unknown error'));
+                            })
+                            .catch(function(err) { alert('Error: ' + err.message); });
+                    }
+                });
+            });
+        }
+
+        function renderStorage(d) {
+            var html = '<div class="tab-section-title">Datastores</div>';
+            if (d.datastores && d.datastores.length) {
+                html += '<table class="tab-panel-table"><thead><tr><th>Datastore</th><th>Type</th><th>Capacity</th><th>Used</th><th>Free</th><th style="width:120px">Usage</th><th>Actions</th></tr></thead><tbody>';
+                d.datastores.forEach(function(ds) {
+                    var actMenu = 'ds-menu-' + (d._host || '') + '-' + esc(ds.name).replace(/[^a-zA-Z0-9]/g, '_');
+                    html += '<tr><td class="tab-name-col">' + esc(ds.name) + '</td>' +
+                        '<td><span class="tab-badge tab-badge-type">' + esc(ds.type || 'VMFS') + '</span></td>' +
+                        '<td>' + esc(fmtBytes(ds.capacity)) + '</td>' +
+                        '<td>' + esc(fmtBytes(ds.used)) + '</td>' +
+                        '<td>' + esc(fmtBytes(ds.free)) + '</td>' +
+                        '<td>' + usageBar(ds.used, ds.capacity) + '</td>' +
+                        '<td>' +
+                            '<div class="neb-ds-actions-wrap">' +
+                                '<button type="button" class="neb-ds-actions-btn" data-menu="' + actMenu + '">' +
+                                    'Actions <span class="material-symbols-outlined" style="font-size:14px">expand_more</span>' +
+                                '</button>' +
+                                '<div class="neb-ds-actions-menu" id="' + actMenu + '">' +
+                                    '<div class="neb-ds-actions-item" data-stor-action="browse" data-host="' + esc(d._host || '') + '" data-ds="' + esc(ds.name) + '"><span class="material-symbols-outlined">folder_open</span>Browse</div>' +
+                                    '<div class="neb-ds-actions-item" data-stor-action="refresh" data-host="' + esc(d._host || '') + '" data-ds="' + esc(ds.name) + '"><span class="material-symbols-outlined">refresh</span>Refresh</div>' +
+                                    '<div class="neb-ds-actions-item" data-stor-action="register" data-host="' + esc(d._host || '') + '" data-ds="' + esc(ds.name) + '"><span class="material-symbols-outlined">app_registration</span>Register a VM</div>' +
+                                    '<div class="neb-ds-actions-item" data-stor-action="rename" data-host="' + esc(d._host || '') + '" data-ds="' + esc(ds.name) + '"><span class="material-symbols-outlined">edit</span>Rename</div>' +
+                                    '<div class="neb-ds-actions-item" data-stor-action="increase" data-host="' + esc(d._host || '') + '" data-ds="' + esc(ds.name) + '"><span class="material-symbols-outlined">expand</span>Increase Capacity</div>' +
+                                    '<div class="neb-ds-actions-item" data-stor-action="permissions" data-host="' + esc(d._host || '') + '" data-ds="' + esc(ds.name) + '"><span class="material-symbols-outlined">lock</span>Permissions</div>' +
+                                    '<div class="neb-ds-actions-item danger" data-stor-action="unmount" data-host="' + esc(d._host || '') + '" data-ds="' + esc(ds.name) + '"><span class="material-symbols-outlined">eject</span>Unmount</div>' +
+                                    '<div class="neb-ds-actions-item danger" data-stor-action="delete" data-host="' + esc(d._host || '') + '" data-ds="' + esc(ds.name) + '"><span class="material-symbols-outlined">delete_forever</span>Delete</div>' +
+                                '</div>' +
+                            '</div>' +
+                        '</td></tr>';
+                });
+                html += '</tbody></table>';
+            } else { html += '<div class="tab-empty">No Datastores found</div>'; }
+            return html;
+        }
+
+        var initialTab = urlParams.get('tab');
+        var initialHost = parseInt(urlParams.get('host') || '', 10);
+        if (!Number.isNaN(initialHost)) {
+            pendingFocus = initialHost;
+        }
+        if (initialTab === 'virtual-machines' || initialTab === 'network' || initialTab === 'storage' || initialTab === 'services') {
+            switchTab(initialTab);
+        } else {
+            switchTab('hosts');
+        }
+    });
+})();
+</script>

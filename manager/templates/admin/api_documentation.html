@@ -1,0 +1,156 @@
+{% extends 'admin/base_site.html' %}
+
+{% block title %}API Documentation - Jupiter Management{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h1 style="margin-bottom: 30px; color: #333;">
+        <i class="fas fa-book"></i> API Documentation & Management
+    </h1>
+    
+    <!-- Summary Cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px;">
+        <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; border-left: 4px solid #0066cc;">
+            <h3 style="margin: 0 0 10px 0; color: #0066cc;">
+                <i class="fas fa-server"></i> Total Hosts
+            </h3>
+            <p style="margin: 0; font-size: 32px; font-weight: bold; color: #333;">{{ host_count }}</p>
+        </div>
+        <div style="background: #f0fff4; padding: 20px; border-radius: 8px; border-left: 4px solid #28a745;">
+            <h3 style="margin: 0 0 10px 0; color: #28a745;">
+                <i class="fas fa-check-circle"></i> Active Hosts
+            </h3>
+            <p style="margin: 0; font-size: 32px; font-weight: bold; color: #333;">{{ active_hosts }}</p>
+        </div>
+        <div style="background: #fff5f5; padding: 20px; border-radius: 8px; border-left: 4px solid #dc3545;">
+            <h3 style="margin: 0 0 10px 0; color: #dc3545;">
+                <i class="fas fa-times-circle"></i> Inactive Hosts
+            </h3>
+            <p style="margin: 0; font-size: 32px; font-weight: bold; color: #333;">{{ inactive_hosts }}</p>
+        </div>
+    </div>
+    
+    <!-- Quick Access -->
+    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2 style="margin-top: 0; color: #333;">Quick Access</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+            <a href="/admin/" class="button" style="padding: 12px; background: #417690; color: white; border-radius: 4px; text-decoration: none; text-align: center; font-weight: bold;">
+                <i class="fas fa-tachometer-alt"></i> Admin Panel
+            </a>
+            <a href="/admin/manager/host/" class="button" style="padding: 12px; background: #0066cc; color: white; border-radius: 4px; text-decoration: none; text-align: center; font-weight: bold;">
+                <i class="fas fa-server"></i> Manage Hosts
+            </a>
+            <a href="/api/v1/docs/" class="button" style="padding: 12px; background: #28a745; color: white; border-radius: 4px; text-decoration: none; text-align: center; font-weight: bold;" target="_blank">
+                <i class="fas fa-code"></i> API Swagger
+            </a>
+        </div>
+    </div>
+    
+    <!-- API Endpoints -->
+    <h2 style="margin-top: 40px; color: #333; border-bottom: 2px solid #0066cc; padding-bottom: 10px;">
+        <i class="fas fa-code"></i> Available API Endpoints
+    </h2>
+    
+    {% for section in api_endpoints %}
+    <div style="margin: 30px 0; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-top: 4px solid {{ section.color }};">
+        <h3 style="margin-top: 0; color: {{ section.color }};">
+            <i class="{{ section.icon }}"></i> {{ section.name }}
+        </h3>
+        
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f5f5f5;">
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd; font-weight: bold; width: 10%;">Method</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd; font-weight: bold; width: 40%;">Endpoint</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd; font-weight: bold; width: 50%;">Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for endpoint in section.endpoints %}
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 12px;">
+                        <span style="
+                            display: inline-block;
+                            padding: 4px 8px;
+                            border-radius: 4px;
+                            font-weight: bold;
+                            font-size: 11px;
+                            {% if endpoint.method == 'GET' %}
+                                background: #d4edff; color: #0066cc;
+                            {% elif endpoint.method == 'POST' %}
+                                background: #d4f4dd; color: #28a745;
+                            {% elif endpoint.method == 'DELETE' %}
+                                background: #ffe6e6; color: #dc3545;
+                            {% endif %}
+                        ">
+                            {{ endpoint.method }}
+                        </span>
+                    </td>
+                    <td style="padding: 12px; font-family: monospace; font-size: 12px; color: #666;">
+                        {{ endpoint.url }}
+                    </td>
+                    <td style="padding: 12px;">
+                        {{ endpoint.description }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+    
+    <!-- Admin Features -->
+    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 40px;">
+        <h3 style="margin-top: 0; color: #333;">
+            <i class="fas fa-sliders-h"></i> Admin Features & Quick Actions
+        </h3>
+        <p style="color: #666;">When viewing a host in the admin panel, you have quick access to:</p>
+        <ul style="color: #666; columns: 2;">
+            <li><i class="fas fa-info-circle"></i> Host Information Dashboard</li>
+            <li><i class="fas fa-cube"></i> Virtual Machine Management</li>
+            <li><i class="fas fa-network-wired"></i> Network Configuration</li>
+            <li><i class="fas fa-hdd"></i> Storage Management</li>
+            <li><i class="fas fa-cogs"></i> Service Control Panel</li>
+            <li><i class="fas fa-tools"></i> Maintenance Mode Toggle</li>
+            <li><i class="fas fa-redo"></i> Quick Reboot Action</li>
+            <li><i class="fas fa-power-off"></i> Quick Shutdown Action</li>
+        </ul>
+    </div>
+    
+    <!-- API Access Info -->
+    <div style="margin: 40px 0; background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+        <h3 style="margin-top: 0; color: #333;">
+            <i class="fas fa-info-circle"></i> API Access Information
+        </h3>
+        <p><strong>Base URL:</strong> <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">/api/v1/</code></p>
+        <p><strong>Full API Documentation:</strong> Available at <a href="/api/v1/docs/" target="_blank">/api/v1/docs/</a></p>
+        <p><strong>API Version:</strong> 1.5.0</p>
+        <p><strong>Description:</strong> Advanced API for managing ESXi Hosts, Virtual Machines, Networks, and Storage configurations via SSH</p>
+        
+        <h4 style="color: #333; margin-top: 20px;">Management Features:</h4>
+        <ul style="color: #666;">
+            <li><strong>Host Management:</strong> Summary, licensing, reboot, shutdown, maintenance mode, service control</li>
+            <li><strong>VM Management:</strong> Listing, creation, power operations, unregistration, cross-host migration</li>
+            <li><strong>Network Management:</strong> vSwitch and port group configuration</li>
+            <li><strong>Storage Management:</strong> Datastore listing, file explorer, disk management</li>
+        </ul>
+    </div>
+    
+    <style>
+        .dashboard {
+            background: #fff;
+            padding: 20px;
+        }
+        code {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+        .button {
+            transition: all 0.3s ease;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+    </style>
+</div>
+{% endblock %}

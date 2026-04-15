@@ -1,0 +1,1232 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block submit_buttons_bottom %}
+{# Hide the default Django Save / Delete row — we use our own Save button #}
+{% endblock %}
+
+{% block after_field_sets %}
+{{ block.super }}
+
+{% if original %}
+<style>
+.vme-wrap{margin:24px 0;background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}
+.vme-header{padding:14px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;background:#f8fafc}
+.vme-header h2{margin:0;font-size:16px;font-weight:700;color:#1e293b}
+.vme-tabs{display:flex;gap:0;border-bottom:1px solid #e5e7eb;background:#f8fafc;padding:0 20px}
+.vme-tab{padding:10px 18px;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:6px}
+.vme-tab:hover{color:#1e293b;background:rgba(0,0,0,.02)}
+.vme-tab.active{color:#2563eb;border-bottom-color:#2563eb}
+.vme-tab .material-symbols-outlined{font-size:18px}
+.vme-panel{display:none;padding:20px}
+.vme-panel.active{display:block}
+.vme-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 20px}
+@media(max-width:780px){.vme-grid{grid-template-columns:1fr}}
+.vme-f{display:flex;flex-direction:column;gap:5px}
+.vme-f label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#475569}
+.vme-f input,.vme-f select{width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff;box-sizing:border-box}
+.vme-f input:focus,.vme-f select:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.vme-f input[readonly]{background:#f8fafc;color:#64748b}
+.vme-f input:disabled,.vme-f select:disabled{background:#f1f5f9;color:#94a3b8;cursor:not-allowed}
+.vme-footer{padding:12px 20px 18px;border-top:1px solid #e5e7eb;display:flex;gap:10px;align-items:center}
+.vme-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:6px;font-size:13px;font-weight:700;border:0;cursor:pointer}
+.vme-btn.primary{background:#2563eb;color:#fff}
+.vme-btn.primary:hover{background:#1d4ed8}
+.vme-btn.danger{background:#ef4444;color:#fff}
+.vme-btn.danger:hover{background:#dc2626}
+.vme-btn.secondary{background:#f1f5f9;color:#334155;border:1px solid #cbd5e1}
+.vme-btn.secondary:hover{background:#e2e8f0}
+.vme-btn:disabled{opacity:.55;cursor:not-allowed}
+.vme-status{margin:12px 20px 0;padding:10px 12px;border-radius:6px;font-size:12px;font-weight:700;display:none}
+.vme-status.err{display:block;background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+.vme-status.ok{display:block;background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.vme-status.warn{display:block;background:#fef9c3;color:#854d0e;border:1px solid #fde68a}
+.vme-spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top:2px solid #fff;border-radius:50%;animation:vme-spin .7s linear infinite;vertical-align:middle}
+@keyframes vme-spin{to{transform:rotate(360deg)}}
+.vme-section{margin-top:18px;padding:16px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px}
+.vme-section:first-child{margin-top:0}
+.vme-section h4{margin:0 0 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;display:flex;align-items:center;gap:6px}
+.vme-section h4 .material-symbols-outlined{font-size:16px}
+.vme-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:6px;font-size:13px}
+.vme-item .vme-item-icon{display:flex;align-items:center}
+.vme-item .vme-item-icon .material-symbols-outlined{font-size:20px;color:#94a3b8}
+.vme-item .vme-item-body{flex:1;display:flex;flex-direction:column;gap:2px}
+.vme-item .vme-item-label{font-weight:600;color:#1e293b}
+.vme-item .vme-item-detail{color:#64748b;font-size:11px;font-family:monospace}
+.vme-item .vme-item-actions{display:flex;align-items:center;gap:6px}
+.vme-rm-btn{background:none;border:none;cursor:pointer;color:#ef4444;padding:4px;border-radius:4px;display:flex}
+.vme-rm-btn:hover{background:#fee2e2}
+.vme-add-row{display:flex;gap:8px;align-items:flex-end;margin-top:10px;flex-wrap:wrap}
+.vme-add-row .vme-f{flex:1;min-width:120px}
+.vme-full{grid-column:span 2}
+.vme-power-banner{padding:10px 16px;border-radius:6px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.vme-power-banner.on{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
+.vme-power-banner.off{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.vme-power-banner .material-symbols-outlined{font-size:16px}
+.vme-resize-row{display:flex;align-items:center;gap:6px}
+.vme-resize-row input{width:80px;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;text-align:right}
+.vme-resize-row .vme-btn{padding:4px 10px;font-size:11px}
+.vme-hw-loading{text-align:center;padding:30px;color:#94a3b8;font-size:13px}
+.vme-top-actions{position:relative;display:inline-flex;align-items:center}
+.vme-top-actions-toggle{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#ffffff;color:#0f172a;font-size:13px;font-weight:700;cursor:pointer}
+.vme-top-actions-toggle:hover{background:#f8fafc}
+.vme-top-actions-menu{position:absolute;top:calc(100% + 6px);right:0;min-width:240px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 12px 28px rgba(15,23,42,.15);padding:6px;z-index:70;display:none}
+.vme-top-actions-menu.open{display:block}
+.vme-top-actions-item{display:flex;width:100%;align-items:center;justify-content:space-between;padding:9px 10px;border:0;background:transparent;border-radius:8px;cursor:pointer;font-size:13px;color:#0f172a;text-align:left}
+.vme-top-actions-item:hover{background:#f1f5f9}
+.vme-top-actions-item .material-symbols-outlined{font-size:18px;color:#64748b}
+/* Confirm modal */
+.vme-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);z-index:9999;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
+.vme-overlay.show{opacity:1}
+.vme-modal{background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.18);width:420px;max-width:92vw;overflow:hidden;transform:scale(.95);transition:transform .15s}
+.vme-overlay.show .vme-modal{transform:scale(1)}
+.vme-modal-header{padding:16px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #e5e7eb}
+.vme-modal-header .modal-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.vme-modal-header .modal-icon.warn{background:#fef3c7;color:#d97706}
+.vme-modal-header .modal-icon.danger{background:#fee2e2;color:#ef4444}
+.vme-modal-header .modal-icon .material-symbols-outlined{font-size:20px}
+.vme-modal-header h3{margin:0;font-size:15px;font-weight:700;color:#1e293b}
+.vme-modal-body{padding:16px 20px;font-size:13px;color:#475569;line-height:1.6}
+.vme-modal-footer{padding:12px 20px 16px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid #f1f5f9}
+</style>
+
+<div class="vme-wrap">
+    <div class="vme-header">
+        <span class="material-symbols-outlined" style="color:#2563eb;font-size:22px">settings</span>
+        <h2>Edit VM — {{ original.name }}</h2>
+        <span style="margin-left:auto;font-size:11px;color:#94a3b8">
+            Changes are applied directly to the hypervisor. VM may be powered off automatically.
+        </span>
+    </div>
+
+    <div class="vme-tabs">
+        <div class="vme-tab active" data-tab="general">
+            <span class="material-symbols-outlined">info</span> General
+        </div>
+        <div class="vme-tab" data-tab="network">
+            <span class="material-symbols-outlined">lan</span> Network
+        </div>
+        <div class="vme-tab" data-tab="storage">
+            <span class="material-symbols-outlined">hard_drive</span> Storage
+        </div>
+        <div class="vme-tab" data-tab="hardware">
+            <span class="material-symbols-outlined">memory</span> Hardware
+        </div>
+    </div>
+
+    <!-- ====== GENERAL ====== -->
+    <div class="vme-panel active" id="panel-general">
+        <div id="general-power-banner"></div>
+        <div class="vme-grid">
+            <div class="vme-f">
+                <label>VM Name</label>
+                <input type="text" value="{{ original.name }}" readonly>
+            </div>
+            <div class="vme-f">
+                <label>Host</label>
+                <input type="text" value="{{ original.host.name }} ({{ original.host.ip_address }})" readonly>
+            </div>
+            <div class="vme-f">
+                <label>VMID</label>
+                <input type="text" value="{{ original.vmid }}" readonly>
+            </div>
+            <div class="vme-f">
+                <label>UUID</label>
+                <input type="text" value="{{ original.uuid|default:'N/A' }}" readonly>
+            </div>
+            <div class="vme-f">
+                <label for="edit_cpu">vCPU Count</label>
+                <input id="edit_cpu" type="number" min="1" max="128" value="{{ original.num_cpu }}" data-original="{{ original.num_cpu }}">
+            </div>
+            <div class="vme-f">
+                <label for="edit_memory">Memory (GB)</label>
+                <input id="edit_memory" type="number" min="0.25" step="0.25" data-original="{{ original.memory_mb }}">
+            </div>
+            <div class="vme-f">
+                <label for="edit_guest_os">Guest OS</label>
+                <select id="edit_guest_os" data-original="{{ original.guest_os|default:'' }}">
+                    <option value="">-- Keep Current ({{ original.guest_os|default:'Unknown' }}) --</option>
+                </select>
+            </div>
+            <div class="vme-f">
+                <label for="edit_hw_version">Hardware Version</label>
+                <select id="edit_hw_version" data-original="{{ original.hw_version|default:'' }}">
+                    <option value="">-- Keep Current --</option>
+                </select>
+            </div>
+            <div class="vme-f vme-full">
+                <label>VMX Path</label>
+                <input type="text" value="{{ original.vmx_path|default:'N/A' }}" readonly>
+            </div>
+            <div class="vme-f vme-full">
+                <label>Boot ISO (CD-ROM)</label>
+                <div style="display:flex;gap:8px;align-items:stretch">
+                    <input id="vme_iso_path" type="text" placeholder="Loading..." readonly
+                           style="flex:1;background:#f8fafc;cursor:default">
+                    <button type="button" id="vmeBrowseIsoBtn" class="vme-btn secondary" style="white-space:nowrap">
+                        <span class="material-symbols-outlined" style="font-size:16px">folder_open</span> Browse
+                    </button>
+                    <button type="button" id="vmeMountIsoBtn" class="vme-btn primary" disabled>
+                        <span class="material-symbols-outlined" style="font-size:16px">album</span> Mount
+                    </button>
+                    <button type="button" id="vmeEjectIsoBtn" class="vme-btn secondary" style="display:none">
+                        <span class="material-symbols-outlined" style="font-size:16px">eject</span> Eject ISO
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== NETWORK ====== -->
+    <div class="vme-panel" id="panel-network">
+        <div id="net-power-banner"></div>
+        <div class="vme-section">
+            <h4><span class="material-symbols-outlined">lan</span> Network Adapters</h4>
+            <div id="vme-nic-list">
+                <div class="vme-hw-loading"><span class="vme-spinner" style="border-color:rgba(0,0,0,.1);border-top-color:#2563eb;width:18px;height:18px"></span> Loading from host...</div>
+            </div>
+        </div>
+        <div class="vme-section" style="margin-top:14px">
+            <h4><span class="material-symbols-outlined">add_circle</span> Add Network Adapter</h4>
+            <div class="vme-add-row">
+                <div class="vme-f">
+                    <label for="add_nic_network">Port Group</label>
+                    <select id="add_nic_network"><option value="">Loading...</option></select>
+                </div>
+                <div class="vme-f">
+                    <label for="add_nic_type">Adapter Type</label>
+                    <select id="add_nic_type">
+                        <option value="vmxnet3">VMXNET3</option>
+                        <option value="e1000e">E1000E</option>
+                        <option value="e1000">E1000</option>
+                    </select>
+                </div>
+                <button type="button" class="vme-btn secondary" id="addNicBtn">
+                    <span class="material-symbols-outlined" style="font-size:16px">add</span> Add NIC
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== STORAGE ====== -->
+    <div class="vme-panel" id="panel-storage">
+        <div id="stor-power-banner"></div>
+        <div class="vme-section">
+            <h4><span class="material-symbols-outlined">hard_drive</span> Virtual Disks</h4>
+            <div id="vme-disk-list">
+                <div class="vme-hw-loading"><span class="vme-spinner" style="border-color:rgba(0,0,0,.1);border-top-color:#2563eb;width:18px;height:18px"></span> Loading from host...</div>
+            </div>
+        </div>
+        <div class="vme-section" style="margin-top:14px">
+            <h4><span class="material-symbols-outlined">add_circle</span> Add Virtual Disk</h4>
+            <div class="vme-add-row">
+                <div class="vme-f">
+                    <label for="add_disk_size">Size (GB)</label>
+                    <input id="add_disk_size" type="number" min="1" value="16">
+                </div>
+                <div class="vme-f">
+                    <label for="add_disk_name">Name (optional)</label>
+                    <input id="add_disk_name" type="text" placeholder="auto-generated">
+                </div>
+                <div class="vme-f">
+                    <label for="add_disk_datastore">Datastore</label>
+                    <select id="add_disk_datastore"><option value="">Loading...</option></select>
+                </div>
+                <button type="button" class="vme-btn secondary" id="addDiskBtn">
+                    <span class="material-symbols-outlined" style="font-size:16px">add</span> Add Disk
+                </button>
+            </div>
+        </div>
+        <div class="vme-grid" style="margin-top:16px">
+            <div class="vme-f">
+                <label>Storage Used</label>
+                <input type="text" value="{{ original.storage_used_gb|default:'0' }} GB" readonly>
+            </div>
+            <div class="vme-f">
+                <label>Storage Provisioned</label>
+                <input type="text" value="{{ original.storage_provisioned_gb|default:'0' }} GB" readonly>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== HARDWARE INFO ====== -->
+    <div class="vme-panel" id="panel-hardware">
+        <div class="vme-grid">
+            <div class="vme-f">
+                <label>Power State</label>
+                <input type="text" id="hw-power-state" value="{{ original.power_state|default:'Unknown' }}" readonly>
+            </div>
+            <div class="vme-f">
+                <label>{% if original.host.hypervisor_type == 'proxmox_ve' %}KVM Agent{% else %}VMware Tools{% endif %}</label>
+                <input type="text" value="{% if original.host.hypervisor_type == 'proxmox_ve' %}{{ original.tools_running|default:'unknown' }}{% else %}{{ original.tools_status|default:'Unknown' }}{% endif %}" readonly>
+            </div>
+            <div class="vme-f">
+                <label>Guest OS (reported)</label>
+                <input type="text" value="{{ original.guest_os|default:'Unknown' }}" readonly>
+            </div>
+            <div class="vme-f">
+                <label>Hardware Version</label>
+                <input type="text" value="{{ original.hw_version|default:'Unknown' }}" readonly>
+            </div>
+            <div class="vme-f">
+                <label>IP Address</label>
+                <input type="text" value="{{ original.ip_address|default:'N/A' }}" readonly>
+            </div>
+            <div class="vme-f">
+                <label>DNS Name</label>
+                <input type="text" value="{{ original.dns_name|default:'N/A' }}" readonly>
+            </div>
+            <div class="vme-f">
+                <label>CPU Usage</label>
+                <input type="text" value="{{ original.cpu_usage_mhz|default:'0' }} MHz" readonly>
+            </div>
+            <div class="vme-f">
+                <label>Memory Active</label>
+                <input type="text" value="{{ original.mem_active_mb|default:'0' }} MB" readonly>
+            </div>
+        </div>
+
+        <div class="vme-section" style="margin-top:14px">
+            <h4><span class="material-symbols-outlined">tune</span> Hardware Features</h4>
+            <div class="vme-grid">
+                <div class="vme-f">
+                    <label style="text-transform:none;letter-spacing:0;font-size:13px;font-weight:600;color:#1f2937;display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input id="edit_cpu_hotplug" type="checkbox" style="width:auto;">
+                        CPU Hotplug
+                    </label>
+                </div>
+                <div class="vme-f">
+                    <label style="text-transform:none;letter-spacing:0;font-size:13px;font-weight:600;color:#1f2937;display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input id="edit_memory_hotplug" type="checkbox" style="width:auto;">
+                        Memory Hotplug
+                    </label>
+                </div>
+                <div class="vme-f vme-full">
+                    <label style="text-transform:none;letter-spacing:0;font-size:13px;font-weight:600;color:#1f2937;display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input id="edit_hardware_virtualization" type="checkbox" style="width:auto;">
+                        Enable Hardware Virtualization (Nested VT)
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="vme-section" style="margin-top:14px">
+            <h4><span class="material-symbols-outlined">memory</span> PCI Passthrough</h4>
+            <div id="vme-pci-list">
+                <div class="vme-hw-loading"><span class="vme-spinner" style="border-color:rgba(0,0,0,.1);border-top-color:#2563eb;width:18px;height:18px"></span> Loading PCI passthrough devices...</div>
+            </div>
+            <div class="vme-add-row" style="margin-top:12px">
+                <div class="vme-f" style="min-width:260px">
+                    <label for="add_pci_device">Available Host PCI Devices</label>
+                    <select id="add_pci_device"><option value="">Loading...</option></select>
+                </div>
+                <button type="button" class="vme-btn secondary" id="addPciBtn">
+                    <span class="material-symbols-outlined" style="font-size:16px">add</span> Add PCI Device
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="vmeStatus" class="vme-status"></div>
+
+    <div class="vme-footer">
+        <button type="button" id="vmeSaveBtn" class="vme-btn primary">
+            <span class="material-symbols-outlined" style="font-size:16px">save</span> Save Changes
+        </button>
+        <a href="/admin/manager/virtualmachine/" class="vme-btn secondary">
+            <span class="material-symbols-outlined" style="font-size:16px">arrow_back</span> Back to List
+        </a>
+        <button type="button" id="vmeDeleteBtn" class="vme-btn danger" style="margin-left:auto">
+            <span class="material-symbols-outlined" style="font-size:16px">delete_forever</span> Delete VM
+        </button>
+    </div>
+</div>
+
+<!-- ISO Browser Modal (Edit VM) -->
+<style>
+.vme-iso-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center}
+.vme-iso-overlay.open{display:flex}
+.vme-iso-modal{background:#fff;border-radius:12px;width:640px;max-width:94vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
+.vme-iso-header{padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;background:#f8fafc}
+.vme-iso-header h3{margin:0;font-size:15px;font-weight:700;color:#1e293b}
+.vme-iso-close{margin-left:auto;background:none;border:none;cursor:pointer;color:#64748b;padding:4px;border-radius:4px}
+.vme-iso-close:hover{background:#f1f5f9;color:#1e293b}
+.vme-iso-breadcrumb{padding:8px 18px;font-size:12px;color:#64748b;background:#fafbfc;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-height:34px}
+.vme-iso-breadcrumb a{color:#2563eb;text-decoration:none;cursor:pointer;font-weight:600}
+.vme-iso-breadcrumb a:hover{text-decoration:underline}
+.vme-iso-breadcrumb .sep{color:#cbd5e1}
+.vme-iso-file-list{flex:1;overflow-y:auto;padding:6px 0;min-height:200px;max-height:50vh}
+.vme-iso-file-item{display:flex;align-items:center;gap:10px;padding:8px 18px;cursor:pointer;font-size:13px;color:#334155;transition:background .1s}
+.vme-iso-file-item:hover{background:#f1f5f9}
+.vme-iso-file-item.selected{background:#eff6ff}
+.vme-iso-file-item .fi-icon{color:#94a3b8;font-size:20px}
+.vme-iso-file-item.is-dir .fi-icon{color:#f59e0b}
+.vme-iso-file-item.is-iso .fi-icon{color:#8b5cf6}
+.vme-iso-file-item .fi-name{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vme-iso-file-item .fi-size{color:#94a3b8;font-size:12px;white-space:nowrap}
+.vme-iso-empty{padding:30px 18px;text-align:center;color:#94a3b8;font-size:13px}
+.vme-iso-modal-footer{padding:10px 18px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:flex-end;background:#f8fafc}
+</style>
+
+<div id="vmeIsoModal" class="vme-iso-overlay">
+    <div class="vme-iso-modal">
+        <div class="vme-iso-header">
+            <span class="material-symbols-outlined" style="color:#8b5cf6;font-size:20px">album</span>
+            <h3>Browse Datastore — Select ISO</h3>
+            <button type="button" class="vme-iso-close" id="vmeIsoModalClose">
+                <span class="material-symbols-outlined" style="font-size:20px">close</span>
+            </button>
+        </div>
+        <div class="vme-iso-breadcrumb" id="vmeIsoBreadcrumb"></div>
+        <div class="vme-iso-file-list" id="vmeIsoFileList"></div>
+        <div class="vme-iso-modal-footer">
+            <button type="button" class="vme-btn secondary" id="vmeIsoModalCancel">Cancel</button>
+            <button type="button" class="vme-btn primary" id="vmeIsoModalSelect" disabled>Select ISO</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var HOST = '{{ original.host.name|escapejs }}';
+    var VMID = '{{ original.vmid|escapejs }}';
+    var DB_POWER = '{{ original.power_state|default:"Unknown"|escapejs }}'.toLowerCase();
+    var IS_ON = DB_POWER.indexOf('on') !== -1;
+
+    // Collapse the top VM action toolbar into one Action dropdown.
+    function buildTopActionDropdown() {
+        if (document.querySelector('.vme-top-actions[data-built="1"]')) return true;
+
+        var actionRe = /(history|power\s*on|guest\s*shutdown|power\s*off|reset|suspend|snapshot|restore\s*snap|restore|delete)/i;
+        var all = Array.prototype.slice.call(document.querySelectorAll('a,button,[role="button"]'));
+        var candidates = all.filter(function(el) {
+            if (!el || !el.textContent) return false;
+            if (el.closest('.vme-wrap')) return false;
+            var txt = el.textContent.replace(/\s+/g, ' ').trim();
+            if (!actionRe.test(txt)) return false;
+            var rect = el.getBoundingClientRect();
+            if (rect.width < 20 || rect.height < 16) return false;
+            // Top toolbar area from your screenshot.
+            return rect.top >= 0 && rect.top < 160;
+        }).map(function(el) {
+            return {
+                el: el,
+                text: el.textContent.replace(/\s+/g, ' ').trim(),
+                left: el.getBoundingClientRect().left,
+                top: el.getBoundingClientRect().top,
+                href: el.getAttribute('href') || ''
+            };
+        });
+
+        if (candidates.length < 3) return false;
+
+        // Keep only one row (closest top row).
+        candidates.sort(function(a, b) { return a.top - b.top || a.left - b.left; });
+        var rowTop = candidates[0].top;
+        var row = candidates.filter(function(c) { return Math.abs(c.top - rowTop) < 14; });
+        if (row.length < 3) return false;
+
+        // De-duplicate repeated anchors/buttons.
+        var seen = {};
+        var sourceLinks = [];
+        row.forEach(function(c) {
+            var key = (c.href || '') + '|' + c.text;
+            if (seen[key]) return;
+            seen[key] = true;
+            sourceLinks.push({ el: c.el, text: c.text });
+        });
+        sourceLinks.sort(function(a, b) {
+            return a.el.getBoundingClientRect().left - b.el.getBoundingClientRect().left;
+        });
+
+        var first = sourceLinks[0].el;
+        var insertionParent = first.parentElement;
+        if (!insertionParent) return false;
+
+        var wrapper = document.createElement('div');
+        wrapper.className = 'vme-top-actions';
+        wrapper.setAttribute('data-built', '1');
+
+        var toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'vme-top-actions-toggle';
+        toggle.innerHTML = '<span class="material-symbols-outlined">bolt</span> Action <span class="material-symbols-outlined" style="font-size:16px">expand_more</span>';
+
+        var menu = document.createElement('div');
+        menu.className = 'vme-top-actions-menu';
+
+        sourceLinks.forEach(function(item) {
+            var opt = document.createElement('button');
+            opt.type = 'button';
+            opt.className = 'vme-top-actions-item';
+            opt.innerHTML = '<span>' + item.text + '</span><span class="material-symbols-outlined">play_circle</span>';
+            opt.addEventListener('click', function() {
+                menu.classList.remove('open');
+                var src = item.el;
+                var href = src.getAttribute('href');
+                if (href && src.tagName.toLowerCase() === 'a') {
+                    window.location.href = href;
+                    return;
+                }
+                src.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            });
+            menu.appendChild(opt);
+        });
+
+        toggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            menu.classList.toggle('open');
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!wrapper.contains(e.target)) menu.classList.remove('open');
+        });
+
+        wrapper.appendChild(toggle);
+        wrapper.appendChild(menu);
+
+        // Insert dropdown where first action was.
+        var firstHolder = first.closest('li') || first;
+        firstHolder.parentElement.insertBefore(wrapper, firstHolder);
+
+        // Hide original action elements.
+        sourceLinks.forEach(function(item) {
+            var holder = item.el.closest('li') || item.el;
+            holder.style.display = 'none';
+        });
+        return true;
+    }
+
+    // Retry because Unfold may paint top actions after initial script execution.
+    (function ensureTopDropdown() {
+        var tries = 0;
+        var maxTries = 20;
+        var timer = setInterval(function() {
+            tries += 1;
+            if (buildTopActionDropdown() || tries >= maxTries) {
+                clearInterval(timer);
+            }
+        }, 200);
+    })();
+
+    // --- Custom styled confirm modal ---
+    function vmeConfirm(opts) {
+        // opts: { title, message, icon ('warning'|'delete'), confirmLabel, confirmClass ('danger'|'primary'), onConfirm }
+        return new Promise(function(resolve) {
+            var overlay = document.createElement('div');
+            overlay.className = 'vme-overlay';
+            var iconClass = opts.icon === 'delete' ? 'danger' : 'warn';
+            var iconName = opts.icon === 'delete' ? 'delete_forever' : 'warning';
+            var btnClass = opts.confirmClass || 'danger';
+            overlay.innerHTML =
+                '<div class="vme-modal">' +
+                    '<div class="vme-modal-header">' +
+                        '<div class="modal-icon ' + iconClass + '"><span class="material-symbols-outlined">' + iconName + '</span></div>' +
+                        '<h3>' + (opts.title || 'Confirm') + '</h3>' +
+                    '</div>' +
+                    '<div class="vme-modal-body">' + (opts.message || 'Are you sure?') + '</div>' +
+                    '<div class="vme-modal-footer">' +
+                        '<button type="button" class="vme-btn secondary" data-action="cancel">Cancel</button>' +
+                        '<button type="button" class="vme-btn ' + btnClass + '" data-action="confirm">' + (opts.confirmLabel || 'Confirm') + '</button>' +
+                    '</div>' +
+                '</div>';
+            document.body.appendChild(overlay);
+            requestAnimationFrame(function(){ overlay.classList.add('show'); });
+
+            function close(result) {
+                overlay.classList.remove('show');
+                setTimeout(function(){ overlay.remove(); }, 160);
+                resolve(result);
+            }
+            overlay.querySelector('[data-action="cancel"]').addEventListener('click', function(){ close(false); });
+            overlay.querySelector('[data-action="confirm"]').addEventListener('click', function(){ close(true); });
+            overlay.addEventListener('click', function(e){ if (e.target === overlay) close(false); });
+        });
+    }
+
+    // Tab switching
+    document.querySelectorAll('.vme-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.vme-tab').forEach(function(t){ t.classList.remove('active'); });
+            document.querySelectorAll('.vme-panel').forEach(function(p){ p.classList.remove('active'); });
+            tab.classList.add('active');
+            document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        });
+    });
+
+    var statusBox = document.getElementById('vmeStatus');
+    function setStatus(type, msg) {
+        statusBox.className = 'vme-status';
+        statusBox.textContent = msg || '';
+        if (msg) statusBox.classList.add(type === 'error' ? 'err' : type === 'warn' ? 'warn' : 'ok');
+    }
+
+    // --- Power-state banners (ESXi-style warnings) ---
+    function renderPowerBanners(state) {
+        var isOn = state === 'poweredOn';
+        var bannerHtml = isOn
+            ? '<div class="vme-power-banner on"><span class="material-symbols-outlined">warning</span>' +
+              'VM is powered on — CPU, Memory, and disk shrink/remove are disabled. Power off the VM to make changes.</div>'
+            : '<div class="vme-power-banner off"><span class="material-symbols-outlined">check_circle</span>' +
+              'VM is powered off — all settings are editable.</div>';
+        ['general-power-banner','net-power-banner','stor-power-banner'].forEach(function(id){
+            var el = document.getElementById(id);
+            if (el) el.innerHTML = bannerHtml;
+        });
+        // Disable cpu/memory inputs when powered on
+        document.getElementById('edit_cpu').disabled = isOn;
+        document.getElementById('edit_memory').disabled = isOn;
+        document.getElementById('edit_guest_os').disabled = isOn;
+        document.getElementById('edit_hw_version').disabled = isOn;
+        document.getElementById('edit_cpu_hotplug').disabled = isOn;
+        document.getElementById('edit_memory_hotplug').disabled = isOn;
+        document.getElementById('edit_hardware_virtualization').disabled = isOn;
+        var addPciBtn = document.getElementById('addPciBtn');
+        if (addPciBtn) addPciBtn.disabled = isOn;
+    }
+
+    // Memory: MB → GB display
+    var memEl = document.getElementById('edit_memory');
+    var origMb = parseInt(memEl.dataset.original, 10) || 0;
+    memEl.value = (origMb / 1024).toFixed(2).replace(/\.?0+$/, '');
+
+    // Guest OS dropdown
+    var GUEST_OS = [
+        {v:"other-64",l:"Other Linux / Generic 64-bit"},{v:"ubuntu-64",l:"Ubuntu Linux 64-bit"},
+        {v:"debian12-64",l:"Debian 12 64-bit"},{v:"debian-64",l:"Debian 10/11 64-bit"},
+        {v:"centos-64",l:"CentOS 64-bit"},{v:"rhel9-64",l:"RHEL 9 64-bit"},
+        {v:"rhel8-64",l:"RHEL 8 64-bit"},{v:"sles15-64",l:"SUSE Enterprise 15 64-bit"},
+        {v:"windows2022srvNext-64",l:"Windows Server 2022 64-bit"},
+        {v:"windows2019srv-64",l:"Windows Server 2019 64-bit"},
+        {v:"windows2016srv-64",l:"Windows Server 2016 64-bit"},
+        {v:"windows9-64",l:"Windows 10/11 64-bit"},
+    ];
+    var guestOsSel = document.getElementById('edit_guest_os');
+    var curOs = guestOsSel.dataset.original;
+    GUEST_OS.forEach(function(o){
+        var opt = document.createElement('option');
+        opt.value = o.v; opt.textContent = o.l;
+        if (o.v === curOs || o.l === curOs) opt.selected = true;
+        guestOsSel.appendChild(opt);
+    });
+
+    // HW Version dropdown
+    var hwSel = document.getElementById('edit_hw_version');
+    var curHw = hwSel.dataset.original;
+    for (var v = 10; v <= 21; v++) {
+        var o = document.createElement('option');
+        o.value = String(v); o.textContent = 'vmx-' + v;
+        if (String(v) === curHw || 'vmx-'+v === curHw) o.selected = true;
+        hwSel.appendChild(o);
+    }
+
+    // API call helper
+    async function callModify(mod, params) {
+        var url = '/api/v1/vms/' + encodeURIComponent(HOST) + '/' + encodeURIComponent(VMID) + '/modify?modification=' + mod;
+        Object.keys(params).forEach(function(k){
+            if (params[k] !== undefined && params[k] !== null && params[k] !== '')
+                url += '&' + k + '=' + encodeURIComponent(params[k]);
+        });
+        var res = await fetch(url, {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}});
+        var data = await res.json();
+        if (!res.ok || data.status === 'error') throw new Error(data.message || 'Failed');
+        return data;
+    }
+
+    // ------------------------------------------------------------------
+    //  FETCH LIVE HARDWARE FROM VMX   (NICs + Disks + power state)
+    // ------------------------------------------------------------------
+    var hwData = null;  // filled by fetchHardware()
+
+    async function fetchHardware() {
+        try {
+            var r = await fetch('/api/v1/vms/' + encodeURIComponent(HOST) + '/' + encodeURIComponent(VMID) + '/hardware');
+            if (!r.ok) throw new Error('API ' + r.status);
+            hwData = await r.json();
+            if (hwData.status === 'error') throw new Error(hwData.message);
+
+            IS_ON = hwData.power_state === 'poweredOn';
+            document.getElementById('hw-power-state').value = hwData.power_state;
+            renderPowerBanners(hwData.power_state);
+            renderNics(hwData.nics);
+            renderDisks(hwData.disks);
+            if (hwData.cdrom) renderCdromState(hwData.cdrom);
+            document.getElementById('edit_cpu_hotplug').checked = Boolean(hwData.cpu_hotplug);
+            document.getElementById('edit_memory_hotplug').checked = Boolean(hwData.memory_hotplug);
+            document.getElementById('edit_hardware_virtualization').checked = Boolean(hwData.hardware_virtualization);
+            renderPciPassthrough(hwData.pci_passthrough || []);
+        } catch(e) {
+            console.error('Hardware fetch failed:', e);
+            document.getElementById('vme-nic-list').innerHTML =
+                '<div style="color:#ef4444;font-size:13px;padding:8px 0">Failed to load hardware: ' + e.message + '</div>';
+            document.getElementById('vme-disk-list').innerHTML =
+                '<div style="color:#ef4444;font-size:13px;padding:8px 0">Failed to load hardware: ' + e.message + '</div>';
+            document.getElementById('vme-pci-list').innerHTML =
+                '<div style="color:#ef4444;font-size:13px;padding:8px 0">Failed to load PCI data: ' + e.message + '</div>';
+            renderPowerBanners(IS_ON ? 'poweredOn' : 'poweredOff');
+        }
+    }
+
+    // ------------------------------------------------------------------
+    //  RENDER NICs
+    // ------------------------------------------------------------------
+    function renderNics(nics) {
+        var el = document.getElementById('vme-nic-list');
+        if (!nics || !nics.length) {
+            el.innerHTML = '<div style="color:#94a3b8;font-size:13px;padding:8px 0">No network adapters found.</div>';
+            return;
+        }
+        el.innerHTML = '';
+        nics.forEach(function(nic) {
+            var d = document.createElement('div');
+            d.className = 'vme-item';
+            var connIcon = nic.connected
+                ? '<span style="color:#22c55e;font-size:11px;font-weight:700">● Connected</span>'
+                : '<span style="color:#ef4444;font-size:11px;font-weight:700">● Disconnected</span>';
+            d.innerHTML =
+                '<div class="vme-item-icon"><span class="material-symbols-outlined">lan</span></div>' +
+                '<div class="vme-item-body">' +
+                    '<div class="vme-item-label">Network Adapter ' + (nic.index + 1) + ' — ' + nic.network + '</div>' +
+                    '<div class="vme-item-detail">' + nic.type.toUpperCase() + ' &nbsp;|&nbsp; MAC: ' + nic.mac + ' &nbsp;|&nbsp; ' + connIcon + '</div>' +
+                '</div>' +
+                '<div class="vme-item-actions">' +
+                    '<button type="button" class="vme-rm-btn" data-rm-nic="' + nic.index + '" title="Remove NIC"' + (IS_ON ? ' disabled style="opacity:.4;cursor:not-allowed"' : '') + '>' +
+                        '<span class="material-symbols-outlined" style="font-size:18px">delete</span>' +
+                    '</button>' +
+                '</div>';
+            el.appendChild(d);
+        });
+        el.querySelectorAll('[data-rm-nic]:not([disabled])').forEach(function(btn) {
+            btn.addEventListener('click', function() { removeNic(parseInt(btn.dataset.rmNic, 10)); });
+        });
+    }
+
+    // ------------------------------------------------------------------
+    //  RENDER DISKS  (ESXi-style: label, size, path, expand button)
+    // ------------------------------------------------------------------
+    function renderDisks(disks) {
+        var el = document.getElementById('vme-disk-list');
+        if (!disks || !disks.length) {
+            el.innerHTML = '<div style="color:#94a3b8;font-size:13px;padding:8px 0">No virtual disks found.</div>';
+            return;
+        }
+        el.innerHTML = '';
+        disks.forEach(function(disk) {
+            var d = document.createElement('div');
+            d.className = 'vme-item';
+            d.style.flexWrap = 'wrap';
+            var sizeStr = disk.size_gb > 0 ? disk.size_gb + ' GB' : 'Unknown';
+            d.innerHTML =
+                '<div class="vme-item-icon"><span class="material-symbols-outlined">hard_drive</span></div>' +
+                '<div class="vme-item-body">' +
+                    '<div class="vme-item-label">Hard Disk ' + (disk.unit + 1) + ' &nbsp;<span style="font-weight:400;color:#64748b;font-size:12px">' + disk.label + '</span></div>' +
+                    '<div class="vme-item-detail">' + disk.file + ' &nbsp;|&nbsp; ' + sizeStr + '</div>' +
+                '</div>' +
+                '<div class="vme-item-actions">' +
+                    '<div class="vme-resize-row">' +
+                        '<input type="number" min="' + (disk.size_gb || 1) + '" value="' + (disk.size_gb || '') + '" ' +
+                            'data-resize-unit="' + disk.unit + '" data-orig-size="' + disk.size_gb + '" ' +
+                            'title="New size in GB (can only increase)" style="' + (IS_ON ? 'opacity:.4' : '') + '"' +
+                            (IS_ON ? ' disabled' : '') + '>' +
+                        '<span style="font-size:11px;color:#64748b">GB</span>' +
+                        '<button type="button" class="vme-btn secondary" data-expand-unit="' + disk.unit + '" ' +
+                            'title="Expand disk"' + (IS_ON ? ' disabled' : '') + ' style="padding:4px 10px;font-size:11px">' +
+                            '<span class="material-symbols-outlined" style="font-size:14px">expand</span>' +
+                        '</button>' +
+                    '</div>' +
+                    '<button type="button" class="vme-rm-btn" data-rm-disk="' + disk.unit + '" title="Remove Disk"' +
+                        (IS_ON ? ' disabled style="opacity:.4;cursor:not-allowed"' : '') + '>' +
+                        '<span class="material-symbols-outlined" style="font-size:18px">delete</span>' +
+                    '</button>' +
+                '</div>';
+            el.appendChild(d);
+        });
+        // Expand handlers
+        el.querySelectorAll('[data-expand-unit]:not([disabled])').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var unit = parseInt(btn.dataset.expandUnit, 10);
+                var inp = el.querySelector('[data-resize-unit="' + unit + '"]');
+                var newSz = parseInt(inp.value, 10);
+                var origSz = parseFloat(inp.dataset.origSize) || 0;
+                if (!newSz || newSz <= origSz) { setStatus('warn', 'ESXi only supports expanding disks. Enter a size larger than ' + origSz + ' GB.'); return; }
+                expandDisk(unit, newSz);
+            });
+        });
+        // Remove handlers
+        el.querySelectorAll('[data-rm-disk]:not([disabled])').forEach(function(btn) {
+            btn.addEventListener('click', function() { removeDisk(parseInt(btn.dataset.rmDisk, 10)); });
+        });
+    }
+
+    function renderPciPassthrough(devices) {
+        var el = document.getElementById('vme-pci-list');
+        if (!devices || !devices.length) {
+            el.innerHTML = '<div style="color:#94a3b8;font-size:13px;padding:8px 0">No PCI passthrough devices attached.</div>';
+            return;
+        }
+        el.innerHTML = '';
+        devices.forEach(function(dev) {
+            var row = document.createElement('div');
+            row.className = 'vme-item';
+            row.innerHTML =
+                '<div class="vme-item-icon"><span class="material-symbols-outlined">memory</span></div>' +
+                '<div class="vme-item-body">' +
+                    '<div class="vme-item-label">PCI Slot ' + dev.slot + '</div>' +
+                    '<div class="vme-item-detail">' + (dev.label || dev.id || 'Unknown PCI device') + '</div>' +
+                '</div>' +
+                '<div class="vme-item-actions">' +
+                    '<button type="button" class="vme-rm-btn" data-rm-pci="' + dev.slot + '" title="Remove PCI device"' +
+                        (IS_ON ? ' disabled style="opacity:.4;cursor:not-allowed"' : '') + '>' +
+                        '<span class="material-symbols-outlined" style="font-size:18px">delete</span>' +
+                    '</button>' +
+                '</div>';
+            el.appendChild(row);
+        });
+
+        el.querySelectorAll('[data-rm-pci]:not([disabled])').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                removePciPassthrough(parseInt(btn.dataset.rmPci, 10));
+            });
+        });
+    }
+
+    // ------------------------------------------------------------------
+    //  ACTIONS: NIC
+    // ------------------------------------------------------------------
+    async function removeNic(n) {
+        if (IS_ON) { setStatus('error', 'Cannot remove NIC while VM is powered on. Power off the VM first.'); return; }
+        var ok = await vmeConfirm({
+            title: 'Remove Network Adapter ' + (n+1),
+            message: 'This will remove <strong>Network Adapter ' + (n+1) + '</strong> from the virtual machine.<br><br>The VM will be powered off if it is currently running.',
+            icon: 'delete',
+            confirmLabel: 'Remove',
+            confirmClass: 'danger'
+        });
+        if (!ok) return;
+        setStatus('warn', 'Removing Network Adapter ' + (n+1) + '...');
+        try {
+            await callModify('remove_network', {nic_number: n});
+            setStatus('success', 'Network Adapter removed. Reloading...');
+            setTimeout(function(){ window.location.reload(); }, 1200);
+        } catch(e) { setStatus('error', 'Remove NIC failed: ' + e.message); }
+    }
+
+    document.getElementById('addNicBtn').addEventListener('click', async function() {
+        var net = document.getElementById('add_nic_network').value;
+        var typ = document.getElementById('add_nic_type').value;
+        if (!net) { setStatus('warn', 'Select a port group.'); return; }
+        if (IS_ON) { setStatus('error', 'Cannot add NIC while VM is powered on. Power off the VM first.'); return; }
+        setStatus('warn', 'Adding NIC (' + typ + ') on ' + net + '...');
+        try {
+            await callModify('add_network', {network_name: net, adapter_type: typ});
+            setStatus('success', 'NIC added. Reloading...');
+            setTimeout(function(){ window.location.reload(); }, 1200);
+        } catch(e) { setStatus('error', 'Add NIC failed: ' + e.message); }
+    });
+
+    // ------------------------------------------------------------------
+    //  ACTIONS: Disk
+    // ------------------------------------------------------------------
+    async function removeDisk(unit) {
+        if (IS_ON) { setStatus('error', 'Cannot remove disk while VM is powered on. Power off the VM first.'); return; }
+        var ok = await vmeConfirm({
+            title: 'Remove Hard Disk ' + (unit+1),
+            message: 'This will detach <strong>Hard Disk ' + (unit+1) + '</strong> (SCSI 0:' + unit + ') from the virtual machine.<br><br>The VMDK file will <strong>not</strong> be deleted from the datastore.',
+            icon: 'delete',
+            confirmLabel: 'Remove Disk',
+            confirmClass: 'danger'
+        });
+        if (!ok) return;
+        setStatus('warn', 'Removing Hard Disk ' + (unit+1) + '...');
+        try {
+            await callModify('remove_disk', {disk_unit: unit});
+            setStatus('success', 'Disk removed. Reloading...');
+            setTimeout(function(){ window.location.reload(); }, 1200);
+        } catch(e) { setStatus('error', 'Remove disk failed: ' + e.message); }
+    }
+
+    async function expandDisk(unit, newSizeGb) {
+        if (IS_ON) { setStatus('error', 'Cannot resize disk while VM is powered on.'); return; }
+        var ok = await vmeConfirm({
+            title: 'Expand Hard Disk ' + (unit+1),
+            message: 'Increase <strong>Hard Disk ' + (unit+1) + '</strong> to <strong>' + newSizeGb + ' GB</strong>.<br><br>This operation cannot be undone — ESXi does not support shrinking disks.',
+            icon: 'warning',
+            confirmLabel: 'Expand Disk',
+            confirmClass: 'primary'
+        });
+        if (!ok) return;
+        setStatus('warn', 'Expanding disk to ' + newSizeGb + ' GB...');
+        try {
+            await callModify('resize_disk', {disk_unit: unit, disk_size: newSizeGb});
+            setStatus('success', 'Disk expanded to ' + newSizeGb + ' GB. Reloading...');
+            setTimeout(function(){ window.location.reload(); }, 1200);
+        } catch(e) { setStatus('error', 'Expand disk failed: ' + e.message); }
+    }
+
+    async function removePciPassthrough(slot) {
+        if (IS_ON) { setStatus('error', 'Cannot remove PCI passthrough while VM is powered on. Power off the VM first.'); return; }
+        var ok = await vmeConfirm({
+            title: 'Remove PCI Passthrough Device',
+            message: 'This will remove PCI passthrough slot <strong>' + slot + '</strong> from this VM.',
+            icon: 'delete',
+            confirmLabel: 'Remove',
+            confirmClass: 'danger'
+        });
+        if (!ok) return;
+        setStatus('warn', 'Removing PCI passthrough slot ' + slot + '...');
+        try {
+            await callModify('remove_pci_passthrough', {pci_slot: slot});
+            setStatus('success', 'PCI passthrough removed. Reloading...');
+            setTimeout(function(){ window.location.reload(); }, 1200);
+        } catch(e) {
+            setStatus('error', 'Remove PCI passthrough failed: ' + e.message);
+        }
+    }
+
+    document.getElementById('addPciBtn').addEventListener('click', async function() {
+        var pciId = document.getElementById('add_pci_device').value;
+        if (!pciId) { setStatus('warn', 'Select a PCI device first.'); return; }
+        if (IS_ON) { setStatus('error', 'Cannot add PCI passthrough while VM is powered on. Power off the VM first.'); return; }
+        setStatus('warn', 'Adding PCI passthrough device ' + pciId + '...');
+        try {
+            await callModify('add_pci_passthrough', {pci_id: pciId});
+            setStatus('success', 'PCI passthrough device added. Reloading...');
+            setTimeout(function(){ window.location.reload(); }, 1200);
+        } catch(e) {
+            setStatus('error', 'Add PCI passthrough failed: ' + e.message);
+        }
+    });
+
+    document.getElementById('addDiskBtn').addEventListener('click', async function() {
+        var sz = document.getElementById('add_disk_size').value;
+        var nm = document.getElementById('add_disk_name').value.trim();
+        var ds = document.getElementById('add_disk_datastore').value;
+        if (!sz || parseInt(sz, 10) < 1) { setStatus('warn', 'Enter a valid disk size.'); return; }
+        if (IS_ON) { setStatus('error', 'Cannot add disk while VM is powered on. Power off the VM first.'); return; }
+        setStatus('warn', 'Adding ' + sz + ' GB disk' + (ds ? ' on ' + ds : '') + '...');
+        try {
+            var p = {disk_size: sz};
+            if (nm) p.disk_name = nm;
+            if (ds) p.datastore = ds;
+            await callModify('add_disk', p);
+            setStatus('success', 'Disk added (' + sz + ' GB). Reloading...');
+            setTimeout(function(){ window.location.reload(); }, 1200);
+        } catch(e) { setStatus('error', 'Add disk failed: ' + e.message); }
+    });
+
+    // ------------------------------------------------------------------
+    //  Load port groups + datastores for add forms
+    // ------------------------------------------------------------------
+    (async function() {
+        try {
+            var r = await fetch('/api/v1/vms/' + encodeURIComponent(HOST) + '/create/options');
+            if (!r.ok) throw 0;
+            var d = await r.json();
+            var s = document.getElementById('add_nic_network');
+            s.innerHTML = '';
+            (d.networks || ['VM Network']).forEach(function(n) {
+                var o = document.createElement('option');
+                o.value = n; o.textContent = n; s.appendChild(o);
+            });
+            var ds = document.getElementById('add_disk_datastore');
+            ds.innerHTML = '<option value="">(VM directory — default)</option>';
+            (d.datastores || []).forEach(function(store) {
+                var name = typeof store === 'string' ? store : (store.name || store);
+                var o = document.createElement('option');
+                o.value = name; o.textContent = name; ds.appendChild(o);
+            });
+
+            var pci = document.getElementById('add_pci_device');
+            pci.innerHTML = '<option value="">Select PCI device...</option>';
+            (d.pci_devices || []).forEach(function(dev) {
+                var opt = document.createElement('option');
+                opt.value = dev.id;
+                opt.textContent = dev.label || dev.id;
+                pci.appendChild(opt);
+            });
+
+            var caps = d.capabilities || {};
+            if (caps.cpu_hotplug === false) document.getElementById('edit_cpu_hotplug').disabled = true;
+            if (caps.memory_hotplug === false) document.getElementById('edit_memory_hotplug').disabled = true;
+            if (caps.hardware_virtualization === false) document.getElementById('edit_hardware_virtualization').disabled = true;
+            if (caps.pci_passthrough === false) {
+                pci.disabled = true;
+                document.getElementById('addPciBtn').disabled = true;
+            }
+        } catch(e) {
+            document.getElementById('add_nic_network').innerHTML = '<option value="VM Network">VM Network</option>';
+            document.getElementById('add_disk_datastore').innerHTML = '<option value="">(VM directory — default)</option>';
+            document.getElementById('add_pci_device').innerHTML = '<option value="">PCI list unavailable</option>';
+        }
+    })();
+
+    // ------------------------------------------------------------------
+    //  SAVE (General tab: CPU, Memory, Guest OS, HW Version)
+    // ------------------------------------------------------------------
+    var saveBtn = document.getElementById('vmeSaveBtn');
+    saveBtn.addEventListener('click', async function() {
+        if (IS_ON) {
+            setStatus('error', 'VM is powered on. CPU, Memory, Guest OS, and HW Version cannot be changed while the VM is running. Power off the VM first.');
+            return;
+        }
+        var changes = [];
+        var cpuEl = document.getElementById('edit_cpu');
+        var osEl = document.getElementById('edit_guest_os');
+        var hwEl = document.getElementById('edit_hw_version');
+        var cpuHotplugEl = document.getElementById('edit_cpu_hotplug');
+        var memHotplugEl = document.getElementById('edit_memory_hotplug');
+        var hvEl = document.getElementById('edit_hardware_virtualization');
+
+        var newCpu = cpuEl.value;
+        var newMemMb = Math.round(parseFloat(memEl.value) * 1024);
+        var newOs = osEl.value;
+        var newHw = hwEl.value;
+
+        if (newCpu !== cpuEl.dataset.original)
+            changes.push({mod:'cpu', params:{cpu:newCpu}, label:'vCPU → ' + newCpu});
+        if (String(newMemMb) !== String(origMb))
+            changes.push({mod:'memory', params:{memory:newMemMb}, label:'Memory → ' + memEl.value + ' GB'});
+        if (newOs && newOs !== osEl.dataset.original)
+            changes.push({mod:'guest_os', params:{guest_os:newOs}, label:'Guest OS → ' + newOs});
+        if (newHw && newHw !== hwEl.dataset.original)
+            changes.push({mod:'hw_version', params:{hw_version:newHw}, label:'HW Version → vmx-' + newHw});
+        if (Boolean(hwData && hwData.cpu_hotplug) !== cpuHotplugEl.checked)
+            changes.push({mod:'cpu_hotplug', params:{enabled: cpuHotplugEl.checked}, label:'CPU Hotplug → ' + (cpuHotplugEl.checked ? 'Enabled' : 'Disabled')});
+        if (Boolean(hwData && hwData.memory_hotplug) !== memHotplugEl.checked)
+            changes.push({mod:'memory_hotplug', params:{enabled: memHotplugEl.checked}, label:'Memory Hotplug → ' + (memHotplugEl.checked ? 'Enabled' : 'Disabled')});
+        if (Boolean(hwData && hwData.hardware_virtualization) !== hvEl.checked)
+            changes.push({mod:'hardware_virtualization', params:{enabled: hvEl.checked}, label:'Hardware Virtualization → ' + (hvEl.checked ? 'Enabled' : 'Disabled')});
+
+        if (!changes.length) { setStatus('warn', 'No changes detected.'); return; }
+
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="vme-spinner"></span> Applying ' + changes.length + ' change(s)...';
+        setStatus('', '');
+        var ok = [], fail = [];
+        for (var i = 0; i < changes.length; i++) {
+            try {
+                setStatus('warn', 'Applying: ' + changes[i].label + ' (' + (i+1) + '/' + changes.length + ')...');
+                await callModify(changes[i].mod, changes[i].params);
+                ok.push(changes[i].label);
+            } catch(e) { fail.push(changes[i].label + ': ' + e.message); }
+        }
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">save</span> Save Changes';
+        if (fail.length) setStatus('error', 'Errors: ' + fail.join('; '));
+        else { setStatus('success', 'Applied: ' + ok.join(', ') + '. Reloading...'); setTimeout(function(){ window.location.reload(); }, 1500); }
+    });
+
+    // ------------------------------------------------------------------
+    //  DELETE VM — removes from datastore (VMX + VMDKs + folder)
+    // ------------------------------------------------------------------
+    document.getElementById('vmeDeleteBtn').addEventListener('click', async function() {
+        var ok = await vmeConfirm({
+            title: 'Delete VM — {{ original.name|escapejs }}',
+            message: 'This will <strong>permanently destroy</strong> the virtual machine <strong>{{ original.name|escapejs }}</strong>, ' +
+                'including all virtual disks and files on the datastore.<br><br>' +
+                '<span style="color:#dc2626;font-weight:700">This action cannot be undone.</span>',
+            icon: 'delete',
+            confirmLabel: 'Delete Forever',
+            confirmClass: 'danger'
+        });
+        if (!ok) return;
+        var btn = document.getElementById('vmeDeleteBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="vme-spinner"></span> Deleting...';
+        setStatus('warn', 'Destroying VM and deleting all files from datastore...');
+        try {
+            var r = await fetch('/api/v1/vms/' + encodeURIComponent(HOST) + '/' + encodeURIComponent(VMID) + '/delete', {
+                method: 'DELETE',
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            });
+            var d = await r.json();
+            if (!r.ok || d.status === 'error') throw new Error(d.message || 'Delete failed');
+            setStatus('success', 'VM deleted. Redirecting...');
+            setTimeout(function(){ window.location.href = '/admin/manager/virtualmachine/'; }, 1500);
+        } catch(e) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">delete_forever</span> Delete VM';
+            setStatus('error', 'Delete failed: ' + e.message);
+        }
+    });
+
+    // ------------------------------------------------------------------
+    //  INIT — fetch live hardware from ESXi
+    // ------------------------------------------------------------------
+    fetchHardware();
+
+    // ------------------------------------------------------------------
+    //  ISO MOUNT / EJECT
+    // ------------------------------------------------------------------
+    var isoPathInput   = document.getElementById('vme_iso_path');
+    var browseIsoBtn   = document.getElementById('vmeBrowseIsoBtn');
+    var mountIsoBtn    = document.getElementById('vmeMountIsoBtn');
+    var ejectIsoBtn    = document.getElementById('vmeEjectIsoBtn');
+
+    function renderCdromState(cdrom) {
+        if (cdrom && cdrom.mounted) {
+            isoPathInput.value = cdrom.iso_path;
+            isoPathInput.placeholder = '';
+            ejectIsoBtn.style.display = '';
+            mountIsoBtn.style.display = 'none';
+            browseIsoBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">folder_open</span> Change';
+        } else {
+            isoPathInput.value = '';
+            isoPathInput.placeholder = 'No ISO mounted — click Browse to pick one';
+            ejectIsoBtn.style.display = 'none';
+            mountIsoBtn.style.display = '';
+            mountIsoBtn.disabled = true;
+            browseIsoBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">folder_open</span> Browse';
+        }
+    }
+
+    mountIsoBtn.addEventListener('click', async function() {
+        var path = isoPathInput.value.trim();
+        if (!path) { setStatus('warn', 'Browse and select an ISO first.'); return; }
+        mountIsoBtn.disabled = true;
+        mountIsoBtn.innerHTML = '<span class="vme-spinner"></span> Mounting...';
+        setStatus('warn', 'Mounting ISO: ' + path + ' ...');
+        try {
+            await callModify('mount_iso', {iso_path: path});
+            setStatus('success', 'ISO mounted. Reloading...');
+            setTimeout(function(){ window.location.reload(); }, 1200);
+        } catch(e) {
+            mountIsoBtn.disabled = false;
+            mountIsoBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">album</span> Mount';
+            setStatus('error', 'Mount ISO failed: ' + e.message);
+        }
+    });
+
+    ejectIsoBtn.addEventListener('click', async function() {
+        var ok = await vmeConfirm({
+            title: 'Eject ISO',
+            message: 'Remove the mounted ISO from the virtual CD-ROM drive?<br><br>The ISO file on the datastore will not be deleted.',
+            icon: 'warning',
+            confirmLabel: 'Eject',
+            confirmClass: 'primary'
+        });
+        if (!ok) return;
+        ejectIsoBtn.disabled = true;
+        ejectIsoBtn.innerHTML = '<span class="vme-spinner" style="border-color:rgba(0,0,0,.15);border-top-color:#334155"></span> Ejecting...';
+        setStatus('warn', 'Ejecting ISO...');
+        try {
+            await callModify('eject_iso', {});
+            setStatus('success', 'ISO ejected. Reloading...');
+            setTimeout(function(){ window.location.reload(); }, 1200);
+        } catch(e) {
+            ejectIsoBtn.disabled = false;
+            ejectIsoBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">eject</span> Eject ISO';
+            setStatus('error', 'Eject ISO failed: ' + e.message);
+        }
+    });
+
+    // ── ISO Browser Modal ──
+    var isoModal      = document.getElementById('vmeIsoModal');
+    var isoFileList   = document.getElementById('vmeIsoFileList');
+    var isoBreadcrumb = document.getElementById('vmeIsoBreadcrumb');
+    var isoSelectBtn  = document.getElementById('vmeIsoModalSelect');
+    var isoSelectedPath = '';
+
+    function openVmeIsoModal() {
+        isoSelectedPath = '';
+        isoSelectBtn.disabled = true;
+        isoModal.classList.add('open');
+        vmeIsoNavigate('/vmfs/volumes');
+    }
+
+    function closeVmeIsoModal() {
+        isoModal.classList.remove('open');
+    }
+
+    function renderVmeIsoBreadcrumb(path) {
+        var parts = path.replace('/vmfs/volumes', '').split('/').filter(Boolean);
+        var html = '<a data-path="/vmfs/volumes">/vmfs/volumes</a>';
+        var accumulated = '/vmfs/volumes';
+        parts.forEach(function(p) {
+            accumulated += '/' + p;
+            html += '<span class="sep">/</span><a data-path="' + accumulated + '">' + p + '</a>';
+        });
+        isoBreadcrumb.innerHTML = html;
+        isoBreadcrumb.querySelectorAll('a').forEach(function(a) {
+            a.addEventListener('click', function() { vmeIsoNavigate(a.dataset.path); });
+        });
+    }
+
+    async function vmeIsoNavigate(path) {
+        isoSelectedPath = '';
+        isoSelectBtn.disabled = true;
+        renderVmeIsoBreadcrumb(path);
+        isoFileList.innerHTML =
+            '<div style="display:flex;align-items:center;justify-content:center;padding:40px;gap:10px;color:#64748b;font-size:13px">' +
+            '<span class="vme-spinner" style="border-color:rgba(100,116,139,.3);border-top-color:#64748b;width:18px;height:18px"></span> Loading...</div>';
+        try {
+            var r = await fetch('/api/v1/storage/' + encodeURIComponent(HOST) + '/explorer/browse?path=' + encodeURIComponent(path));
+            if (!r.ok) throw new Error('Failed to load directory');
+            var data = await r.json();
+            if (data.error) throw new Error(data.error);
+
+            var entries = (data.entries || [])
+                .filter(function(e) { return e.is_dir || e.name.toLowerCase().endsWith('.iso'); })
+                .sort(function(a, b) {
+                    if (a.is_dir && !b.is_dir) return -1;
+                    if (!a.is_dir && b.is_dir) return 1;
+                    return a.name.localeCompare(b.name);
+                });
+
+            if (!entries.length) {
+                isoFileList.innerHTML = '<div class="vme-iso-empty">No folders or ISO files found here.</div>';
+                return;
+            }
+
+            isoFileList.innerHTML = '';
+            entries.forEach(function(entry) {
+                var div = document.createElement('div');
+                var isIso = !entry.is_dir && entry.name.toLowerCase().endsWith('.iso');
+                div.className = 'vme-iso-file-item' + (entry.is_dir ? ' is-dir' : '') + (isIso ? ' is-iso' : '');
+                var icon = entry.is_dir ? 'folder' : 'album';
+                div.innerHTML =
+                    '<span class="material-symbols-outlined fi-icon">' + icon + '</span>' +
+                    '<span class="fi-name">' + entry.name + '</span>' +
+                    (entry.size ? '<span class="fi-size">' + entry.size + '</span>' : '');
+
+                if (entry.is_dir) {
+                    div.addEventListener('click', function() { vmeIsoNavigate(entry.path); });
+                } else if (isIso) {
+                    div.addEventListener('click', function() {
+                        isoFileList.querySelectorAll('.vme-iso-file-item').forEach(function(el) { el.classList.remove('selected'); });
+                        div.classList.add('selected');
+                        isoSelectedPath = entry.path;
+                        isoSelectBtn.disabled = false;
+                    });
+                    div.addEventListener('dblclick', function() {
+                        isoSelectedPath = entry.path;
+                        confirmVmeIsoSelection();
+                    });
+                }
+                isoFileList.appendChild(div);
+            });
+        } catch(err) {
+            isoFileList.innerHTML = '<div class="vme-iso-empty" style="color:#dc2626">Error: ' + err.message + '</div>';
+        }
+    }
+
+    function confirmVmeIsoSelection() {
+        if (isoSelectedPath) {
+            isoPathInput.value = isoSelectedPath;
+            mountIsoBtn.disabled = false;
+            mountIsoBtn.style.display = '';
+            ejectIsoBtn.style.display = 'none';
+        }
+        closeVmeIsoModal();
+    }
+
+    browseIsoBtn.addEventListener('click', openVmeIsoModal);
+    document.getElementById('vmeIsoModalClose').addEventListener('click', closeVmeIsoModal);
+    document.getElementById('vmeIsoModalCancel').addEventListener('click', closeVmeIsoModal);
+    isoSelectBtn.addEventListener('click', confirmVmeIsoSelection);
+    isoModal.addEventListener('click', function(e) { if (e.target === isoModal) closeVmeIsoModal(); });
+})();
+</script>
+{% endif %}
+{% endblock %}

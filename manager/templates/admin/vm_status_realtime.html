@@ -1,0 +1,354 @@
+{% extends "admin/base_site.html" %}
+{% load admin_urls static admin_list %}
+
+{% block title %}VM Status - Real-Time Updates{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Virtual Machine Status Dashboard</h1>
+    <p style="color: #666; margin-bottom: 20px;">
+        🟢 Live updates enabled via WebSocket - Changes appear automatically
+    </p>
+    
+    <div class="vm-status-container">
+        {% for vm in vms %}
+        <div class="vm-card" data-vm-id="{{ vm.id }}">
+            <div class="vm-header">
+                <h2>{{ vm.name }}</h2>
+                <span class="vm-id">({{ vm.vmid }})</span>
+            </div>
+            
+            <div class="vm-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Host</label>
+                        <span>{{ vm.host.name }}</span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <label>Power State</label>
+                        <span class="vm-power-state status-{{ vm.power_state|lower }}">
+                            {{ vm.power_state|title }}
+                        </span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <label>Status</label>
+                        <span class="vm-status-badge status-{{ vm.overall_status|lower }}">
+                            {{ vm.overall_status|upper }}
+                        </span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <label>CPU Usage</label>
+                        <span class="vm-cpu-usage">{{ vm.cpu_usage_mhz }} MHz</span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <label>Memory Usage</label>
+                        <span class="vm-memory-usage">{{ vm.mem_active_mb|default:"0" }} MB</span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <label>IP Address</label>
+                        <span>{{ vm.ip_address|default:"N/A" }}</span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <label>DNS Name</label>
+                        <span>{{ vm.dns_name|default:"N/A" }}</span>
+                    </div>
+                    
+                    <div class="info-item">
+                        <label>{% if vm.host.hypervisor_type == 'proxmox_ve' %}KVM Agent{% else %}Tools Status{% endif %}</label>
+                        <span class="vm-tools-status">
+                            {% if vm.host.hypervisor_type == 'proxmox_ve' %}
+                                {{ vm.tools_running|default:"unknown" }}
+                            {% else %}
+                                {{ vm.tools_status|default:"N/A" }}
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="vm-footer">
+                    <small class="vm-update-time">Updated: {{ vm.updated_at|date:"Y-m-d H:i:s" }}</small>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <p>No virtual machines found.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+    .vm-status-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        gap: 20px;
+        padding: 20px 0;
+    }
+    
+    .vm-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #fff;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: box-shadow 0.3s ease;
+    }
+    
+    .vm-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .vm-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px;
+        border-bottom: 1px solid #ddd;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .vm-header h2 {
+        margin: 0;
+        font-size: 1.3rem;
+        font-weight: 500;
+    }
+    
+    .vm-id {
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+    
+    .vm-body {
+        padding: 15px;
+    }
+    
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 15px;
+    }
+    
+    .info-item {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .info-item label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #666;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }
+    
+    .info-item span {
+        font-size: 0.95rem;
+        color: #333;
+        word-break: break-word;
+    }
+    
+    .vm-power-state {
+        font-weight: bold;
+        padding: 4px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        width: fit-content;
+    }
+    
+    .vm-power-state.status-poweredon {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .vm-power-state.status-poweredoff {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .vm-power-state.status-suspended {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .vm-status-badge {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        width: fit-content;
+    }
+    
+    .vm-status-badge.status-green {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .vm-status-badge.status-yellow {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .vm-status-badge.status-red {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .vm-status-badge.status-gray {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+    
+    .vm-tools-status {
+        font-size: 0.9rem;
+    }
+    
+    .vm-footer {
+        border-top: 1px solid #eee;
+        padding-top: 10px;
+        margin-top: 10px;
+    }
+    
+    .vm-update-time {
+        color: #999;
+        font-style: italic;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #666;
+    }
+    
+    @media (max-width: 768px) {
+        .vm-status-container {
+            grid-template-columns: 1fr;
+        }
+        
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<!-- Django Channels WebSocket - Real-time VM Updates -->
+<script>
+(function() {
+    // Determine the WebSocket protocol (ws or wss)
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    const wsUrl = `${protocol}//${host}/ws/vms/updates/`;
+    
+    let socket = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    const reconnectDelay = 3000; // 3 seconds
+    
+    function connectWebSocket() {
+        console.log('[WebSocket] Attempting connection to:', wsUrl);
+        
+        socket = new WebSocket(wsUrl);
+        
+        socket.onopen = function(event) {
+            console.log('[WebSocket] Connected successfully');
+            reconnectAttempts = 0;
+            socket.send(JSON.stringify({ type: 'ping' }));
+        };
+        
+        socket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'vm_update') {
+                console.log('[WebSocket] VM Update:', data);
+                updateVMStatus(data);
+            } else if (data.type === 'pong') {
+                console.log('[WebSocket] Connection alive');
+            }
+        };
+        
+        socket.onerror = function(error) {
+            console.error('[WebSocket] Error:', error);
+        };
+        
+        socket.onclose = function(event) {
+            console.log('[WebSocket] Disconnected. Code:', event.code);
+            
+            if (reconnectAttempts < maxReconnectAttempts) {
+                reconnectAttempts++;
+                const delay = reconnectDelay * reconnectAttempts;
+                console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+                setTimeout(connectWebSocket, delay);
+            } else {
+                console.error('[WebSocket] Max reconnection attempts reached');
+            }
+        };
+    }
+    
+    function updateVMStatus(data) {
+        // Update the VM card with the new data
+        const vmElement = document.querySelector(`[data-vm-id="${data.vm_id}"]`);
+        if (vmElement) {
+            // Update power state
+            const powerStateElement = vmElement.querySelector('.vm-power-state');
+            if (powerStateElement) {
+                const powerState = data.power_state.toLowerCase();
+                powerStateElement.textContent = data.power_state;
+                powerStateElement.className = `vm-power-state status-${powerState}`;
+            }
+            
+            // Update overall status badge
+            const statusElement = vmElement.querySelector('.vm-status-badge');
+            if (statusElement) {
+                const status = data.overall_status.toLowerCase();
+                statusElement.textContent = data.overall_status.toUpperCase();
+                statusElement.className = `vm-status-badge status-${status}`;
+            }
+            
+            // Update CPU usage
+            const cpuElement = vmElement.querySelector('.vm-cpu-usage');
+            if (cpuElement) {
+                cpuElement.textContent = data.cpu_usage_mhz + ' MHz';
+            }
+            
+            // Update memory usage
+            const memElement = vmElement.querySelector('.vm-memory-usage');
+            if (memElement) {
+                memElement.textContent = data.memory_mb + ' MB';
+            }
+            
+            // Update timestamp
+            const timeElement = vmElement.querySelector('.vm-update-time');
+            if (timeElement) {
+                timeElement.textContent = 'Updated: ' + data.timestamp;
+            }
+            
+            // Flash animation to indicate update
+            vmElement.style.backgroundColor = '#ffffcc';
+            setTimeout(() => {
+                vmElement.style.backgroundColor = '#fff';
+                vmElement.style.transition = 'background-color 0.5s ease';
+            }, 100);
+        }
+    }
+    
+    // Connect when DOM is ready
+    document.addEventListener('DOMContentLoaded', connectWebSocket);
+    
+    // Ping server every 30 seconds to keep connection alive
+    setInterval(function() {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'ping' }));
+        }
+    }, 30000);
+})();
+</script>
+{% endblock %}

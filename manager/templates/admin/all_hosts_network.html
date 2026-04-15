@@ -1,0 +1,195 @@
+{% extends 'admin/base_site.html' %}
+
+{% block title %}{{ title }} - Jupiter Admin{% endblock %}
+
+{% block content %}
+<style>
+    /* ── Unfold-style Tab Bar ── */
+    .net-tab-bar {
+        display: inline-flex; flex-wrap: wrap; gap: 4px;
+        background: var(--color-base-100, #f4f5f7); padding: 4px; border-radius: 8px;
+        margin-bottom: 0; font-weight: 500; font-size: 13px;
+    }
+    .dark .net-tab-bar { background: rgba(255,255,255,.06); }
+    .net-tab-bar a {
+        display: flex; align-items: center; gap: 6px;
+        padding: 5px 12px; border-radius: 8px; cursor: pointer;
+        color: var(--color-font-important, #334155); text-decoration: none;
+        transition: background .15s;
+    }
+    .net-tab-bar a:hover { background: rgba(55,65,81,.06); }
+    .dark .net-tab-bar a:hover { background: rgba(255,255,255,.06); }
+    .net-tab-bar a.active {
+        background: white; box-shadow: 0 1px 2px rgba(0,0,0,.08);
+    }
+    .dark .net-tab-bar a.active { background: var(--color-base-700, #374151); }
+
+    /* ── Card Container ── */
+    .net-card {
+        background: var(--color-base-100, #fff); border: 1px solid var(--color-base-200, #e5e7eb);
+        border-radius: 12px; overflow: hidden; margin-top: 0;
+    }
+    .dark .net-card { background: var(--color-base-900, #111827); border-color: var(--color-base-800, #1f2937); }
+
+    .net-card-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 16px 20px; border-bottom: 1px solid var(--color-base-200, #e5e7eb);
+    }
+    .dark .net-card-header { border-color: var(--color-base-800, #1f2937); }
+    .net-card-header h2 { font-size: 15px; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 8px; }
+    .net-card-body { padding: 20px; }
+
+    .refresh-btn {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 6px 14px; border-radius: 6px; border: 1px solid var(--color-base-200, #d1d5db);
+        background: transparent; cursor: pointer; font-size: 12px; font-weight: 600;
+        color: var(--color-font-important, #374151); transition: all .15s;
+    }
+    .refresh-btn:hover { background: var(--color-base-200, #f3f4f6); }
+    .collapse-btn {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 6px 10px; border-radius: 6px; border: 1px solid var(--color-base-200, #d1d5db);
+        background: transparent; cursor: pointer; font-size: 12px; font-weight: 600;
+        color: var(--color-font-important, #374151); transition: all .15s;
+    }
+    .collapse-btn:hover { background: var(--color-base-200, #f3f4f6); }
+
+    /* ── Section titles inside a tab ── */
+    .net-section-title {
+        font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+        color: var(--color-font-subtle, #6b7280); margin: 20px 0 10px; padding-bottom: 6px;
+        border-bottom: 2px solid var(--color-base-200, #e5e7eb);
+    }
+    .net-section-title:first-child { margin-top: 0; }
+
+    /* ── Tables ── */
+    .net-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    .net-table thead th {
+        padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .05em;
+        color: var(--color-font-subtle, #6b7280);
+        background: var(--color-base-100, #f9fafb);
+        border-bottom: 1px solid var(--color-base-200, #e5e7eb);
+    }
+    .dark .net-table thead th { background: transparent; border-color: var(--color-base-800, #1f2937); }
+    .net-table tbody tr { border-bottom: 1px solid var(--color-base-200, #f3f4f6); transition: background .12s; }
+    .dark .net-table tbody tr { border-color: var(--color-base-800, #1f2937); }
+    .net-table tbody tr:hover { background: var(--color-base-100, #f9fafb); }
+    .dark .net-table tbody tr:hover { background: rgba(255,255,255,.03); }
+    .net-table td { padding: 10px 14px; font-size: 13px; }
+    .name-col { font-weight: 600; color: var(--color-font-important, #1e293b); }
+
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+    .badge-up { background: #d1fae5; color: #065f46; }
+    .badge-down { background: #fee2e2; color: #991b1b; }
+    .badge-info { background: #dbeafe; color: #1e40af; }
+    .mono { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; }
+    .loading { text-align: center; padding: 40px; color: var(--color-font-subtle, #9ca3af); }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--color-base-200, #e5e7eb); border-top-color: #06b6d4; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-banner { background: #fef2f2; color: #991b1b; padding: 12px 16px; border-radius: 8px; border: 1px solid #fecaca; font-size: 13px; }
+    .empty-state { text-align: center; padding: 30px; color: var(--color-font-subtle, #94a3b8); font-size: 13px; }
+</style>
+
+<div class="container mx-auto p-4 lg:px-8" x-data="networkPage()">
+    <!-- Page Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <h1 style="font-size:20px;font-weight:700;display:flex;align-items:center;gap:8px;margin:0;">
+            <span class="material-symbols-outlined">lan</span> Network Management
+        </h1>
+        <a href="/admin/manager/host/" class="refresh-btn" style="text-decoration:none;">
+            <span class="material-symbols-outlined" style="font-size:16px;">arrow_back</span> Back to Hosts
+        </a>
+    </div>
+
+    <!-- Tab Navigation (one tab per host) -->
+    <template x-if="hosts.length === 0">
+        <div class="empty-state" style="padding:60px;">No active hosts found.</div>
+    </template>
+
+    <template x-if="hosts.length > 0">
+        <div>
+            <nav class="net-tab-bar">
+                <template x-for="h in hosts" :key="h.pk">
+                    <a @click="activeTab = h.pk"
+                       :class="activeTab === h.pk && 'active'"
+                       x-text="h.name + ' (' + h.ip_address + ')'"></a>
+                </template>
+            </nav>
+
+            <!-- Tab Panels -->
+            <div class="net-card" style="margin-top:12px;">
+                <template x-for="h in hosts" :key="'panel-'+h.pk">
+                    <div x-show="activeTab === h.pk" x-cloak>
+                        <div class="net-card-header">
+                            <h2>
+                                <span class="material-symbols-outlined" style="font-size:20px;color:#06b6d4;">dns</span>
+                                <span x-text="h.name"></span>
+                            </h2>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <button class="collapse-btn" @click="toggleHostCollapse(h.pk)">
+                                    <span class="material-symbols-outlined" style="font-size:14px;" x-text="isCollapsed(h.pk) ? 'expand_more' : 'expand_less'"></span>
+                                    <span x-text="isCollapsed(h.pk) ? 'Expand' : 'Collapse'"></span>
+                                </button>
+                                <button class="refresh-btn" @click="loadHost(h)">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">refresh</span> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div class="net-card-body" :id="'host-net-'+h.pk" x-show="!isCollapsed(h.pk)" x-cloak>
+                            <div class="loading"><span class="spinner"></span> Loading…</div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+</div>
+
+<script>
+function networkPage() {
+    const hosts = {{ hosts_json|safe }};
+    return {
+        hosts,
+        activeTab: hosts.length ? hosts[0].pk : null,
+        collapsedHosts: {},
+        init() { this.hosts.forEach(h => this.loadHost(h)); },
+        isCollapsed(pk) { return !!this.collapsedHosts[pk]; },
+        toggleHostCollapse(pk) { this.collapsedHosts[pk] = !this.collapsedHosts[pk]; },
+        loadHost(h) {
+            const el = document.getElementById('host-net-'+h.pk);
+            if (!el) return;
+            el.innerHTML = '<div class="loading"><span class="spinner"></span> Fetching from '+this.esc(h.name)+'…</div>';
+            fetch('/api/v1/network/'+encodeURIComponent(h.name)+'/inventory')
+                .then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+                .then(d => {
+                    el.innerHTML =
+                        '<div class="net-section-title">Virtual Switches</div>' + this.tblVS(d.vswitches)
+                      + '<div class="net-section-title">Port Groups</div>'      + this.tblPG(d.portgroups)
+                      + this.tblNICs(d.physical_nics);
+                })
+                .catch(e => { el.innerHTML = '<div class="error-banner">Failed to load: '+this.esc(e.message)+'</div>'; });
+        },
+        esc(t) { const d = document.createElement('div'); d.textContent = t||''; return d.innerHTML; },
+        tblVS(vs) {
+            if (!vs||!vs.length) return '<div class="empty-state">No vSwitches found</div>';
+            return '<table class="net-table"><thead><tr><th>vSwitch Name</th><th>Ports</th><th>MTU</th><th>Uplinks</th></tr></thead><tbody>'
+                + vs.map(v => '<tr><td class="name-col">'+this.esc(v.name)+'</td><td>'+this.esc(String(v.num_ports||'--'))+'</td><td>'+this.esc(String(v.mtu||'--'))+'</td><td>'+this.esc((v.uplinks||[]).join(', ')||'--')+'</td></tr>').join('')
+                + '</tbody></table>';
+        },
+        tblPG(pgs) {
+            if (!pgs||!pgs.length) return '<div class="empty-state">No Port Groups found</div>';
+            return '<table class="net-table"><thead><tr><th>Port Group</th><th>vSwitch</th><th>VLAN</th><th>MTU</th></tr></thead><tbody>'
+                + pgs.map(p => '<tr><td class="name-col">'+this.esc(p.name)+'</td><td>'+this.esc(p.vswitch||'--')+'</td><td><span class="badge badge-info">'+this.esc(String(p.vlan||'0'))+'</span></td><td>'+this.esc(String(p.mtu||'--'))+'</td></tr>').join('')
+                + '</tbody></table>';
+        },
+        tblNICs(nics) {
+            if (!nics||!nics.length) return '';
+            return '<div class="net-section-title">Physical NICs</div><table class="net-table"><thead><tr><th>Interface</th><th>Link</th><th>Speed</th><th>MAC</th></tr></thead><tbody>'
+                + nics.map(n => { const up = (n.link_status||'').toLowerCase().includes('up'); return '<tr><td class="name-col">'+this.esc(n.interface)+'</td><td><span class="badge '+(up?'badge-up':'badge-down')+'">'+this.esc(n.link_status||'--')+'</span></td><td>'+this.esc(n.speed||'--')+'</td><td class="mono">'+this.esc(n.mac||'--')+'</td></tr>'; }).join('')
+                + '</tbody></table>';
+        }
+    };
+}
+</script>
+{% endblock %}

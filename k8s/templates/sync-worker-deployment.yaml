@@ -1,0 +1,54 @@
+{{- if .Values.syncWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nebula.fullname" . }}-sync-worker
+  namespace: {{ include "nebula.namespace" . }}
+  labels:
+    {{- include "nebula.labels" . | nindent 4 }}
+    app.kubernetes.io/component: sync-worker
+spec:
+  replicas: {{ .Values.syncWorker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "nebula.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: sync-worker
+  template:
+    metadata:
+      labels:
+        {{- include "nebula.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: sync-worker
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "nebula.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: sync-worker
+          image: "{{ .Values.syncWorker.image.repository }}:{{ .Values.syncWorker.image.tag }}"
+          imagePullPolicy: {{ .Values.syncWorker.image.pullPolicy }}
+          envFrom:
+            - secretRef:
+                name: {{ include "nebula.secretName" . }}
+          resources:
+            {{- toYaml .Values.syncWorker.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

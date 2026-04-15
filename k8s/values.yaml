@@ -1,0 +1,144 @@
+namespaceOverride: ""
+
+nameOverride: ""
+fullnameOverride: ""
+
+namespace:
+  create: true
+  name: nebula
+
+imagePullSecrets:
+  - harbor-regcred
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+app:
+  debug: false
+  allowedHosts: "nebula.local,localhost,127.0.0.1,0.0.0.0"
+  hypervisorPluginModules: ""
+
+web:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: build.home/home/nebula_web
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  readinessProbe:
+    initialDelaySeconds: 20
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+  livenessProbe:
+    initialDelaySeconds: 40
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 6
+
+syncWorker:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: build.home/home/nebula_sync_worker
+    tag: latest
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+database:
+  enabled: true
+  image:
+    repository: build.home/home/nebula_postgres
+    tag: latest
+    pullPolicy: Always
+  port: 5432
+  auth:
+    database: mydatabase
+    username: admin
+  persistence:
+    enabled: true
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+    storageClassName: ""
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+externalDatabase:
+  host: ""
+  port: 5432
+
+redis:
+  enabled: true
+  image:
+    repository: build.home/home/nebula_redis
+    tag: latest
+    pullPolicy: Always
+  port: 6379
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+externalRedis:
+  host: ""
+  port: 6379
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations: {}
+  hosts:
+    - host: nebula.prod.home
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+secrets:
+  create: true
+  existingSecret: ""
+  name: ""
+  dbPassword: change-me-db-password
+  djangoSecretKey: change-me-to-a-random-secret-in-production
+  djangoSuperuserUsername: admin
+  djangoSuperuserPassword: change-me-admin-password
+  djangoSuperuserEmail: admin@example.com
+  sshPublicKeyEncryptionKey: ""
+  sshPrivateKeyB64: ""
+  sshKeyContainerPath: /run/secrets/ssh_key
+  sshKeyPassphrase: ""
+
+podAnnotations: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

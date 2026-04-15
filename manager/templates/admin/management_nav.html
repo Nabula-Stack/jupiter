@@ -1,0 +1,57 @@
+<!-- Management Navigation Bar -->
+<div style="background: linear-gradient(135deg, #417690 0%, #2c5aa0 100%); padding: 0; margin: -20px -20px 20px -20px; border-radius: 8px 8px 0 0;">
+    <div style="display: flex; flex-wrap: wrap; padding: 10px 20px; gap: 5px; align-items: center;">
+        <span style="color: white; font-weight: bold; margin-right: 15px; padding: 5px 10px; border-right: 1px solid rgba(255,255,255,0.3);">
+            <i class="fas fa-server"></i> {{ host.name }} Management
+        </span>
+        
+        <a href="/admin/manager/host/{{ host.pk }}/info/" 
+           style="padding: 8px 12px; border-radius: 4px; color: white; text-decoration: none; font-size: 13px; 
+           {% if 'info' in request.path %}background: rgba(255,255,255,0.3); font-weight: bold;{% else %}background: rgba(255,255,255,0.1);{% endif %}"
+           title="Host Information">
+            <i class="fas fa-info-circle"></i> Info
+        </a>
+        
+        <a href="/admin/manager/host/{{ host.pk }}/dashboard/" 
+           style="padding: 8px 12px; border-radius: 4px; color: white; text-decoration: none; font-size: 13px;
+           {% if 'dashboard' in request.path %}background: rgba(255,255,255,0.3); font-weight: bold;{% else %}background: rgba(255,255,255,0.1);{% endif %}"
+           title="Management Dashboard">
+            <i class="fas fa-tachometer-alt"></i> Dashboard
+        </a>
+        
+        <a href="/admin/manager/host/{{ host.pk }}/vms/" 
+           style="padding: 8px 12px; border-radius: 4px; color: white; text-decoration: none; font-size: 13px;
+           {% if 'vms' in request.path %}background: rgba(255,255,255,0.3); font-weight: bold;{% else %}background: rgba(255,255,255,0.1);{% endif %}"
+           title="Virtual Machines">
+            <i class="fas fa-cube"></i> VMs
+        </a>
+        
+        <a href="/admin/manager/host/{{ host.pk }}/network/" 
+           style="padding: 8px 12px; border-radius: 4px; color: white; text-decoration: none; font-size: 13px;
+           {% if 'network' in request.path %}background: rgba(255,255,255,0.3); font-weight: bold;{% else %}background: rgba(255,255,255,0.1);{% endif %}"
+           title="Network Configuration">
+            <i class="fas fa-network-wired"></i> Network
+        </a>
+        
+        <a href="/admin/manager/host/{{ host.pk }}/storage/" 
+           style="padding: 8px 12px; border-radius: 4px; color: white; text-decoration: none; font-size: 13px;
+           {% if 'storage' in request.path %}background: rgba(255,255,255,0.3); font-weight: bold;{% else %}background: rgba(255,255,255,0.1);{% endif %}"
+           title="Storage & Datastores">
+            <i class="fas fa-hdd"></i> Storage
+        </a>
+        
+        <a href="/admin/manager/host/{{ host.pk }}/services/" 
+           style="padding: 8px 12px; border-radius: 4px; color: white; text-decoration: none; font-size: 13px;
+           {% if 'services' in request.path %}background: rgba(255,255,255,0.3); font-weight: bold;{% else %}background: rgba(255,255,255,0.1);{% endif %}"
+           title="System Services">
+            <i class="fas fa-cog"></i> Services
+        </a>
+        
+        <a href="/admin/manager/host/{{ host.pk }}/maintenance/" 
+           style="padding: 8px 12px; border-radius: 4px; color: white; text-decoration: none; font-size: 13px;
+           {% if 'maintenance' in request.path %}background: rgba(255,255,255,0.3); font-weight: bold;{% else %}background: rgba(255,255,255,0.1);{% endif %}"
+           title="Maintenance Mode">
+            <i class="fas fa-wrench"></i> Maintenance
+        </a>
+    </div>
+</div>

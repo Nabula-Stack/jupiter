@@ -1,0 +1,203 @@
+{% extends 'admin/base_site.html' %}
+
+{% block title %}{{ title }} - Jupiter Admin{% endblock %}
+
+{% block content %}
+<style>
+    /* ── Unfold-style Tab Bar ── */
+    .stor-tab-bar {
+        display: inline-flex; flex-wrap: wrap; gap: 4px;
+        background: var(--color-base-100, #f4f5f7); padding: 4px; border-radius: 8px;
+        margin-bottom: 0; font-weight: 500; font-size: 13px;
+    }
+    .dark .stor-tab-bar { background: rgba(255,255,255,.06); }
+    .stor-tab-bar a {
+        display: flex; align-items: center; gap: 6px;
+        padding: 5px 12px; border-radius: 8px; cursor: pointer;
+        color: var(--color-font-important, #334155); text-decoration: none;
+        transition: background .15s;
+    }
+    .stor-tab-bar a:hover { background: rgba(55,65,81,.06); }
+    .dark .stor-tab-bar a:hover { background: rgba(255,255,255,.06); }
+    .stor-tab-bar a.active {
+        background: white; box-shadow: 0 1px 2px rgba(0,0,0,.08);
+    }
+    .dark .stor-tab-bar a.active { background: var(--color-base-700, #374151); }
+
+    /* ── Card Container ── */
+    .stor-card {
+        background: var(--color-base-100, #fff); border: 1px solid var(--color-base-200, #e5e7eb);
+        border-radius: 12px; overflow: hidden; margin-top: 0;
+    }
+    .dark .stor-card { background: var(--color-base-900, #111827); border-color: var(--color-base-800, #1f2937); }
+
+    .stor-card-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 16px 20px; border-bottom: 1px solid var(--color-base-200, #e5e7eb);
+    }
+    .dark .stor-card-header { border-color: var(--color-base-800, #1f2937); }
+    .stor-card-header h2 { font-size: 15px; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 8px; }
+    .stor-card-body { padding: 20px; }
+
+    .refresh-btn {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 6px 14px; border-radius: 6px; border: 1px solid var(--color-base-200, #d1d5db);
+        background: transparent; cursor: pointer; font-size: 12px; font-weight: 600;
+        color: var(--color-font-important, #374151); transition: all .15s;
+    }
+    .refresh-btn:hover { background: var(--color-base-200, #f3f4f6); }
+    .collapse-btn {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 6px 10px; border-radius: 6px; border: 1px solid var(--color-base-200, #d1d5db);
+        background: transparent; cursor: pointer; font-size: 12px; font-weight: 600;
+        color: var(--color-font-important, #374151); transition: all .15s;
+    }
+    .collapse-btn:hover { background: var(--color-base-200, #f3f4f6); }
+
+    /* ── Section titles ── */
+    .stor-section-title {
+        font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+        color: var(--color-font-subtle, #6b7280); margin: 20px 0 10px; padding-bottom: 6px;
+        border-bottom: 2px solid var(--color-base-200, #e5e7eb);
+    }
+    .stor-section-title:first-child { margin-top: 0; }
+
+    /* ── Tables ── */
+    .ds-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    .ds-table thead th {
+        padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .05em;
+        color: var(--color-font-subtle, #6b7280);
+        background: var(--color-base-100, #f9fafb);
+        border-bottom: 1px solid var(--color-base-200, #e5e7eb);
+    }
+    .dark .ds-table thead th { background: transparent; border-color: var(--color-base-800, #1f2937); }
+    .ds-table tbody tr { border-bottom: 1px solid var(--color-base-200, #f3f4f6); transition: background .12s; }
+    .dark .ds-table tbody tr { border-color: var(--color-base-800, #1f2937); }
+    .ds-table tbody tr:hover { background: var(--color-base-100, #f9fafb); }
+    .dark .ds-table tbody tr:hover { background: rgba(255,255,255,.03); }
+    .ds-table td { padding: 10px 14px; font-size: 13px; }
+    .name-col { font-weight: 600; color: var(--color-font-important, #1e293b); }
+
+    .badge-type { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; background: #ede9fe; color: #6d28d9; }
+    .usage-bar-bg { background: var(--color-base-200, #e5e7eb); border-radius: 4px; height: 8px; width: 100%; overflow: hidden; }
+    .usage-bar-fill { height: 100%; border-radius: 4px; transition: width .4s; }
+    .loading { text-align: center; padding: 40px; color: var(--color-font-subtle, #9ca3af); }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--color-base-200, #e5e7eb); border-top-color: #7c3aed; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-banner { background: #fef2f2; color: #991b1b; padding: 12px 16px; border-radius: 8px; border: 1px solid #fecaca; font-size: 13px; }
+    .empty-state { text-align: center; padding: 30px; color: var(--color-font-subtle, #94a3b8); font-size: 13px; }
+</style>
+
+<div class="container mx-auto p-4 lg:px-8" x-data="storagePage()">
+    <!-- Page Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <h1 style="font-size:20px;font-weight:700;display:flex;align-items:center;gap:8px;margin:0;">
+            <span class="material-symbols-outlined">storage</span> Storage Management
+        </h1>
+        <a href="/admin/manager/host/" class="refresh-btn" style="text-decoration:none;">
+            <span class="material-symbols-outlined" style="font-size:16px;">arrow_back</span> Back to Hosts
+        </a>
+    </div>
+
+    <!-- Tab Navigation (one tab per host) -->
+    <template x-if="hosts.length === 0">
+        <div class="empty-state" style="padding:60px;">No active hosts found.</div>
+    </template>
+
+    <template x-if="hosts.length > 0">
+        <div>
+            <nav class="stor-tab-bar">
+                <template x-for="h in hosts" :key="h.pk">
+                    <a @click="activeTab = h.pk"
+                       :class="activeTab === h.pk && 'active'"
+                       x-text="h.name + ' (' + h.ip_address + ')'"></a>
+                </template>
+            </nav>
+
+            <!-- Tab Panels -->
+            <div class="stor-card" style="margin-top:12px;">
+                <template x-for="h in hosts" :key="'panel-'+h.pk">
+                    <div x-show="activeTab === h.pk" x-cloak>
+                        <div class="stor-card-header">
+                            <h2>
+                                <span class="material-symbols-outlined" style="font-size:20px;color:#7c3aed;">dns</span>
+                                <span x-text="h.name"></span>
+                            </h2>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <button class="collapse-btn" @click="toggleHostCollapse(h.pk)">
+                                    <span class="material-symbols-outlined" style="font-size:14px;" x-text="isCollapsed(h.pk) ? 'expand_more' : 'expand_less'"></span>
+                                    <span x-text="isCollapsed(h.pk) ? 'Expand' : 'Collapse'"></span>
+                                </button>
+                                <button class="refresh-btn" @click="loadHost(h)">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">refresh</span> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div class="stor-card-body" :id="'host-stor-'+h.pk" x-show="!isCollapsed(h.pk)" x-cloak>
+                            <div class="loading"><span class="spinner"></span> Loading…</div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+</div>
+
+<script>
+function storagePage() {
+    const hosts = {{ hosts_json|safe }};
+    return {
+        hosts,
+        activeTab: hosts.length ? hosts[0].pk : null,
+        collapsedHosts: {},
+        init() { this.hosts.forEach(h => this.loadHost(h)); },
+        isCollapsed(pk) { return !!this.collapsedHosts[pk]; },
+        toggleHostCollapse(pk) { this.collapsedHosts[pk] = !this.collapsedHosts[pk]; },
+        loadHost(h) {
+            const el = document.getElementById('host-stor-'+h.pk);
+            if (!el) return;
+            el.innerHTML = '<div class="loading"><span class="spinner"></span> Fetching from '+this.esc(h.name)+'…</div>';
+            fetch('/api/v1/storage/'+encodeURIComponent(h.name)+'/datastores')
+                .then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+                .then(d => {
+                    el.innerHTML = '<div class="stor-section-title">Datastores</div>' + this.tblDS(d.datastores);
+                })
+                .catch(e => { el.innerHTML = '<div class="error-banner">Failed to load: '+this.esc(e.message)+'</div>'; });
+        },
+        esc(t) { const d = document.createElement('div'); d.textContent = t||''; return d.innerHTML; },
+        fmtBytes(val) {
+            if (val===undefined||val===null||val==='--') return '--';
+            const n = parseInt(String(val).replace(/[^0-9]/g,''),10);
+            if (isNaN(n)||n===0) return String(val);
+            if (n > 1099511627776) return (n/1099511627776).toFixed(2)+' TB';
+            if (n > 1073741824) return (n/1073741824).toFixed(2)+' GB';
+            if (n > 1048576) return (n/1048576).toFixed(2)+' MB';
+            return String(val);
+        },
+        usageBar(used, total) {
+            const u = parseInt(String(used).replace(/[^0-9]/g,''),10);
+            const t = parseInt(String(total).replace(/[^0-9]/g,''),10);
+            if (isNaN(u)||isNaN(t)||t===0) return '';
+            const pct = Math.min(100, Math.round((u/t)*100));
+            const color = pct>85?'#ef4444':pct>60?'#f59e0b':'#22c55e';
+            return '<div class="usage-bar-bg"><div class="usage-bar-fill" style="width:'+pct+'%;background:'+color+';"></div></div><span style="font-size:11px;color:#888;">'+pct+'% used</span>';
+        },
+        tblDS(ds) {
+            if (!ds||!ds.length) return '<div class="empty-state">No Datastores found</div>';
+            return '<table class="ds-table"><thead><tr><th>Datastore Name</th><th>Type</th><th>Capacity</th><th>Used</th><th>Free</th><th style="width:120px;">Usage</th></tr></thead><tbody>'
+                + ds.map(d => {
+                    const cap = this.fmtBytes(d.capacity);
+                    const used = this.fmtBytes(d.used);
+                    const free = this.fmtBytes(d.free);
+                    return '<tr><td class="name-col">'+this.esc(d.name)+'</td>'
+                        +'<td><span class="badge-type">'+this.esc(d.type||'VMFS')+'</span></td>'
+                        +'<td>'+this.esc(cap)+'</td><td>'+this.esc(used)+'</td><td>'+this.esc(free)+'</td>'
+                        +'<td>'+this.usageBar(d.used,d.capacity)+'</td></tr>';
+                }).join('')
+                + '</tbody></table>';
+        }
+    };
+}
+</script>
+{% endblock %}

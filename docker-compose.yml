@@ -1,0 +1,96 @@
+services:
+  # --- PostgreSQL ---
+  db:
+    build:
+      context: .
+      dockerfile: containers/db/Dockerfile
+    image: nebula-db:latest
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-mydatabase}
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mypassword}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-mydatabase}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- Redis (channels + cache) ---
+  redis:
+    build:
+      context: .
+      dockerfile: containers/redis/Dockerfile
+    image: nebula-redis:latest
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- Django / Daphne (ASGI) ---
+  web:
+    build:
+      context: .
+      dockerfile: containers/web/Dockerfile
+    image: nebula-web:latest
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SSH_KEY_PATH: ${SSH_KEY_PATH:-/app/nebula_rsa}
+      SSH_PRIVATE_KEY_B64: ${SSH_PRIVATE_KEY_B64:-}
+      SSH_KEY_CONTAINER_PATH: /run/secrets/ssh_key
+      ESXI_SSH_KEY_PATH: /run/secrets/esxi_key
+      KVM_SSH_KEY_PATH: /run/secrets/kvm_key
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - static_files:/app/staticfiles
+      - ./ssh_keys/rsa:/run/secrets/esxi_key:ro
+      - ./ssh_keys/nebula_rsa:/run/secrets/kvm_key:ro
+
+  # --- Background sync worker (updates DB snapshots continuously) ---
+  sync-worker:
+    build:
+      context: .
+      dockerfile: containers/sync-worker/Dockerfile
+    image: nebula-sync-worker:latest
+    restart: unless-stopped
+    profiles:
+      - always-sync
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SSH_KEY_PATH: ${SSH_KEY_PATH:-/app/nebula_rsa}
+      SSH_PRIVATE_KEY_B64: ${SSH_PRIVATE_KEY_B64:-}
+      SSH_KEY_CONTAINER_PATH: /run/secrets/ssh_key
+      ESXI_SSH_KEY_PATH: /run/secrets/esxi_key
+      KVM_SSH_KEY_PATH: /run/secrets/kvm_key
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./ssh_keys/rsa:/run/secrets/esxi_key:ro
+      - ./ssh_keys/nebula_rsa:/run/secrets/kvm_key:ro
+volumes:
+  pgdata:
+  static_files:

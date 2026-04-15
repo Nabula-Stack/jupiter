@@ -1,0 +1,52 @@
+{% extends 'admin/base_site.html' %}
+
+{% block title %}{{ title }} - Jupiter Admin{% endblock %}
+
+{% block content %}
+<div style="padding: 20px; max-width: 500px; margin: 0 auto;">
+    <div style="background: white; border-radius: 8px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center;">
+        <h1 style="margin-top: 0; color: #dc3545;">
+            <i class="fas fa-exclamation-triangle"></i> Confirm Action
+        </h1>
+        
+        <p style="font-size: 16px; color: #666; margin: 20px 0;">
+            Are you sure you want to <strong>{{ action|upper }}</strong> host <strong>{{ host.name }}</strong>?
+        </p>
+        
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 4px; margin: 20px 0; text-align: left;">
+            <p style="margin: 0;">
+                <strong>⚠️ This action cannot be undone!</strong>
+            </p>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px;">
+            <a href="{% url 'admin:manager_host_change' host.pk %}" class="button" style="
+                padding: 12px 20px;
+                background: #6c757d;
+                color: white;
+                border-radius: 4px;
+                text-decoration: none;
+                text-align: center;
+                font-weight: bold;
+            ">
+                Cancel
+            </a>
+            <form method="POST" style="margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="button" style="
+                    width: 100%;
+                    padding: 12px 20px;
+                    background: #dc3545;
+                    color: white;
+                    border-radius: 4px;
+                    border: none;
+                    cursor: pointer;
+                    font-weight: bold;
+                ">
+                    Confirm {{ action|upper }}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

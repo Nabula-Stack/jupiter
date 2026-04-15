@@ -1,0 +1,713 @@
+<style>
+.ova-action-li{list-style:none}
+.ova-action-li a{cursor:pointer;display:flex;flex-grow:1;align-items:center;gap:8px;padding:8px 12px;text-align:left;white-space:nowrap;font-weight:500;font-size:14px;color:inherit;text-decoration:none}
+.ova-action-li a:hover{color:#7c3aed}
+/* Reposition the actions bar from fixed-bottom to inline above the table */
+#changelist-form > div:has(> #changelist-actions-wrapper){
+    position:static!important;
+    inset:auto!important;
+    height:auto!important;
+    z-index:10!important;
+    padding:0!important;
+    margin:0!important;
+}
+#changelist-actions-wrapper{width:100%!important;padding:0!important;margin:0!important}
+#changelist-actions{margin:0!important;width:100%!important}
+#changelist-actions > div{margin:0!important;border-radius:0!important;padding:6px 12px!important}
+.ova-overlay{display:none!important;position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);z-index:9999;align-items:center;justify-content:center}
+.ova-overlay.open{display:flex!important}
+.ova-modal{background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.18);width:480px;max-width:92vw;overflow:hidden}
+.dark .ova-modal{background:#1e293b;border:1px solid #334155}
+.ova-modal-header{padding:16px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #e5e7eb;background:#f8fafc}
+.dark .ova-modal-header{background:#0f172a;border-color:#334155}
+.ova-modal-header h3{margin:0;font-size:15px;font-weight:700;color:#1e293b}
+.dark .ova-modal-header h3{color:#e2e8f0}
+.ova-modal-body{padding:18px 20px}
+.ova-f{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.ova-f label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#475569}
+.dark .ova-f label{color:#94a3b8}
+.ova-f input,.ova-f select{width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff;box-sizing:border-box}
+.dark .ova-f input,.dark .ova-f select{background:#0f172a;border-color:#475569;color:#e2e8f0}
+.ova-f input:focus,.ova-f select:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12)}
+.ova-dropzone{border:2px dashed #d1d5db;border-radius:8px;padding:30px 20px;text-align:center;color:#64748b;font-size:13px;cursor:pointer;transition:all .15s}
+.ova-dropzone:hover,.ova-dropzone.dragover{border-color:#7c3aed;background:#f5f3ff;color:#7c3aed}
+.ova-dropzone .material-symbols-outlined{font-size:36px;display:block;margin:0 auto 8px;color:#94a3b8}
+.ova-dropzone.dragover .material-symbols-outlined{color:#7c3aed}
+.ova-dropzone .ova-file-name{font-weight:700;color:#1e293b;margin-top:6px}
+.dark .ova-dropzone .ova-file-name{color:#e2e8f0}
+.ova-modal-footer{padding:12px 20px 16px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid #f1f5f9}
+.dark .ova-modal-footer{border-color:#1e293b}
+.ova-modal-footer button{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:700;border:0;cursor:pointer}
+.ova-btn-cancel{background:#f1f5f9;color:#334155;border:1px solid #cbd5e1!important}
+.ova-btn-cancel:hover{background:#e2e8f0}
+.ova-btn-deploy{background:#7c3aed;color:#fff}
+.ova-btn-deploy:hover{background:#6d28d9}
+.ova-btn-deploy:disabled{opacity:.55;cursor:not-allowed}
+.ova-status{margin-top:10px;padding:10px 12px;border-radius:6px;font-size:12px;font-weight:700;display:none}
+.ova-status.err{display:block;background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+.ova-status.ok{display:block;background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.ova-status.warn{display:block;background:#fef9c3;color:#854d0e;border:1px solid #fde68a}
+.ova-spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top:2px solid #fff;border-radius:50%;animation:ovaspin .7s linear infinite;vertical-align:middle}
+@keyframes ovaspin{to{transform:rotate(360deg)}}
+.ova-progress{width:100%;height:6px;background:#e5e7eb;border-radius:4px;overflow:hidden;margin-top:8px;display:none}
+.ova-progress-bar{height:100%;background:#7c3aed;border-radius:4px;transition:width .3s;width:0%}
+.reg-browser{border:2px dashed #d1d5db;border-radius:8px;background:#fff;max-height:260px;overflow:auto}
+.dark .reg-browser{background:#0f172a;border-color:#475569}
+.reg-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:13px}
+.dark .reg-row{border-color:#1e293b;color:#e2e8f0}
+.reg-row:last-child{border-bottom:0}
+.reg-row:hover{background:#f5f3ff;color:#7c3aed}
+.dark .reg-row:hover{background:#1e293b}
+.reg-row.sel{background:#ede9fe;color:#5b21b6}
+.reg-path{font-size:12px;color:#64748b;margin-bottom:8px;word-break:break-all}
+/* Force full-width VM list view: hide Unfold filter drawer on this page */
+#changelist-filter,
+aside#changelist-filter,
+[id="changelist-filter"]{
+    display:none!important;
+}
+/* OVA wizard steps */
+.ova-steps{display:flex;align-items:center;gap:0;margin-bottom:18px;padding:14px 20px 0}
+.ova-step{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;flex:1}
+.ova-step.active{color:#7c3aed}
+.ova-step.done{color:#16a34a}
+.ova-step-num{width:22px;height:22px;border-radius:50%;border:2px solid #d1d5db;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;background:#fff;line-height:1}
+.dark .ova-step-num{background:#1e293b;border-color:#475569}
+.ova-step.active .ova-step-num{border-color:#7c3aed;color:#7c3aed}
+.ova-step.done .ova-step-num{border-color:#16a34a;background:#dcfce7;color:#16a34a}
+.ova-step-connector{flex:1;height:2px;background:#e5e7eb;margin:0 4px}
+.dark .ova-step-connector{background:#334155}
+.ova-step.done + .ova-step-connector,.ova-step.done ~ .ova-step-connector{background:#16a34a}
+.ova-hypervisor-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:800;letter-spacing:.04em;margin-left:8px;vertical-align:middle}
+.ova-badge-esxi{background:#e0f2fe;color:#0369a1}
+.ova-badge-proxmox{background:#fef3c7;color:#b45309}
+.ova-badge-other{background:#f1f5f9;color:#475569}
+.ova-unsupported-banner{background:#fef9c3;border:1px solid #fde68a;color:#854d0e;border-radius:8px;padding:12px 14px;font-size:12px;font-weight:600;display:flex;align-items:flex-start;gap:8px;margin-top:4px}
+.dark .ova-unsupported-banner{background:#1c1400;border-color:#5c3800;color:#fde68a}
+.ova-stages{display:flex;flex-direction:column;gap:10px;margin:4px 0}
+.ova-stage{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:#f8fafc;border:1px solid #e5e7eb;font-size:13px;font-weight:600}
+.dark .ova-stage{background:#0f172a;border-color:#334155;color:#e2e8f0}
+.ova-stage-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px}
+.ova-stage.pending .ova-stage-icon{background:#f1f5f9;color:#94a3b8}
+.ova-stage.running .ova-stage-icon{background:#ede9fe;color:#7c3aed}
+.ova-stage.done .ova-stage-icon{background:#dcfce7;color:#16a34a}
+.ova-stage.error .ova-stage-icon{background:#fee2e2;color:#dc2626}
+.ova-stage.running{border-color:#c4b5fd}
+.ova-stage.done{border-color:#86efac}
+.ova-stage.error{border-color:#fca5a5}
+.ova-stage-label{flex:1}
+.ova-stage-sub{font-size:11px;font-weight:400;color:#64748b;margin-top:1px}
+.dark .ova-stage-sub{color:#94a3b8}
+</style>
+
+<!-- Button will be injected into header action bar via JS -->
+
+<div id="ovaModal" class="ova-overlay">
+    <div class="ova-modal" style="width:520px">
+        <div class="ova-modal-header">
+            <span class="material-symbols-outlined" style="font-size:20px;color:#7c3aed">cloud_upload</span>
+            <h3>Deploy OVA / OVF</h3>
+        </div>
+        <!-- Step indicators -->
+        <div class="ova-steps">
+            <div class="ova-step active" id="ovaStepInd1">
+                <div class="ova-step-num">1</div>Host &amp; Datastore
+            </div>
+            <div class="ova-step-connector"></div>
+            <div class="ova-step" id="ovaStepInd2">
+                <div class="ova-step-num">2</div>VM &amp; File
+            </div>
+            <div class="ova-step-connector"></div>
+            <div class="ova-step" id="ovaStepInd3">
+                <div class="ova-step-num">3</div>Deploy
+            </div>
+        </div>
+        <div class="ova-modal-body">
+            <!-- STEP 1 -->
+            <div id="ovaPane1">
+                <div class="ova-f">
+                    <label for="ova_host">Hypervisor Host *</label>
+                    <select id="ova_host"><option value="">Loading...</option></select>
+                </div>
+                <div id="ovaHostInfo"></div>
+                <div class="ova-f" id="ova_ds_wrap">
+                    <label for="ova_datastore">Datastore *</label>
+                    <select id="ova_datastore"><option value="">Select host first</option></select>
+                </div>
+                <div id="ovaUnsupported" style="display:none" class="ova-unsupported-banner">
+                    <span class="material-symbols-outlined" style="font-size:18px;flex-shrink:0">info</span>
+                    <div><strong>OVA import is not available for this host type.</strong><br>
+                    Use the host's native web UI to import or upload disk images.</div>
+                </div>
+            </div>
+            <!-- STEP 2 -->
+            <div id="ovaPane2" style="display:none">
+                <div class="ova-f">
+                    <label for="ova_vm_name">VM Name <span style="font-weight:400;text-transform:none">(leave blank to use filename)</span></label>
+                    <input type="text" id="ova_vm_name" placeholder="auto-detect from filename">
+                </div>
+                <div class="ova-f">
+                    <label>OVA / OVF File *</label>
+                    <input type="file" id="ovaFileInput" accept=".ova,.ovf" style="display:none">
+                    <div class="ova-dropzone" id="ovaDropzone">
+                        <span class="material-symbols-outlined">cloud_upload</span>
+                        Click or drag &amp; drop an .ova / .ovf file here
+                        <div class="ova-file-name" id="ovaFileName"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- STEP 3: progress + result -->
+            <div id="ovaPane3" style="display:none">
+                <div class="ova-stages">
+                    <div class="ova-stage pending" id="ovaStage1">
+                        <div class="ova-stage-icon"><span class="material-symbols-outlined" style="font-size:16px">upload</span></div>
+                        <div class="ova-stage-label">Uploading file to server<div class="ova-stage-sub" id="ovaStage1Sub">Waiting...</div></div>
+                    </div>
+                    <div class="ova-stage pending" id="ovaStage2">
+                        <div class="ova-stage-icon"><span class="material-symbols-outlined" style="font-size:16px">swap_vert</span></div>
+                        <div class="ova-stage-label">Transferring to host<div class="ova-stage-sub" id="ovaStage2Sub">Waiting...</div></div>
+                    </div>
+                    <div class="ova-stage pending" id="ovaStage3">
+                        <div class="ova-stage-icon"><span class="material-symbols-outlined" style="font-size:16px">build</span></div>
+                        <div class="ova-stage-label">Extracting &amp; registering VM<div class="ova-stage-sub" id="ovaStage3Sub">Waiting...</div></div>
+                    </div>
+                </div>
+                <div class="ova-progress" id="ovaProgress" style="margin-top:10px">
+                    <div class="ova-progress-bar" id="ovaProgressBar"></div>
+                </div>
+                <div id="ovaStatus" class="ova-status" style="margin-top:10px"></div>
+            </div>
+        </div>
+        <div class="ova-modal-footer">
+            <button type="button" class="ova-btn-cancel" id="ovaCancel">Cancel</button>
+            <button type="button" class="ova-btn-deploy" id="ovaBack" style="display:none;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1">
+                <span class="material-symbols-outlined" style="font-size:16px">arrow_back</span> Back
+            </button>
+            <button type="button" class="ova-btn-deploy" id="ovaNext">
+                Next <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span>
+            </button>
+            <button type="button" class="ova-btn-deploy" id="ovaSubmit" style="display:none" disabled>
+                <span class="material-symbols-outlined" style="font-size:16px">rocket_launch</span> Deploy
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="registerVmModal" class="ova-overlay">
+    <div class="ova-modal">
+        <div class="ova-modal-header">
+            <span class="material-symbols-outlined" style="font-size:20px;color:#7c3aed">app_registration</span>
+            <h3>Register Existing VM</h3>
+        </div>
+        <div class="ova-modal-body">
+            <div class="ova-f">
+                <label for="reg_host">Host *</label>
+                <select id="reg_host"><option value="">Loading...</option></select>
+            </div>
+            <div class="ova-f">
+                <label for="reg_datastore">Datastore *</label>
+                <select id="reg_datastore"><option value="">Select host first</option></select>
+            </div>
+            <input id="reg_path_input" type="hidden" value="/vmfs/volumes">
+            <div class="reg-path" id="regSelectedPath">Select a .vmx file to register.</div>
+            <div class="reg-browser" id="regBrowser"></div>
+            <div id="regStatus" class="ova-status"></div>
+        </div>
+        <div class="ova-modal-footer">
+            <button type="button" class="ova-btn-cancel" id="regCancel">Cancel</button>
+            <button type="button" class="ova-btn-deploy" id="regSubmit" disabled>
+                <span class="material-symbols-outlined" style="font-size:16px">check</span> Register VM
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    // ── Inject action buttons into Unfold header bar ──────────────────────────
+    var actionUl = document.querySelector('.flex.flex-row.items-center.ml-auto ul');
+    if (actionUl) {
+        var regLi = document.createElement('li');
+        regLi.className = 'ova-action-li';
+        regLi.innerHTML = '<a id="registerVmBtn"><span class="material-symbols-outlined">app_registration</span>Register VM</a>';
+        actionUl.appendChild(regLi);
+        var li = document.createElement('li');
+        li.className = 'ova-action-li';
+        li.innerHTML = '<a id="ovaDeployBtn"><span class="material-symbols-outlined">cloud_upload</span>Deploy OVA</a>';
+        actionUl.appendChild(li);
+    } else {
+        var content = document.querySelector('#content, main, .container');
+        if (content) {
+            var bar = document.createElement('div');
+            bar.style.cssText = 'padding:12px 20px';
+            bar.innerHTML = '<a id="registerVmBtn" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:14px;margin-right:14px"><span class="material-symbols-outlined">app_registration</span>Register VM</a>' +
+                            '<a id="ovaDeployBtn" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:14px"><span class="material-symbols-outlined">cloud_upload</span>Deploy OVA</a>';
+            content.insertBefore(bar, content.firstChild);
+        }
+    }
+
+    // ── OVA Deploy Wizard ─────────────────────────────────────────────────────
+    var modal       = document.getElementById('ovaModal');
+    var hostSel     = document.getElementById('ova_host');
+    var dsSel       = document.getElementById('ova_datastore');
+    var dsWrap      = document.getElementById('ova_ds_wrap');
+    var hostInfoEl  = document.getElementById('ovaHostInfo');
+    var unsupported = document.getElementById('ovaUnsupported');
+    var nameInput   = document.getElementById('ova_vm_name');
+    var fileInput   = document.getElementById('ovaFileInput');
+    var dropzone    = document.getElementById('ovaDropzone');
+    var submitBtn   = document.getElementById('ovaSubmit');
+    var nextBtn     = document.getElementById('ovaNext');
+    var backBtn     = document.getElementById('ovaBack');
+    var statusEl    = document.getElementById('ovaStatus');
+    var progressEl  = document.getElementById('ovaProgress');
+    var progressBar = document.getElementById('ovaProgressBar');
+    var pane1       = document.getElementById('ovaPane1');
+    var pane2       = document.getElementById('ovaPane2');
+    var pane3       = document.getElementById('ovaPane3');
+    var stepInd     = [document.getElementById('ovaStepInd1'),
+                       document.getElementById('ovaStepInd2'),
+                       document.getElementById('ovaStepInd3')];
+    var stage1      = document.getElementById('ovaStage1');
+    var stage2      = document.getElementById('ovaStage2');
+    var stage3      = document.getElementById('ovaStage3');
+    var stage1Sub   = document.getElementById('ovaStage1Sub');
+    var stage2Sub   = document.getElementById('ovaStage2Sub');
+    var stage3Sub   = document.getElementById('ovaStage3Sub');
+
+    var selectedFile    = null;
+    var currentStep     = 1;
+    var hostHypervisors = {};   // name → hypervisor_type
+    var deployDone      = false;
+
+    if (modal && modal.parentElement !== document.body) document.body.appendChild(modal);
+    if (modal) modal.classList.remove('open');
+
+    function setStep(n) {
+        currentStep = n;
+        pane1.style.display = n === 1 ? '' : 'none';
+        pane2.style.display = n === 2 ? '' : 'none';
+        pane3.style.display = n === 3 ? '' : 'none';
+        backBtn.style.display  = n > 1 ? '' : 'none';
+        nextBtn.style.display  = n < 3 ? '' : 'none';
+        submitBtn.style.display = n === 3 ? '' : 'none';
+        stepInd.forEach(function(el, i) {
+            el.classList.remove('active', 'done');
+            if (i + 1 < n)      el.classList.add('done');
+            else if (i + 1 === n) el.classList.add('active');
+        });
+    }
+
+    function setStage(el, subEl, state, subText) {
+        el.className = 'ova-stage ' + state;
+        var icons = { pending: 'radio_button_unchecked', running: 'sync', done: 'check_circle', error: 'error' };
+        el.querySelector('.ova-stage-icon').innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">' + icons[state] + '</span>';
+        if (subEl) subEl.textContent = subText || '';
+    }
+
+    function ovaStatus(type, msg) {
+        statusEl.className = 'ova-status';
+        statusEl.textContent = msg || '';
+        if (msg) statusEl.classList.add(type === 'error' ? 'err' : type === 'warn' ? 'warn' : 'ok');
+    }
+
+    function hostBadgeHtml(htype) {
+        if (!htype) return '';
+        if (htype.indexOf('esxi') >= 0 || htype.indexOf('vmware') >= 0)
+            return '<span class="ova-hypervisor-badge ova-badge-esxi">ESXi</span>';
+        if (htype.indexOf('proxmox') >= 0)
+            return '<span class="ova-hypervisor-badge ova-badge-proxmox">Proxmox</span>';
+        return '<span class="ova-hypervisor-badge ova-badge-other">' + htype + '</span>';
+    }
+
+    function isOvaSupported(htype) {
+        // Only ESXi/VMware supports OVA deploy via this wizard
+        return !htype || htype.indexOf('proxmox') < 0;
+    }
+
+    function openModal() {
+        deployDone   = false;
+        selectedFile = null;
+        nameInput.value = '';
+        fileInput.value = '';
+        ovaStatus('', '');
+        progressEl.style.display = 'none';
+        progressBar.style.width  = '0%';
+        dropzone.innerHTML = '<span class="material-symbols-outlined">cloud_upload</span>Click or drag &amp; drop an .ova / .ovf file here<div class="ova-file-name"></div>';
+        submitBtn.disabled = true;
+        nextBtn.disabled   = false;
+        [stage1, stage2, stage3].forEach(function(s) { s.className = 'ova-stage pending'; });
+        [stage1Sub, stage2Sub, stage3Sub].forEach(function(s) { s.textContent = 'Waiting...'; });
+        setStep(1);
+        modal.classList.add('open');
+        loadHosts();
+    }
+
+    function closeModal() {
+        if (deployDone) { window.location.reload(); return; }
+        modal.classList.remove('open');
+    }
+
+    document.getElementById('ovaDeployBtn') && document.getElementById('ovaDeployBtn').addEventListener('click', openModal);
+    document.getElementById('ovaCancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', function(e) { if (e.target === modal) closeModal(); });
+
+    async function loadHosts() {
+        try {
+            var r = await fetch('/api/v1/hosts/all');
+            var hosts = await r.json();
+            hostSel.innerHTML = '';
+            hostHypervisors = {};
+            hosts.forEach(function(h) {
+                hostHypervisors[h.name] = h.hypervisor_type || '';
+                var o = document.createElement('option');
+                o.value = h.name;
+                o.textContent = h.name + ' (' + h.ip + ')';
+                hostSel.appendChild(o);
+            });
+            if (hosts.length) onHostChange();
+        } catch(e) {
+            hostSel.innerHTML = '<option value="">Error loading hosts</option>';
+        }
+    }
+
+    function onHostChange() {
+        var host  = hostSel.value;
+        var htype = hostHypervisors[host] || '';
+        var badge = hostBadgeHtml(htype);
+        hostInfoEl.innerHTML = badge ? ('<div style="margin-bottom:4px">' + badge + '</div>') : '';
+        var supported = isOvaSupported(htype);
+        unsupported.style.display = supported ? 'none' : '';
+        dsWrap.style.display      = supported ? '' : 'none';
+        nextBtn.disabled          = !supported;
+        if (supported) loadDatastores();
+        else dsSel.innerHTML = '<option value="">N/A</option>';
+    }
+
+    async function loadDatastores() {
+        var host = hostSel.value;
+        if (!host) return;
+        dsSel.innerHTML = '<option value="">Loading...</option>';
+        try {
+            var r = await fetch('/api/v1/storage/' + encodeURIComponent(host) + '/datastores');
+            var d = await r.json();
+            dsSel.innerHTML = '';
+            (d.datastores || []).forEach(function(ds) {
+                var o = document.createElement('option');
+                o.value = ds.name;
+                var free = parseInt(ds.free, 10);
+                var label = ds.name;
+                if (free > 1073741824) label += ' (' + (free / 1073741824).toFixed(1) + ' GB free)';
+                else if (free > 1048576) label += ' (' + (free / 1048576).toFixed(1) + ' MB free)';
+                o.textContent = label;
+                dsSel.appendChild(o);
+            });
+            if (!dsSel.value && dsSel.options.length > 0) {
+                dsSel.selectedIndex = 0;
+            }
+            if (!dsSel.value) {
+                dsSel.innerHTML = '<option value="">No datastores available on this host</option>';
+            }
+        } catch(e) {
+            dsSel.innerHTML = '<option value="">Error loading datastores</option>';
+        }
+    }
+
+    hostSel.addEventListener('change', onHostChange);
+
+    // Step navigation
+    nextBtn.addEventListener('click', function() {
+        if (currentStep === 1) {
+            var host = hostSel.value;
+            var ds   = dsSel.value;
+            if (!host) { ovaStatus('error', 'Select a host first.'); return; }
+            if (!ds)   { ovaStatus('error', 'Select a datastore first.'); return; }
+            ovaStatus('', '');
+            setStep(2);
+        } else if (currentStep === 2) {
+            if (!selectedFile) { ovaStatus('error', 'Select an OVA/OVF file first.'); return; }
+            ovaStatus('', '');
+            submitBtn.click();
+        }
+    });
+
+    backBtn.addEventListener('click', function() {
+        if (currentStep === 2) setStep(1);
+    });
+
+    // File pick
+    dropzone.addEventListener('click', function() { fileInput.click(); });
+    dropzone.addEventListener('dragover', function(e) { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', function() { dropzone.classList.remove('dragover'); });
+    dropzone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) pickFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', function() {
+        if (fileInput.files.length) pickFile(fileInput.files[0]);
+    });
+
+    function pickFile(f) {
+        if (!f.name.toLowerCase().match(/\.(ova|ovf)$/)) {
+            alert('Please select an .ova or .ovf file.');
+            return;
+        }
+        selectedFile = f;
+        if (!nameInput.value.trim())
+            nameInput.value = f.name.replace(/\.(ova|ovf)$/i, '');
+        var sizeStr = f.size > 1073741824 ? (f.size / 1073741824).toFixed(1) + ' GB'
+                                          : (f.size / 1048576).toFixed(1) + ' MB';
+        dropzone.innerHTML =
+            '<span class="material-symbols-outlined" style="color:#7c3aed">check_circle</span>' +
+            '<div class="ova-file-name">' + f.name + '</div>' +
+            '<div style="font-size:11px;color:#94a3b8;margin-top:2px">' + sizeStr + '</div>';
+        submitBtn.disabled = false;
+    }
+
+    // Step 2 → 3 transition & fire XHR
+    submitBtn.addEventListener('click', function() {
+        var host   = hostSel.value;
+        var ds     = dsSel.value;
+        var vmName = nameInput.value.trim();
+        if (!host || !ds || !selectedFile) return;
+
+        setStep(3);
+        backBtn.style.display  = 'none';
+        submitBtn.style.display = 'none';
+        progressEl.style.display = 'block';
+        progressBar.style.width  = '0%';
+
+        setStage(stage1, stage1Sub, 'running', 'Sending to Jupiter server...');
+        setStage(stage2, stage2Sub, 'pending', 'Waiting...');
+        setStage(stage3, stage3Sub, 'pending', 'Waiting...');
+
+        var formData = new FormData();
+        formData.append('file', selectedFile);
+        var url = '/api/v1/vms/' + encodeURIComponent(host) + '/deploy-ova?datastore=' + encodeURIComponent(ds);
+        if (vmName) url += '&vm_name=' + encodeURIComponent(vmName);
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', url, true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.timeout = 0; // no browser-level timeout — server controls this
+
+        xhr.upload.addEventListener('progress', function(e) {
+            if (!e.lengthComputable) return;
+            var pct = Math.round((e.loaded / e.total) * 100);
+            progressBar.style.width = pct + '%';
+            stage1Sub.textContent = pct + '% \u2014 ' + (e.loaded / 1048576).toFixed(1) + ' / ' + (e.total / 1048576).toFixed(1) + ' MB';
+        });
+
+        xhr.upload.addEventListener('load', function() {
+            setStage(stage1, stage1Sub, 'done', 'File received by server');
+            setStage(stage2, stage2Sub, 'running', 'SFTP transfer to ' + host + ' in progress...');
+            ovaStatus('warn', 'File uploaded. SFTP transfer and extraction is running — this can take several minutes for large OVA files.');
+        });
+
+        xhr.addEventListener('load', function() {
+            progressEl.style.display = 'none';
+            try {
+                var data = JSON.parse(xhr.responseText);
+                if (data.status === 'error') {
+                    setStage(stage2, stage2Sub, 'error', data.message || 'Transfer failed');
+                    ovaStatus('error', data.message || 'Deploy failed.');
+                } else if (data.status === 'processing') {
+                    setStage(stage2, stage2Sub, 'done', 'File transferred to host');
+                    setStage(stage3, stage3Sub, 'running', 'Running in background \u2014 VM list updates automatically');
+                    ovaStatus('ok', data.message || 'Processing in background. You can close this dialog \u2014 the VM list will refresh when complete.');
+                    deployDone = true;
+                    document.getElementById('ovaCancel').textContent = 'Close';
+                } else {
+                    // Legacy "deployed" status (sync path)
+                    setStage(stage2, stage2Sub, 'done', 'Transferred');
+                    setStage(stage3, stage3Sub, 'done', 'VM registered successfully');
+                    ovaStatus('ok', data.message || 'OVA deployed successfully.');
+                    deployDone = true;
+                    document.getElementById('ovaCancel').textContent = 'Close';
+                }
+            } catch(e) {
+                ovaStatus('error', 'Unexpected server response. Check server logs.');
+            }
+        });
+
+        xhr.addEventListener('error', function() {
+            progressEl.style.display = 'none';
+            setStage(stage1, stage1Sub, 'error', 'Network error');
+            ovaStatus('error', 'Network error during upload. Check your connection and try again.');
+        });
+
+        xhr.addEventListener('timeout', function() {
+            ovaStatus('error', 'Request timed out. The operation may still be running on the server \u2014 check the VM list.');
+        });
+
+        xhr.send(formData);
+    });
+
+    // ── Register VM Modal ─────────────────────────────────────────────────────
+    var regModal      = document.getElementById('registerVmModal');
+    var regHostSel    = document.getElementById('reg_host');
+    var regDsSel      = document.getElementById('reg_datastore');
+    var regPathInput  = document.getElementById('reg_path_input');
+    var regBrowser    = document.getElementById('regBrowser');
+    var regStatusEl   = document.getElementById('regStatus');
+    var regSelectedEl = document.getElementById('regSelectedPath');
+    var regSubmitBtn  = document.getElementById('regSubmit');
+    var regSelectedVmx = '';
+    var regHostHypervisors = {};
+
+    if (regModal && regModal.parentElement !== document.body) document.body.appendChild(regModal);
+    if (regModal) regModal.classList.remove('open');
+
+    function regStatus(type, msg) {
+        regStatusEl.className = 'ova-status';
+        regStatusEl.textContent = msg || '';
+        if (msg) regStatusEl.classList.add(type === 'error' ? 'err' : type === 'warn' ? 'warn' : 'ok');
+    }
+
+    function openRegisterModal() {
+        regSelectedVmx = '';
+        regSubmitBtn.disabled = true;
+        regPathInput.value = '/vmfs/volumes';
+        regSelectedEl.textContent = 'Select a .vmx file to register.';
+        regStatus('', '');
+        regBrowser.innerHTML = '<div class="reg-row"><span class="material-symbols-outlined">folder</span>Select host and datastore to browse VMX files.</div>';
+        regModal.classList.add('open');
+        loadRegisterHosts();
+    }
+
+    function closeRegisterModal() { regModal.classList.remove('open'); }
+
+    document.getElementById('registerVmBtn') && document.getElementById('registerVmBtn').addEventListener('click', openRegisterModal);
+    document.getElementById('regCancel').addEventListener('click', closeRegisterModal);
+    regModal.addEventListener('click', function(e) { if (e.target === regModal) closeRegisterModal(); });
+
+    async function loadRegisterHosts() {
+        try {
+            var r = await fetch('/api/v1/hosts/all');
+            var hosts = await r.json();
+            regHostSel.innerHTML = '';
+            regHostHypervisors = {};
+            hosts.forEach(function(h) {
+                regHostHypervisors[h.name] = (h.hypervisor_type || '').toLowerCase();
+                var o = document.createElement('option');
+                o.value = h.name;
+                o.textContent = h.name + ' (' + h.ip + ')';
+                regHostSel.appendChild(o);
+            });
+            if (hosts.length) loadRegisterDatastores();
+        } catch (e) {
+            regHostSel.innerHTML = '<option value="">Error loading hosts</option>';
+            regBrowser.innerHTML = '<div class="reg-row">Failed to load hosts.</div>';
+        }
+    }
+
+    async function loadRegisterDatastores() {
+        var host = regHostSel.value;
+        if (!host) return;
+        var htype = regHostHypervisors[host] || '';
+        if (htype.indexOf('proxmox') >= 0) {
+            regDsSel.innerHTML = '<option value="proxmox-vmid-list">Proxmox VMID List</option>';
+            regSelectedVmx = '';
+            regSubmitBtn.disabled = true;
+            regSelectedEl.textContent = 'Select a VMID to register.';
+            browseRegisterPath('/proxmox/vms');
+            return;
+        }
+        regDsSel.innerHTML = '<option value="">Loading...</option>';
+        try {
+            var r = await fetch('/api/v1/storage/' + encodeURIComponent(host) + '/datastores');
+            var d = await r.json();
+            regDsSel.innerHTML = '';
+            (d.datastores || []).forEach(function(ds) {
+                var o = document.createElement('option');
+                o.value = ds.name;
+                var free = parseInt(ds.free, 10);
+                var label = ds.name;
+                if (free > 1073741824) label += ' (' + (free / 1073741824).toFixed(1) + ' GB free)';
+                else if (free > 1048576) label += ' (' + (free / 1048576).toFixed(1) + ' MB free)';
+                o.textContent = label;
+                regDsSel.appendChild(o);
+            });
+            if (regDsSel.value) browseRegisterPath('/vmfs/volumes/' + regDsSel.value);
+            else regBrowser.innerHTML = '<div class="reg-row">No datastores found.</div>';
+        } catch (e) {
+            regDsSel.innerHTML = '<option value="">Error</option>';
+        }
+    }
+
+    async function browseRegisterPath(path) {
+        var host = regHostSel.value;
+        if (!host) return;
+        regPathInput.value = path;
+        regBrowser.innerHTML = '<div class="reg-row">Loading...</div>';
+        try {
+            var r = await fetch('/api/v1/vms/' + encodeURIComponent(host) + '/register/browse?path=' + encodeURIComponent(path));
+            var d = await r.json();
+            if (d.status === 'error') { regBrowser.innerHTML = '<div class="reg-row">' + (d.message || 'Browse error') + '</div>'; return; }
+            var html = '';
+            if (d.path && d.path !== '/vmfs/volumes') {
+                var parent = d.path.split('/').slice(0, -1).join('/') || '/vmfs/volumes';
+                html += '<div class="reg-row" data-dir="' + parent.replace(/"/g, '&quot;') + '"><span class="material-symbols-outlined">arrow_upward</span>..</div>';
+            }
+            (d.entries || []).forEach(function(entry) {
+                if (entry.is_dir) html += '<div class="reg-row" data-dir="' + entry.path.replace(/"/g, '&quot;') + '"><span class="material-symbols-outlined">folder</span>' + entry.name + '</div>';
+                else              html += '<div class="reg-row" data-vmx="' + entry.path.replace(/"/g, '&quot;') + '"><span class="material-symbols-outlined">description</span>' + entry.name + '</div>';
+            });
+            regBrowser.innerHTML = html || '<div class="reg-row">No folders or .vmx files found.</div>';
+        } catch (e) {
+            regBrowser.innerHTML = '<div class="reg-row">Network error.</div>';
+        }
+    }
+
+    regHostSel.addEventListener('change', function() { regSelectedVmx = ''; regSubmitBtn.disabled = true; regSelectedEl.textContent = 'Select a VM entry.'; loadRegisterDatastores(); });
+    regDsSel.addEventListener('change', function() {
+        regSelectedVmx = ''; regSubmitBtn.disabled = true;
+        var host = regHostSel.value;
+        var htype = regHostHypervisors[host] || '';
+        if (htype.indexOf('proxmox') >= 0) {
+            browseRegisterPath('/proxmox/vms');
+            return;
+        }
+        if (regDsSel.value) browseRegisterPath('/vmfs/volumes/' + regDsSel.value);
+    });
+    regBrowser.addEventListener('click', function(e) {
+        var row = e.target.closest('.reg-row');
+        if (!row) return;
+        var dir = row.getAttribute('data-dir');
+        var vmx = row.getAttribute('data-vmx');
+        if (dir) { browseRegisterPath(dir); return; }
+        if (vmx) {
+            regSelectedVmx = vmx;
+            regSelectedEl.textContent = 'Selected: ' + vmx;
+            regSubmitBtn.disabled = false;
+            regBrowser.querySelectorAll('.reg-row').forEach(function(r) { r.classList.remove('sel'); });
+            row.classList.add('sel');
+        }
+    });
+
+    regSubmitBtn.addEventListener('click', async function() {
+        var host = regHostSel.value;
+        if (!host || !regSelectedVmx) { regStatus('error', 'Select a VM entry first.'); return; }
+        regSubmitBtn.disabled = true;
+        regSubmitBtn.innerHTML = '<span class="ova-spinner"></span> Registering...';
+        regStatus('warn', 'Registering VM...');
+        try {
+            var r = await fetch('/api/v1/vms/' + encodeURIComponent(host) + '/register?vmx_path=' + encodeURIComponent(regSelectedVmx), { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            var d = await r.json();
+            if (d.status === 'error') {
+                regStatus('error', d.message || 'Registration failed.');
+                regSubmitBtn.disabled = false;
+                regSubmitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">check</span> Register VM';
+                return;
+            }
+            regStatus('success', d.message || 'VM registered. Reloading...');
+            setTimeout(function() { window.location.reload(); }, 1500);
+        } catch (e) {
+            regStatus('error', 'Network error.');
+            regSubmitBtn.disabled = false;
+            regSubmitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">check</span> Register VM';
+        }
+    });
+})();
+</script>

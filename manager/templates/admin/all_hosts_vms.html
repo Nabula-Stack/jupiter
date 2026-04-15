@@ -1,0 +1,204 @@
+{% extends 'admin/base_site.html' %}
+
+{% block title %}{{ title }} - Jupiter Admin{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    <style>
+        .section-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .host-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border-left: 5px solid #2563eb;
+        }
+        
+        .host-title {
+            color: #2563eb;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .section-title {
+            color: #333;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 10px;
+            margin: 0 0 20px 0;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .vm-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .vm-table thead th {
+            padding: 12px;
+            text-align: left;
+            background: #f5f5f5;
+            border-bottom: 2px solid #ddd;
+            font-weight: bold;
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .vm-table tbody tr {
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s ease;
+        }
+        
+        .vm-table tbody tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .vm-table td {
+            padding: 12px;
+            font-size: 13px;
+        }
+        
+        .vm-name-col {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
+        .status-on {
+            background: #d4edff;
+            color: #0066cc;
+        }
+        
+        .status-off {
+            background: #ffe5d4;
+            color: #cc5200;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 30px 20px;
+            color: #999;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 13px;
+        }
+    </style>
+
+    <h1 style="margin-bottom: 20px;"><i class="fas fa-cube"></i> Virtual Machines - All Hosts</h1>
+    
+    {% if hosts %}
+        {% for host in hosts %}
+            {% with vms=host.vms.all %}
+                <div class="host-section" id="host-{{ host.pk }}">
+                    <div class="host-title">
+                        <i class="fas fa-server"></i> {{ host.name }} ({{ host.ip_address }}) — {{ vms|length }} VMs
+                    </div>
+                    
+                    {% if vms %}
+                        <table class="vm-table">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-cube"></i> VM Name</th>
+                                    <th>Status</th>
+                                    <th>Guest Agent / Tools</th>
+                                    <th>vCPU</th>
+                                    <th>Memory (MB)</th>
+                                    <th>Guest OS</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for vm in vms %}
+                                    <tr>
+                                        <td class="vm-name-col">
+                                            <a href="/admin/manager/virtualmachine/{{ vm.pk }}/change/" style="color: #2563eb; text-decoration: none;">
+                                                {{ vm.name }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <span class="status-badge {% if vm.power_state == 'on' %}status-on{% else %}status-off{% endif %}">
+                                                {{ vm.power_state|upper|default:"UNKNOWN" }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if vm.host.hypervisor_type == 'proxmox_ve' %}
+                                                {{ vm.tools_running|default:"unknown" }}
+                                            {% else %}
+                                                {{ vm.tools_status|default:"--" }}
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ vm.num_cpu|default:"--" }}</td>
+                                        <td>{{ vm.memory_mb|default:"--" }}</td>
+                                        <td>{{ vm.guest_os|default:"--" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="no-data">No VMs found on this host</div>
+                    {% endif %}
+                </div>
+            {% endwith %}
+        {% endfor %}
+    {% else %}
+        <div class="section-container">
+            <div class="empty-state">
+                <i class="fas fa-cube" style="font-size: 48px; opacity: 0.5; margin-bottom: 20px;"></i>
+                <h3>No Active Hosts</h3>
+                <p>No active hosts found. Please add and activate hosts first.</p>
+            </div>
+        </div>
+    {% endif %}
+    
+    <div style="margin-top: 30px;">
+        <a href="/admin/manager/host/" class="button" style="
+            display: inline-block;
+            padding: 10px 20px;
+            background: #417690;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+        ">
+            ← Back to Hosts
+        </a>
+    </div>
+</div>
+
+<script>
+(function() {
+    var params = new URLSearchParams(window.location.search);
+    var hostId = params.get('host');
+    if (!hostId) return;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var section = document.getElementById('host-' + hostId);
+        if (!section) return;
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        section.style.boxShadow = '0 0 0 2px rgba(37, 99, 235, 0.35)';
+        window.setTimeout(function() {
+            section.style.boxShadow = '';
+        }, 1400);
+    });
+})();
+</script>
+{% endblock %}
