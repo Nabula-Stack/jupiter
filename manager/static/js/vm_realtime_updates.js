@@ -187,13 +187,7 @@
     
     // Flash animation on table row update
     function flashRow(row) {
-        const originalBg = row.style.backgroundColor;
-        row.style.backgroundColor = '#ffffcc';
-        row.style.transition = 'background-color 0.5s ease';
-        
-        setTimeout(() => {
-            row.style.backgroundColor = originalBg || '';
-        }, 100);
+        return row;
     }
     
     // Show connection status indicator

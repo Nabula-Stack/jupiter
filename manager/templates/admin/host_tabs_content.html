@@ -124,6 +124,14 @@
 .dark .tab-badge-up{background:#064e3b;color:#bbf7d0}
 .dark .tab-badge-down{background:#7f1d1d;color:#fecaca}
 .dark .tab-badge-info{background:#1e3a8a;color:#bfdbfe}
+.tab-service-controls{display:grid;grid-template-columns:1fr 220px auto;gap:10px;align-items:end;margin-bottom:12px}
+.tab-service-field label{display:block;font-size:11px;font-weight:700;color:var(--color-font-subtle,#64748b);text-transform:uppercase;margin-bottom:6px}
+.tab-service-field select{width:100%;padding:8px 10px;border:1px solid var(--color-base-300,#d1d5db);border-radius:6px;font-size:13px;background:var(--color-base-100,#fff);color:var(--color-font-important,#1f2937)}
+.tab-service-field select:focus{outline:none;border-color:var(--color-primary-600,#c46f4f);box-shadow:0 0 0 3px rgba(196,111,79,.14)}
+.dark .tab-service-field label{color:var(--color-font-subtle,#94a3b8)}
+.dark .tab-service-field select{background:var(--color-base-900,#0f172a);border-color:var(--color-base-700,#475569);color:var(--color-font-important,#e2e8f0)}
+.dark .tab-service-field select:focus{border-color:var(--color-primary-500,#efc7b4);box-shadow:0 0 0 3px rgba(239,199,180,.16)}
+@media (max-width: 900px){.tab-service-controls{grid-template-columns:1fr}}
 /* File Browser Modal */
 .fb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center}
 .fb-overlay.open{display:flex}
@@ -1638,11 +1646,11 @@
 
             return '' +
                 '<div class="tab-section-title">Service Control</div>' +
-                '<div style="display:grid;grid-template-columns:1fr 220px auto;gap:10px;align-items:end;margin-bottom:12px;">' +
-                    '<div><label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">Service Name</label>' +
-                        '<select id="srv-name-' + h.pk + '" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">' + options + '</select></div>' +
-                    '<div><label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px">State</label>' +
-                        '<select id="srv-action-' + h.pk + '" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">' +
+                '<div class="tab-service-controls">' +
+                    '<div class="tab-service-field"><label>Service Name</label>' +
+                        '<select id="srv-name-' + h.pk + '">' + options + '</select></div>' +
+                    '<div class="tab-service-field"><label>State</label>' +
+                        '<select id="srv-action-' + h.pk + '">' +
                             '<option value="start">start</option>' +
                             '<option value="stop">stop</option>' +
                             '<option value="enable">enable</option>' +

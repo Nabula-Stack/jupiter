@@ -14,9 +14,4 @@ RUN pip install --no-cache-dir --no-build-isolation -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p /run/secrets
-
-COPY docker-entrypoint-sync.sh /docker-entrypoint-sync.sh
-RUN chmod +x /docker-entrypoint-sync.sh
-
-ENTRYPOINT ["/docker-entrypoint-sync.sh"]
+CMD ["sh", "-c", "python manage.py fix_proxmox_usernames || true; exec python manage.py sync_hosts"]

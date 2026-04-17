@@ -14,11 +14,6 @@ RUN pip install --no-cache-dir --no-build-isolation -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p /run/secrets
-
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
-
 EXPOSE 8000
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput --clear && python manage.py fix_proxmox_usernames || true; exec daphne -b 0.0.0.0 -p ${WEB_INTERNAL_PORT:-8000} core.asgi:application"]

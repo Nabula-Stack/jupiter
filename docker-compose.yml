@@ -39,18 +39,18 @@ services:
     image: nebula-web:latest
     restart: unless-stopped
     ports:
-      - "${WEB_PORT:-8000}:8000"
+      - "${WEB_PORT:-8000}:${WEB_INTERNAL_PORT:-8000}"
     env_file:
       - .env
     environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      SSH_KEY_PATH: /app/ssh_keys/rsa
-      SSH_KEY_CONTAINER_PATH: /run/secrets/ssh_key
-      ESXI_SSH_KEY_PATH: /app/ssh_keys/nebula_rsa
-      KVM_SSH_KEY_PATH: /app/ssh_keys/rsa
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      SSH_KEY_PATH: ${SSH_KEY_PATH:-/app/ssh_keys/rsa}
+      ESXI_SSH_KEY_PATH: ${ESXI_SSH_KEY_PATH:-/app/ssh_keys/nebula_rsa}
+      KVM_SSH_KEY_PATH: ${KVM_SSH_KEY_PATH:-/app/ssh_keys/rsa}
+      WEB_INTERNAL_PORT: ${WEB_INTERNAL_PORT:-8000}
     depends_on:
       db:
         condition: service_healthy
@@ -73,14 +73,13 @@ services:
     env_file:
       - .env
     environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      SSH_KEY_PATH: /app/ssh_keys/rsa
-      SSH_KEY_CONTAINER_PATH: /run/secrets/ssh_key
-      ESXI_SSH_KEY_PATH: /app/ssh_keys/nebula_rsa
-      KVM_SSH_KEY_PATH: /app/ssh_keys/rsa
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      SSH_KEY_PATH: ${SSH_KEY_PATH:-/app/ssh_keys/rsa}
+      ESXI_SSH_KEY_PATH: ${ESXI_SSH_KEY_PATH:-/app/ssh_keys/nebula_rsa}
+      KVM_SSH_KEY_PATH: ${KVM_SSH_KEY_PATH:-/app/ssh_keys/rsa}
     depends_on:
       db:
         condition: service_healthy

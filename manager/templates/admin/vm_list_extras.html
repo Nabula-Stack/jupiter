@@ -23,7 +23,91 @@
 }
 #changelist-actions-wrapper{width:100%!important;padding:0!important;margin:0!important}
 #changelist-actions{margin:0!important;width:100%!important}
-#changelist-actions > div{margin:0!important;border-radius:0!important;padding:6px 12px!important}
+#changelist-actions > div{display:flex!important;align-items:center!important;gap:10px!important;flex-wrap:wrap!important;margin:0!important;padding:8px 12px!important;border-radius:10px!important;background:linear-gradient(180deg,#fbf5f1 0%,#f4e3d8 100%)!important;border:1px solid #e8d3c6!important;box-shadow:0 6px 18px rgba(138,74,53,.08)!important}
+#changelist-actions label{display:inline-flex!important;align-items:center!important;gap:8px!important;margin:0!important;font-size:12px!important;font-weight:700!important;letter-spacing:.02em!important;color:#7a5d4d!important}
+#changelist-actions select{
+    min-width:290px!important;
+    height:40px!important;
+    padding:0 42px 0 14px!important;
+    border-radius:8px!important;
+    border:1px solid #c98d72!important;
+    background:linear-gradient(180deg,#d68962 0%,#cb7852 100%)!important;
+    color:#fff7f1!important;
+    font-size:14px!important;
+    font-weight:700!important;
+    line-height:40px!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 3px 10px rgba(138,74,53,.14)!important;
+    appearance:none!important;
+    -webkit-appearance:none!important;
+    background-image:linear-gradient(180deg,#d68962 0%,#cb7852 100%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23fff7f1' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='m4 6 4 4 4-4'/%3E%3C/svg%3E")!important;
+    background-repeat:no-repeat,no-repeat!important;
+    background-size:auto,14px 14px!important;
+    background-position:0 0,right 14px center!important;
+    color-scheme:light!important;
+}
+#changelist-actions select option{
+    background:#fffaf7!important;
+    color:#2f271d!important;
+}
+#changelist-actions select option:checked{
+    background:#f4d7c8!important;
+    color:#2f271d!important;
+}
+#changelist-actions select:hover{filter:brightness(1.03)!important}
+#changelist-actions select:focus{outline:none!important;border-color:#8a4a35!important;box-shadow:0 0 0 3px rgba(196,111,79,.18), 0 3px 10px rgba(138,74,53,.14)!important}
+#changelist-actions button{
+    height:40px!important;
+    padding:0 18px!important;
+    border-radius:8px!important;
+    border:1px solid #b86845!important;
+    background:linear-gradient(180deg,#d27750 0%,#c46f4f 100%)!important;
+    color:#fff7f1!important;
+    font-size:14px!important;
+    font-weight:800!important;
+    letter-spacing:.01em!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 3px 10px rgba(138,74,53,.16)!important;
+}
+#changelist-actions button:hover{background:linear-gradient(180deg,#d98461 0%,#cb7852 100%)!important;border-color:#8a4a35!important;color:#ffffff!important}
+#changelist-actions button:focus{outline:none!important;box-shadow:0 0 0 3px rgba(196,111,79,.18), 0 3px 10px rgba(138,74,53,.16)!important}
+#changelist-actions .action-counter,
+#changelist-actions [class*="counter"],
+#changelist-actions [class*="selected"]{font-size:12px!important;font-weight:700!important;color:#7a5d4d!important}
+.dark #changelist-actions > div{background:linear-gradient(180deg,#241d21 0%,#2c2328 100%)!important;border-color:#493b44!important;box-shadow:0 6px 20px rgba(0,0,0,.28)!important}
+.dark #changelist-actions label{color:#d7c3b3!important}
+.dark #changelist-actions select{
+    border-color:#7b5f54!important;
+    background:linear-gradient(180deg,#7d4f3d 0%,#6d4335 100%)!important;
+    color:#f8ece5!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 3px 10px rgba(0,0,0,.22)!important;
+    background-image:linear-gradient(180deg,#7d4f3d 0%,#6d4335 100%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23f8ece5' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='m4 6 4 4 4-4'/%3E%3C/svg%3E")!important;
+    color-scheme:dark!important;
+}
+.dark #changelist-actions select option{
+    background:#17202d!important;
+    color:#e7d7cc!important;
+}
+.dark #changelist-actions select option:checked{
+    background:#3a241f!important;
+    color:#fff3ec!important;
+}
+.dark #changelist-actions select:hover{filter:brightness(1.06)!important}
+.dark #changelist-actions select:focus{border-color:#efc7b4!important;box-shadow:0 0 0 3px rgba(239,199,180,.16), 0 3px 10px rgba(0,0,0,.22)!important}
+.dark #changelist-actions button{
+    border-color:#9b664f!important;
+    background:linear-gradient(180deg,#b56c4a 0%,#9f5c40 100%)!important;
+    color:#fff6f0!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 3px 10px rgba(0,0,0,.24)!important;
+}
+.dark #changelist-actions button:hover{background:linear-gradient(180deg,#c87954 0%,#ad6547 100%)!important;border-color:#efc7b4!important}
+.dark #changelist-actions button:focus{box-shadow:0 0 0 3px rgba(239,199,180,.16), 0 3px 10px rgba(0,0,0,.24)!important}
+.dark #changelist-actions .action-counter,
+.dark #changelist-actions [class*="counter"],
+.dark #changelist-actions [class*="selected"]{color:#d7c3b3!important}
+@media (max-width: 720px){
+    #changelist-actions > div{align-items:stretch!important}
+    #changelist-actions select{min-width:0!important;width:100%!important;flex:1 1 100%!important}
+    #changelist-actions button{width:100%!important;justify-content:center!important}
+}
 .ova-overlay{display:none!important;position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);z-index:9999;align-items:center;justify-content:center}
 .ova-overlay.open{display:flex!important}
 .ova-modal{background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.18);width:480px;max-width:92vw;overflow:hidden}

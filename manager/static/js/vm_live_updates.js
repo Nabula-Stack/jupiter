@@ -177,11 +177,7 @@
     }
     
     function flashElement(el) {
-        const orig = el.style.backgroundColor;
-        el.style.backgroundColor = '#ffffcc';
-        setTimeout(function() {
-            el.style.backgroundColor = orig || '';
-        }, 300);
+        return el;
     }
     
     function updateHostUI(data) {

@@ -11,24 +11,32 @@
 ```bash
 # 1. Clone and configure
 cp .env.example .env
-# Edit .env with your database password, secret key, and SSH_PRIVATE_KEY_B64
+# Edit .env with your database password, secret key, and host settings
 
-# 2. Start all services (including sync worker)
+# 2. Start core services
 docker compose up -d --build
 
-# 3. Create admin user
+# 3. (Optional) Start sync worker profile
+docker compose --profile always-sync up -d sync-worker
+
+# 4. Create admin user
 docker compose exec web python manage.py createsuperuser
 
-# 4. Open browser
+# 5. Open browser
 # http://localhost:8000/admin/
 ```
 
 ### Background Sync Worker
 
-The `sync-worker` service automatically starts with `docker compose up` and continuously syncs:
+The `sync-worker` service runs under the `always-sync` profile and continuously syncs:
 - Host metadata (CPU, memory, storage, network)
 - VMs list and state for each host  
 - WebSocket broadcast for live updates
+
+Start it:
+```bash
+docker compose --profile always-sync up -d sync-worker
+```
 
 View logs:
 ```bash
@@ -56,15 +64,20 @@ All services in `docker-compose.yml` now build from these container-specific Doc
 | `DB_NAME` | `mydatabase` | PostgreSQL database name |
 | `DB_USER` | `admin` | PostgreSQL user |
 | `DB_PASSWORD` | `mypassword` | PostgreSQL password |
+| `DB_HOST` | `db` | PostgreSQL hostname inside compose network |
+| `DB_PORT` | `5432` | PostgreSQL port |
 | `REDIS_HOST` | `redis` | Redis hostname (set by compose) |
+| `REDIS_PORT` | `6379` | Redis port |
 | `DJANGO_SECRET_KEY` | insecure default | Change in production |
 | `DJANGO_DEBUG` | `False` | Debug mode |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1,0.0.0.0` | Comma-separated hosts |
 | `SSH_PUBLIC_KEY_ENCRYPTION_KEY` | uses `DJANGO_SECRET_KEY` | Optional dedicated key for encrypting `Host.ssh_public_key` at rest |
-| `SSH_PRIVATE_KEY_B64` | empty | Base64-encoded ESXi private key content |
-| `SSH_KEY_CONTAINER_PATH` | `/run/secrets/ssh_key` | Container path where entrypoint writes decoded key |
+| `SSH_KEY_PATH` | `/app/ssh_keys/rsa` | Default SSH key path for host operations |
+| `ESXI_SSH_KEY_PATH` | `/app/ssh_keys/nebula_rsa` | ESXi key path inside container |
+| `KVM_SSH_KEY_PATH` | `/app/ssh_keys/rsa` | KVM key path inside container |
 | `HYPERVISOR_PLUGIN_MODULES` | empty | Comma-separated Python modules to auto-register external hypervisor plugins |
 | `WEB_PORT` | `8000` | Exposed web port |
+| `WEB_INTERNAL_PORT` | `8000` | Daphne bind port inside container |
 
 ## SSH Key Setup
 
@@ -75,7 +88,15 @@ ssh-keygen -t rsa -b 4096 -f ~/.ssh/vcnter_rsa -C "vcenter-manager"
 cat ~/.ssh/vcnter_rsa.pub | ssh root@<ESXI_IP> "cat >> /etc/ssh/keys-root/authorized_keys"
 ```
 
-The key is decoded at container startup from `SSH_PRIVATE_KEY_B64` and written to `/run/secrets/ssh_key` with `0600` permissions.
+For Docker Compose, place private keys in the local `ssh_keys` folder (mounted read-only into containers):
+
+```bash
+mkdir -p ssh_keys
+cp ~/.ssh/vcnter_rsa ssh_keys/rsa
+cp ~/.ssh/vcnter_rsa ssh_keys/nebula_rsa
+```
+
+Then set key env paths in `.env` only if you need non-default locations.
 
 ## Architecture
 

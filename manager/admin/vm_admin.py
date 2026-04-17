@@ -424,7 +424,7 @@ class VirtualMachineAdmin(ModelAdmin):
     def deploy_ova_modal_action(self, request, queryset=None):
         return redirect(request.META.get('HTTP_REFERER', "/admin/manager/virtualmachine/"))
 
-    @action(description="Sync Inventory")
+    @action(description="Sync")
     def sync_inventory_action(self, request, queryset=None):
         for host in Host.objects.all(): 
             sync_vms_for_host(host)
