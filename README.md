@@ -1,10 +1,10 @@
-# Nebula Manager
+# jupite Manager
 
-A self-hosted hypervisor management platform built with Django and Daphne (ASGI). Nebula provides a unified admin UI, REST API, and real-time WebSocket dashboard for managing virtual machines across ESXi, KVM/libvirt, and Proxmox environments.
+A self-hosted hypervisor management platform built with Django and Daphne (ASGI). jupite provides a unified admin UI, REST API, and real-time WebSocket dashboard for managing virtual machines across ESXi, KVM/libvirt, and Proxmox environments.
 
 ---
 
-## What Nebula Can Do
+## What jupite Can Do
 
 ### Hypervisor Support
 - **VMware ESXi** — connect over SSH or the vSphere API
@@ -132,15 +132,15 @@ docker compose exec web python manage.py <command>
 REGISTRY=build.home/home TAG=latest ./k8s/build-images.sh
 ```
 
-This builds and pushes four images: `nebula_web`, `nebula_sync_worker`, `nebula_postgres`, `nebula_redis`.
+This builds and pushes four images: `jupite_web`, `jupite_sync_worker`, `jupite_postgres`, `jupite_redis`.
 
 ### 2. Create the image pull secret
 
 ```bash
-kubectl create namespace nebula --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace jupite --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl create secret docker-registry harbor-regcred \
-  --namespace nebula \
+  --namespace jupite \
   --docker-server build.home \
   --docker-username <HARBOR_USERNAME> \
   --docker-password <HARBOR_PASSWORD>
@@ -160,19 +160,19 @@ secrets:
 
 ingress:
   hosts:
-    - host: nebula.your-domain.home
+    - host: jupite.your-domain.home
       paths:
         - path: /
           pathType: Prefix
 ```
 
-> **Option B — pre-created secret:** copy `k8s/secret-app.example.yaml` to `k8s/secret-app.yaml`, fill it in, apply it with `kubectl apply -f k8s/secret-app.yaml`, then set `secrets.create: false` and `secrets.existingSecret: nebula-app-secret` in `values-rancher.yaml`.
+> **Option B — pre-created secret:** copy `k8s/secret-app.example.yaml` to `k8s/secret-app.yaml`, fill it in, apply it with `kubectl apply -f k8s/secret-app.yaml`, then set `secrets.create: false` and `secrets.existingSecret: jupite-app-secret` in `values-rancher.yaml`.
 
 ### 4. Deploy with Helm
 
 ```bash
-helm upgrade --install nebula ./k8s \
-  --namespace nebula \
+helm upgrade --install jupite ./k8s \
+  --namespace jupite \
   --create-namespace \
   -f ./k8s/values-rancher.yaml
 ```
@@ -184,12 +184,12 @@ Commit and push the `k8s/` folder to your Fleet Git repository. `k8s/fleet.yaml`
 ### 6. Verify
 
 ```bash
-kubectl get pods      -n nebula
-kubectl get svc       -n nebula
-kubectl get ingress   -n nebula
+kubectl get pods      -n jupite
+kubectl get svc       -n jupite
+kubectl get ingress   -n jupite
 
-kubectl logs deployment/nebula-web          -n nebula --tail=100
-kubectl logs deployment/nebula-sync-worker  -n nebula --tail=100
+kubectl logs deployment/jupite-web          -n jupite --tail=100
+kubectl logs deployment/jupite-sync-worker  -n jupite --tail=100
 ```
 
 ### 7. Access
@@ -197,14 +197,14 @@ kubectl logs deployment/nebula-sync-worker  -n nebula --tail=100
 Browse to the host you set in `ingress.hosts`, e.g.:
 
 ```
-http://nebula.your-domain.home/admin/
-http://nebula.your-domain.home/api/v1/docs
+http://jupite.your-domain.home/admin/
+http://jupite.your-domain.home/api/v1/docs
 ```
 
 Port-forward fallback (no ingress):
 
 ```bash
-kubectl port-forward svc/nebula-web -n nebula 8000:8000
+kubectl port-forward svc/jupite-web -n jupite 8000:8000
 ```
 
 ---
