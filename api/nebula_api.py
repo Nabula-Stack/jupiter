@@ -1,4 +1,5 @@
 from ninja import NinjaAPI
+from ninja.security import SessionAuthIsStaff
 from .system_routes import router as system_router
 from plugins.esxi_plugin import register as register_esxi
 from plugins.kvm_plugin import register as register_kvm
@@ -10,6 +11,7 @@ api = NinjaAPI(
     description="Advanced API for managing ESXi Host and Network configurations via SSH",
     urls_namespace="nebula_api",
     docs_url="/docs",  # Explicitly define the docs sub-path
+    auth=SessionAuthIsStaff(),
 )
 
 # ESXi plugin — registers /hosts, /network, /storage, /vms
