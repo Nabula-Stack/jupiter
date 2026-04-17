@@ -14,8 +14,6 @@ RUN pip install --no-cache-dir --no-build-isolation -r requirements.txt
 
 COPY . .
 
-RUN python manage.py collectstatic --noinput
-
 RUN mkdir -p /run/secrets
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh

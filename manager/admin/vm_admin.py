@@ -99,7 +99,7 @@ class VirtualMachineAdmin(ModelAdmin):
         "storage_used_text", "storage_provisioned_text",
     ]
 
-    actions_list = ["sync_inventory_action", "refresh_vms_action"]
+    actions_list = ["sync_inventory_action", "refresh_vms_action", "register_vm_modal_action", "deploy_ova_modal_action"]
     actions_detail = [
         {
             "title": "VM Control",
@@ -353,9 +353,14 @@ class VirtualMachineAdmin(ModelAdmin):
                     elif obj.host.hypervisor_type == Host.HYPERVISOR_KVM_LIBVIRT:
                         kvm_manage.delete_vm(conn, obj.vmid)
                     else:
-                        result = vm_manage.destroy_vm(conn, obj.vmid)
-                        if isinstance(result, str) and result.startswith("Error:"):
-                            raise RuntimeError(result)
+                        if hasattr(conn, "destroy_vm"):
+                            result = conn.destroy_vm(obj.vmid)
+                            if (result or {}).get("status") == "error":
+                                raise RuntimeError((result or {}).get("message") or "Delete failed")
+                        else:
+                            result = vm_manage.destroy_vm(conn, obj.vmid)
+                            if isinstance(result, str) and result.startswith("Error:"):
+                                raise RuntimeError(result)
                 obj.delete()
                 deleted.append(obj.name)
             except Exception as e:
@@ -378,9 +383,14 @@ class VirtualMachineAdmin(ModelAdmin):
                     if obj.host.hypervisor_type == Host.HYPERVISOR_KVM_LIBVIRT:
                         kvm_manage.unregister_vm(conn, obj.vmid)
                     elif obj.host.hypervisor_type != Host.HYPERVISOR_PROXMOX_VE:
-                        result = vm_manage.unregister_vm(conn, obj.vmid)
-                        if isinstance(result, str) and result.startswith("Error:"):
-                            raise RuntimeError(result)
+                        if hasattr(conn, "unregister_vm_by_identifier"):
+                            result = conn.unregister_vm_by_identifier(obj.vmid)
+                            if (result or {}).get("status") == "error":
+                                raise RuntimeError((result or {}).get("message") or "Unregister failed")
+                        else:
+                            result = vm_manage.unregister_vm(conn, obj.vmid)
+                            if isinstance(result, str) and result.startswith("Error:"):
+                                raise RuntimeError(result)
                 # Proxmox unregister means remove from Nebula inventory only.
                 obj.delete()
                 unregistered.append(obj.name)
@@ -389,6 +399,14 @@ class VirtualMachineAdmin(ModelAdmin):
         if unregistered:
             self.message_user(request, f"Unregistered (files kept): {', '.join(unregistered)}")
         return redirect("/admin/manager/virtualmachine/")
+
+    @action(description="Register VM", icon="app_registration")
+    def register_vm_modal_action(self, request, queryset=None):
+        return redirect(request.META.get('HTTP_REFERER', "/admin/manager/virtualmachine/"))
+
+    @action(description="Deploy OVA", icon="cloud_upload")
+    def deploy_ova_modal_action(self, request, queryset=None):
+        return redirect(request.META.get('HTTP_REFERER', "/admin/manager/virtualmachine/"))
 
     @action(description="Sync Inventory")
     def sync_inventory_action(self, request, queryset=None):
@@ -418,8 +436,12 @@ class VirtualMachineAdmin(ModelAdmin):
     @display(description="Status")
     def display_status_live(self, obj):
         s = (obj.power_state or "").lower()
-        color = "#10b981" if "on" in s else "#ef4444"
-        text = "Running" if "on" in s else "Stopped"
+        if "on" in s:
+            color, text = "#10b981", "Running"
+        elif "suspend" in s:
+            color, text = "#f59e0b", "Suspended"
+        else:
+            color, text = "#ef4444", "Stopped"
         return format_html(
             '<span id="vm-status-{}" data-vm-id="{}" style="color:{}; font-weight:bold;">● {}</span>',
             obj.id, obj.id, color, text

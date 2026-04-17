@@ -4,6 +4,19 @@ import re
 # --- READ / LIST FUNCTIONS ---
 def list_vswitches(conn):
     """Lists all virtual switches with detailed information."""
+    if hasattr(conn, "list_vswitches"):
+        out = []
+        for sw in conn.list_vswitches() or []:
+            out.append(
+                {
+                    "name": str(getattr(sw, "name", "") or ""),
+                    "num_ports": str(getattr(sw, "portgroup_count", 0) or 0),
+                    "mtu": str(getattr(sw, "mtu", "--") or "--"),
+                    "uplinks": [],
+                }
+            )
+        return out
+
     raw = conn.run("esxcli network vswitch standard list")
     vswitches = []
     current_vswitch = None
@@ -28,6 +41,19 @@ def list_vswitches(conn):
 
 def list_portgroups(conn):
     """Lists all port groups with detailed information."""
+    if hasattr(conn, "list_portgroups"):
+        out = []
+        for pg in conn.list_portgroups() or []:
+            out.append(
+                {
+                    "name": str(getattr(pg, "name", "") or ""),
+                    "vswitch": str(getattr(pg, "vswitch", "") or ""),
+                    "vlan": str(getattr(pg, "vlan_id", 0) or 0),
+                    "mtu": "--",
+                }
+            )
+        return out
+
     raw = conn.run("esxcli network vswitch standard portgroup list")
     groups = []
     lines = raw.splitlines()
@@ -46,18 +72,33 @@ def list_portgroups(conn):
 
 # --- WRITE / ACTION FUNCTIONS ---
 def create_vswitch(conn, name):
+    if hasattr(conn, "create_vswitch"):
+        result = conn.create_vswitch(name)
+        return str((result or {}).get("status", "success"))
     return conn.run(f"esxcli network vswitch standard add -v '{name}'")
 
 def remove_vswitch(conn, name):
+    if hasattr(conn, "remove_vswitch"):
+        result = conn.remove_vswitch(name)
+        return str((result or {}).get("status", "success"))
     return conn.run(f"esxcli network vswitch standard remove -v '{name}'")
 
 def add_portgroup(conn, vswitch, name):
+    if hasattr(conn, "add_portgroup"):
+        result = conn.add_portgroup(vswitch, name, vlan=0)
+        return str((result or {}).get("status", "success"))
     return conn.run(f"esxcli network vswitch standard portgroup add -p '{name}' -v '{vswitch}'")
 
 def set_portgroup_vlan(conn, name, vlan):
+    if hasattr(conn, "set_portgroup_vlan"):
+        result = conn.set_portgroup_vlan(name, int(vlan))
+        return str((result or {}).get("status", "success"))
     return conn.run(f"esxcli network vswitch standard portgroup set -p '{name}' -v {vlan}")
 
 def remove_portgroup(conn, name):
+    if hasattr(conn, "remove_portgroup"):
+        result = conn.remove_portgroup(name)
+        return str((result or {}).get("status", "success"))
     return conn.run(f"esxcli network vswitch standard portgroup remove -p '{name}'")
 
 
@@ -169,6 +210,9 @@ def _parse_key_value_blocks(raw):
 
 def get_vmkernel_nics(conn):
     """Lists VMkernel (vmk) adapters with IPv4 configuration."""
+    if hasattr(conn, "list_vmkernel_nics"):
+        return conn.list_vmkernel_nics() or []
+
     ipv4_raw = conn.run("esxcli network ip interface ipv4 get 2>/dev/null") or ""
     intf_raw = conn.run("esxcli network ip interface list 2>/dev/null") or ""
     intf_rows = _parse_esxcli_table(intf_raw)
@@ -193,6 +237,9 @@ def get_vmkernel_nics(conn):
 
 def get_tcp_ip_stacks(conn):
     """Lists TCP/IP network stack instances."""
+    if hasattr(conn, "list_tcp_ip_stacks"):
+        return conn.list_tcp_ip_stacks() or []
+
     raw = conn.run("esxcli network ip netstack list 2>/dev/null") or ""
     rows = _parse_esxcli_table(raw)
     if not _rows_have_key(rows, ["key", "name", "state"]):
@@ -220,6 +267,9 @@ def get_tcp_ip_stacks(conn):
 
 def get_firewall_rules(conn):
     """Lists firewall ruleset entries (enabled/disabled state)."""
+    if hasattr(conn, "list_firewall_rules"):
+        return conn.list_firewall_rules() or []
+
     raw = conn.run("esxcli network firewall ruleset list 2>/dev/null") or ""
     rows = _parse_esxcli_table(raw)
     if not _rows_have_key(rows, ["name", "enabled"]):

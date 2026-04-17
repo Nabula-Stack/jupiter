@@ -98,6 +98,19 @@ redis:
     tag: latest
     pullPolicy: Always
   port: 6379
+  config: |
+    port 6379
+    tcp-keepalive 60
+    save ""
+    appendonly no
+    databases 2
+    maxmemory 192mb
+    maxmemory-policy allkeys-lru
+    lazyfree-lazy-eviction yes
+    lazyfree-lazy-expire yes
+    lazyfree-lazy-server-del yes
+    timeout 0
+    loglevel notice
   resources:
     requests:
       cpu: 100m

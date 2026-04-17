@@ -5,6 +5,60 @@ def get_vm_details(host, vmid):
     Parses 'vim-cmd vmsvc/get.summary' and 'get.guest' for deeper guest info.
     Updated to reliably parse nested ipStack for DNS and deduplicate IPs.
     """
+    if hasattr(host, "get_vm_by_identifier"):
+        vm = host.get_vm_by_identifier(str(vmid))
+        if vm is None:
+            return {
+                "vmid": str(vmid),
+                "vm_name": "Unknown",
+                "power_state": "Unknown",
+                "guest_name": "Unknown",
+                "ip_address": "N/A",
+                "tools_status": "Unknown",
+                "tools_running": "Unknown",
+                "distro": "N/A",
+                "kernel": "N/A",
+                "hw_version": "N/A",
+                "uuid": "",
+                "num_cpu": "0",
+                "memory_mb": "0",
+                "storage_used_gb": 0.0,
+                "storage_provisioned_gb": 0.0,
+                "overall_status": "gray",
+                "networks": [{"network": "Unknown", "mac": "N/A", "ip": []}],
+                "dns_servers": [],
+                "cpu_usage_mhz": "0",
+                "memory_usage_mb": "0",
+                "uptime_sec": "0",
+                "uptime_human": "0s",
+            }
+
+        ips = [ip for ip in (getattr(vm, "ip_addresses", []) or []) if ip and ip != "0.0.0.0"]
+        return {
+            "vmid": str(vmid),
+            "vm_name": getattr(vm, "name", "Unknown"),
+            "power_state": str(getattr(vm, "power_state", "Unknown")),
+            "guest_name": getattr(vm, "guest_os", "Unknown") or "Unknown",
+            "ip_address": next(iter(ips), "N/A"),
+            "tools_status": getattr(vm, "tools_status", "Unknown") or "Unknown",
+            "tools_running": str(getattr(vm, "tools_running", "Unknown")),
+            "distro": "N/A",
+            "kernel": "N/A",
+            "hw_version": "N/A",
+            "uuid": getattr(vm, "uuid", "") or "",
+            "num_cpu": str(int(getattr(vm, "cpu_count", 0) or 0)),
+            "memory_mb": str(int(getattr(vm, "memory_mb", 0) or 0)),
+            "storage_used_gb": 0.0,
+            "storage_provisioned_gb": 0.0,
+            "overall_status": "green",
+            "networks": [{"network": "Unknown", "mac": "N/A", "ip": list(dict.fromkeys(ips))}],
+            "dns_servers": [],
+            "cpu_usage_mhz": "0",
+            "memory_usage_mb": "0",
+            "uptime_sec": "0",
+            "uptime_human": "0s",
+        }
+
     summary = host.run(f"vim-cmd vmsvc/get.summary {vmid}")
     guest = host.run(f"vim-cmd vmsvc/get.guest {vmid}")
     
@@ -91,6 +145,14 @@ def get_vm_runtime_stats(host, vmid):
     """
     Parses 'vim-cmd vmsvc/get.summary' for real-time CPU/RAM usage and uptime.
     """
+    if hasattr(host, "get_vm_by_identifier"):
+        return {
+            "cpu_usage_mhz": "0",
+            "memory_usage_mb": "0",
+            "uptime_sec": "0",
+            "uptime_human": "0s",
+        }
+
     summary = host.run(f"vim-cmd vmsvc/get.summary {vmid}")
     
     cpu = re.search(r'overallCpuUsage\s*=\s*(\d+)', summary)
@@ -109,6 +171,13 @@ def get_vm_network_info(host, vmid):
     """
     Standalone NIC info extractor. Returns list of network cards with IPs.
     """
+    if hasattr(host, "get_vm_by_identifier"):
+        vm = host.get_vm_by_identifier(str(vmid))
+        if vm is None:
+            return [{"network": "Disconnected", "mac": "N/A", "ip": ["N/A"]}]
+        ips = [ip for ip in (getattr(vm, "ip_addresses", []) or []) if ip and ip != "0.0.0.0"]
+        return [{"network": "Unknown", "mac": "N/A", "ip": ips if ips else ["N/A"]}]
+
     guest_data = host.run(f"vim-cmd vmsvc/get.guest {vmid}")
     results = []
 

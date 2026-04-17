@@ -9,6 +9,21 @@ def list_datastores(conn):
       [0] Mount Point   [1] Volume Name   [2] UUID
       [3] Mounted       [4] Type           [5] Size (bytes)   [6] Free (bytes)
     """
+    if hasattr(conn, "list_datastores"):
+        rows = []
+        for ds in conn.list_datastores() or []:
+            capacity = int(float(getattr(ds, "capacity_gb", 0) or 0) * (1024**3))
+            free = int(float(getattr(ds, "free_gb", 0) or 0) * (1024**3))
+            rows.append({
+                "name": str(getattr(ds, "name", "") or ""),
+                "type": str(getattr(ds, "type", "") or ""),
+                "capacity": capacity,
+                "used": max(0, capacity - free),
+                "free": free,
+                "mounted": True,
+            })
+        return rows
+
     raw = conn.run("esxcli storage filesystem list")
     ds_list = []
     lines = raw.splitlines()
@@ -47,6 +62,8 @@ def list_datastores(conn):
 
 def list_available_disks(conn):
     """Lists physical storage devices recognized by the kernel."""
+    if hasattr(conn, "list_available_disks"):
+        return conn.list_available_disks()
     return conn.run("esxcli storage core device list")
 
 
@@ -54,12 +71,18 @@ def list_available_disks(conn):
 
 def rescan_storage(conn):
     """Triggers a rescan of all HBAs and storage devices."""
+    if hasattr(conn, "rescan_storage"):
+        result = conn.rescan_storage()
+        return str((result or {}).get("message", "Storage rescan triggered."))
     conn.run("esxcli storage core adapter rescan --all")
     conn.run("esxcli storage core device rescan")
     return "Storage rescan triggered."
 
 def refresh_vmfs(conn):
     """Probes all adapters for new VMFS volumes."""
+    if hasattr(conn, "rescan_storage"):
+        result = conn.rescan_storage()
+        return str((result or {}).get("message", "VMFS refresh triggered."))
     return conn.run("vmkfstools -V")
 
 
@@ -70,6 +93,8 @@ def create_datastore(conn, disk_id, ds_name):
     Formats a physical disk and creates a VMFS6 datastore.
     disk_id is the NAA ID (e.g., naa.600508b1001c...)
     """
+    if hasattr(conn, "list_datastores"):
+        return "Error: create_datastore is not implemented for ESXi API mode yet."
     # 1. Create a new GPT partition table
     conn.run(f"partedUtil mklabel /vmfs/devices/disks/{disk_id} gpt")
     
@@ -91,8 +116,13 @@ def create_datastore(conn, disk_id, ds_name):
 
 def extend_datastore(conn, ds_name, disk_id):
     """Extends an existing datastore onto a new span/disk."""
+    if hasattr(conn, "list_datastores"):
+        return "Error: extend_datastore is not implemented for ESXi API mode yet."
     return conn.run(f"vmkfstools -Z /vmfs/devices/disks/{disk_id}:1 /vmfs/volumes/{ds_name}")
 
 def unmount_datastore(conn, ds_name):
     """Safely unmounts a datastore from the host."""
+    if hasattr(conn, "unmount_datastore"):
+        result = conn.unmount_datastore(ds_name)
+        return str((result or {}).get("status", "success"))
     return conn.run(f"esxcli storage filesystem unmount -p /vmfs/volumes/{ds_name}")

@@ -307,6 +307,18 @@
                         Enable Hardware Virtualization (Nested VT)
                     </label>
                 </div>
+                <div class="vme-f">
+                    <label style="text-transform:none;letter-spacing:0;font-size:13px;font-weight:600;color:#1f2937;display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input id="edit_reserve_all_cpu" type="checkbox" style="width:auto;">
+                        Reserve All CPU
+                    </label>
+                </div>
+                <div class="vme-f">
+                    <label style="text-transform:none;letter-spacing:0;font-size:13px;font-weight:600;color:#1f2937;display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input id="edit_reserve_all_memory" type="checkbox" style="width:auto;">
+                        Reserve All Memory
+                    </label>
+                </div>
             </div>
         </div>
 
@@ -582,6 +594,8 @@
         document.getElementById('edit_cpu_hotplug').disabled = isOn;
         document.getElementById('edit_memory_hotplug').disabled = isOn;
         document.getElementById('edit_hardware_virtualization').disabled = isOn;
+        document.getElementById('edit_reserve_all_cpu').disabled = isOn;
+        document.getElementById('edit_reserve_all_memory').disabled = isOn;
         var addPciBtn = document.getElementById('addPciBtn');
         if (addPciBtn) addPciBtn.disabled = isOn;
     }
@@ -655,6 +669,8 @@
             document.getElementById('edit_cpu_hotplug').checked = Boolean(hwData.cpu_hotplug);
             document.getElementById('edit_memory_hotplug').checked = Boolean(hwData.memory_hotplug);
             document.getElementById('edit_hardware_virtualization').checked = Boolean(hwData.hardware_virtualization);
+            document.getElementById('edit_reserve_all_cpu').checked = Boolean(hwData.reserve_all_cpu);
+            document.getElementById('edit_reserve_all_memory').checked = Boolean(hwData.reserve_all_memory);
             renderPciPassthrough(hwData.pci_passthrough || []);
         } catch(e) {
             console.error('Hardware fetch failed:', e);
@@ -950,6 +966,8 @@
             if (caps.cpu_hotplug === false) document.getElementById('edit_cpu_hotplug').disabled = true;
             if (caps.memory_hotplug === false) document.getElementById('edit_memory_hotplug').disabled = true;
             if (caps.hardware_virtualization === false) document.getElementById('edit_hardware_virtualization').disabled = true;
+            if (caps.reserve_all_cpu === false) document.getElementById('edit_reserve_all_cpu').disabled = true;
+            if (caps.reserve_all_memory === false) document.getElementById('edit_reserve_all_memory').disabled = true;
             if (caps.pci_passthrough === false) {
                 pci.disabled = true;
                 document.getElementById('addPciBtn').disabled = true;
@@ -977,6 +995,8 @@
         var cpuHotplugEl = document.getElementById('edit_cpu_hotplug');
         var memHotplugEl = document.getElementById('edit_memory_hotplug');
         var hvEl = document.getElementById('edit_hardware_virtualization');
+        var reserveCpuEl = document.getElementById('edit_reserve_all_cpu');
+        var reserveMemEl = document.getElementById('edit_reserve_all_memory');
 
         var newCpu = cpuEl.value;
         var newMemMb = Math.round(parseFloat(memEl.value) * 1024);
@@ -997,6 +1017,10 @@
             changes.push({mod:'memory_hotplug', params:{enabled: memHotplugEl.checked}, label:'Memory Hotplug → ' + (memHotplugEl.checked ? 'Enabled' : 'Disabled')});
         if (Boolean(hwData && hwData.hardware_virtualization) !== hvEl.checked)
             changes.push({mod:'hardware_virtualization', params:{enabled: hvEl.checked}, label:'Hardware Virtualization → ' + (hvEl.checked ? 'Enabled' : 'Disabled')});
+        if (Boolean(hwData && hwData.reserve_all_cpu) !== reserveCpuEl.checked)
+            changes.push({mod:'reserve_all_cpu', params:{enabled: reserveCpuEl.checked}, label:'Reserve All CPU → ' + (reserveCpuEl.checked ? 'Enabled' : 'Disabled')});
+        if (Boolean(hwData && hwData.reserve_all_memory) !== reserveMemEl.checked)
+            changes.push({mod:'reserve_all_memory', params:{enabled: reserveMemEl.checked}, label:'Reserve All Memory → ' + (reserveMemEl.checked ? 'Enabled' : 'Disabled')});
 
         if (!changes.length) { setStatus('warn', 'No changes detected.'); return; }
 

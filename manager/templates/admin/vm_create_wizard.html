@@ -306,6 +306,12 @@
                         <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1f2937;text-transform:none;letter-spacing:0;cursor:pointer;">
                             <input id="wiz_hardware_virtualization" type="checkbox" style="width:auto;"> Enable Hardware Virtualization
                         </label>
+                        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1f2937;text-transform:none;letter-spacing:0;cursor:pointer;">
+                            <input id="wiz_reserve_all_cpu" type="checkbox" style="width:auto;"> Reserve All CPU
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1f2937;text-transform:none;letter-spacing:0;cursor:pointer;">
+                            <input id="wiz_reserve_all_memory" type="checkbox" style="width:auto;"> Reserve All Memory
+                        </label>
                     </div>
                 </div>
                 <div class="vm-f" style="grid-column: span 2;">
@@ -444,6 +450,22 @@
     const statusBox    = document.getElementById('wizStatus');
     const createBtn    = document.getElementById('wizCreateBtn');
     const reloadBtn    = document.getElementById('wizReloadBtn');
+    const nameInput    = document.getElementById('wiz_name');
+    const urlParams    = new URLSearchParams(window.location.search);
+    const requestedHostName = (urlParams.get('host_name') || '').trim();
+    const ovaSessionId = (urlParams.get('ova_session') || '').trim();
+    let ovaSessionPrefill = null;
+    let ovaSessionDatastore = '';
+    let ovaSessionApplied = false;
+    let ovaNameEditedByUser = false;
+
+    if (nameInput) {
+        nameInput.addEventListener('input', function() {
+            if (ovaSessionId) {
+                ovaNameEditedByUser = true;
+            }
+        });
+    }
 
     // ── Tab switching ──
     document.querySelectorAll('.wiz-tab').forEach(function(tab) {
@@ -493,7 +515,7 @@
         return html;
     }
 
-    document.getElementById('wizAddNicBtn').addEventListener('click', function() {
+    function addExtraNic(prefill) {
         extraNicIdx++;
         var num = extraNicIdx;
         var div = document.createElement('div');
@@ -515,14 +537,24 @@
                 '</div>' +
             '</div>';
         extraNicsEl.appendChild(div);
+        if (prefill && prefill.network) {
+            div.querySelector('.extra-nic-net').value = prefill.network;
+        }
+        if (prefill && prefill.type) {
+            div.querySelector('.extra-nic-type').value = prefill.type;
+        }
         div.querySelector('[data-rm-nic]').addEventListener('click', function() { div.remove(); });
+    }
+
+    document.getElementById('wizAddNicBtn').addEventListener('click', function() {
+        addExtraNic();
     });
 
     // ── Extra Disks ──
     var extraDiskIdx = 0;
     var extraDisksEl = document.getElementById('wiz-extra-disks');
 
-    document.getElementById('wizAddDiskBtn').addEventListener('click', function() {
+    function addExtraDisk(prefill) {
         extraDiskIdx++;
         var num = extraDiskIdx;
         var div = document.createElement('div');
@@ -546,8 +578,98 @@
                 '</div>' +
             '</div>';
         extraDisksEl.appendChild(div);
+        if (prefill && prefill.size_gb) {
+            div.querySelector('.extra-disk-size').value = parseInt(prefill.size_gb, 10) || 16;
+        }
+        if (prefill && prefill.type) {
+            div.querySelector('.extra-disk-type').value = prefill.type;
+        }
+        if (prefill && prefill.datastore) {
+            div.querySelector('.extra-disk-ds').value = prefill.datastore;
+        }
         div.querySelector('[data-rm-disk]').addEventListener('click', function() { div.remove(); });
+    }
+
+    document.getElementById('wizAddDiskBtn').addEventListener('click', function() {
+        addExtraDisk();
     });
+
+    function ensureOvaBanner() {
+        var existing = document.getElementById('wizOvaBanner');
+        if (existing) return existing;
+        var banner = document.createElement('div');
+        banner.id = 'wizOvaBanner';
+        banner.style.cssText = 'margin:0 20px 0; padding:10px 12px; border:1px solid #bfdbfe; background:#eff6ff; color:#1e40af; border-radius:8px; font-size:12px; font-weight:700;';
+        banner.innerHTML = 'OVA import session loaded. Values were pre-filled from OVF and remain editable before final creation.';
+        var body = document.querySelector('.vm-wizard-body');
+        body.parentNode.insertBefore(banner, body);
+        return banner;
+    }
+
+    function applyOvaSessionPrefill() {
+        if (!ovaSessionPrefill || ovaSessionApplied) return;
+
+        ensureOvaBanner();
+
+        if (ovaSessionDatastore) {
+            document.getElementById('wiz_datastore').value = ovaSessionDatastore;
+            document.getElementById('wiz_datastore').disabled = true;
+            reloadBtn.disabled = true;
+        }
+
+        var prefillName = String(ovaSessionPrefill.name || '').trim();
+        if (nameInput && prefillName && !ovaNameEditedByUser) {
+            nameInput.value = prefillName;
+        }
+        document.getElementById('wiz_cpu').value = parseInt(ovaSessionPrefill.cpu || 2, 10);
+        document.getElementById('wiz_ram').value = (parseInt(ovaSessionPrefill.ram_mb || 2048, 10) / 1024);
+        document.getElementById('wiz_disk_size_gb').value = parseInt(ovaSessionPrefill.disk_size_gb || 16, 10);
+
+        if (ovaSessionPrefill.disk_type) {
+            document.getElementById('wiz_disk_type').value = ovaSessionPrefill.disk_type;
+        }
+        if (ovaSessionPrefill.guest_os) {
+            document.getElementById('wiz_guest_os').value = ovaSessionPrefill.guest_os;
+        }
+        if (ovaSessionPrefill.firmware) {
+            document.getElementById('wiz_firmware').value = ovaSessionPrefill.firmware;
+        }
+        if (ovaSessionPrefill.hw_version) {
+            document.getElementById('wiz_hw_version').value = String(ovaSessionPrefill.hw_version);
+        }
+        if (ovaSessionPrefill.network_name) {
+            document.getElementById('wiz_network_name').value = ovaSessionPrefill.network_name;
+        }
+
+        extraDisksEl.innerHTML = '';
+        extraDiskIdx = 0;
+        (ovaSessionPrefill.extra_disks || []).forEach(function(disk) {
+            addExtraDisk(disk);
+        });
+
+        extraNicsEl.innerHTML = '';
+        extraNicIdx = 0;
+        (ovaSessionPrefill.extra_nics || []).forEach(function(nic) {
+            addExtraNic(nic);
+        });
+
+        ovaSessionApplied = true;
+    }
+
+    async function loadOvaSessionPrefill() {
+        if (!ovaSessionId) return;
+        const host = hostSel.value;
+        if (!host) return;
+        const res = await fetch('/api/v1/vms/' + encodeURIComponent(host) + '/ova/session/' + encodeURIComponent(ovaSessionId));
+        if (!res.ok) throw new Error('Failed to load OVA import session (' + res.status + ')');
+        const data = await res.json();
+        if (data.status === 'error') {
+            throw new Error(data.message || 'OVA import session is invalid or expired');
+        }
+        ovaSessionPrefill = data.prefill || {};
+        ovaSessionDatastore = data.datastore || '';
+        applyOvaSessionPrefill();
+    }
 
     // ── Collect extra hardware ──
     function collectExtraNics() {
@@ -588,6 +710,12 @@
             o.textContent = h.name + ' (' + h.ip + ')';
             hostSel.appendChild(o);
         });
+        if (requestedHostName && hosts.some(h => h.name === requestedHostName)) {
+            hostSel.value = requestedHostName;
+            if (ovaSessionId) {
+                hostSel.disabled = true;
+            }
+        }
     }
 
     function fmtSize(val) {
@@ -645,9 +773,13 @@
         var cpuHpEl = document.getElementById('wiz_cpu_hotplug');
         var memHpEl = document.getElementById('wiz_memory_hotplug');
         var hvEl = document.getElementById('wiz_hardware_virtualization');
+        var reserveCpuEl = document.getElementById('wiz_reserve_all_cpu');
+        var reserveMemEl = document.getElementById('wiz_reserve_all_memory');
         cpuHpEl.disabled = capabilities.cpu_hotplug === false;
         memHpEl.disabled = capabilities.memory_hotplug === false;
         hvEl.disabled = capabilities.hardware_virtualization === false;
+        reserveCpuEl.disabled = capabilities.reserve_all_cpu === false;
+        reserveMemEl.disabled = capabilities.reserve_all_memory === false;
         pciSel.disabled = capabilities.pci_passthrough === false;
 
         // Cache for extra NIC/disk selects
@@ -663,6 +795,8 @@
         cpuHpEl.checked = Boolean(defs.cpu_hotplug);
         memHpEl.checked = Boolean(defs.memory_hotplug);
         hvEl.checked = Boolean(defs.hardware_virtualization);
+        reserveCpuEl.checked = Boolean(defs.reserve_all_cpu);
+        reserveMemEl.checked = Boolean(defs.reserve_all_memory);
 
         const isoSel = document.getElementById('wiz_cd_iso');
         // Pre-populate from options if ISOs were found (user can still browse)
@@ -679,6 +813,10 @@
         if (defs.firmware)         document.getElementById('wiz_firmware').value         = defs.firmware;
         if (defs.hw_version)       document.getElementById('wiz_hw_version').value       = String(defs.hw_version);
         if (defs.guest_os)         document.getElementById('wiz_guest_os').value         = defs.guest_os;
+
+        if (ovaSessionId) {
+            applyOvaSessionPrefill();
+        }
     }
 
     async function createVm() {
@@ -701,11 +839,14 @@
             cpu_hotplug:     document.getElementById('wiz_cpu_hotplug').checked,
             memory_hotplug:  document.getElementById('wiz_memory_hotplug').checked,
             hardware_virtualization: document.getElementById('wiz_hardware_virtualization').checked,
+            reserve_all_cpu: document.getElementById('wiz_reserve_all_cpu').checked,
+            reserve_all_memory: document.getElementById('wiz_reserve_all_memory').checked,
             pci_passthrough_devices: Array.from(document.getElementById('wiz_pci_passthrough_devices').selectedOptions)
                                         .map(function(o){ return o.value; })
                                         .filter(function(v){ return v; }),
             extra_disks:     collectExtraDisks(),
             extra_nics:      collectExtraNics(),
+            source_ova_session_id: ovaSessionId || undefined,
         };
 
         if (!host)            { setStatus('error', 'Select a host.');              return; }
@@ -741,6 +882,7 @@
 
     loadHosts()
         .then(() => loadOptions())
+        .then(() => loadOvaSessionPrefill())
         .catch(e => setStatus('error', e.message));
 
     // ===== ISO BROWSER MODAL =====

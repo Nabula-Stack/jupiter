@@ -237,15 +237,56 @@ def service_control(request, host_name: str, data: ServiceControlSchema):
 
     try:
         with get_conn(host_name) as conn:
+            # API-mode: preserve detailed faults instead of collapsing to generic success/error strings.
+            if hasattr(conn, "control_service") and hasattr(conn, "set_service_policy"):
+                if action in {"start", "stop", "restart"}:
+                    result = conn.control_service(service_name, action) or {}
+                elif action in {"enable", "disable"}:
+                    result = conn.set_service_policy(service_name, action == "enable") or {}
+                else:
+                    return {"status": "error", "message": f"Unsupported action: {action}"}
+
+                service_status = conn.get_service_status(service_name) if hasattr(conn, "get_service_status") else "Unknown"
+                if str(result.get("status", "success")).lower() == "error":
+                    msg = str(result.get("message") or "Service control failed")
+                    if "cannot start ntpd without one server defined" in msg.lower():
+                        msg += " Configure at least one NTP server first, then retry starting ntpd."
+                    return {
+                        "status": "error",
+                        "host": host_name,
+                        "service_name": service_name,
+                        "action": action,
+                        "message": msg,
+                        "service_status": str(service_status or "").strip(),
+                    }
+
+                return {
+                    "status": "success",
+                    "host": host_name,
+                    "service_name": service_name,
+                    "action": action,
+                    "output": str(result.get("message") or result.get("policy") or result.get("action") or "success").strip(),
+                    "service_status": str(service_status or "").strip(),
+                }
+
+            # SSH-mode (legacy path)
             if action in {"start", "stop", "restart"}:
                 output = host_services.control_service(conn, service_name, action)
             elif action in {"enable", "disable"}:
-                state = "on" if action == "enable" else "off"
-                output = conn.run(f"chkconfig {service_name} {state}")
+                output = host_services.set_service_policy(conn, service_name, action == "enable")
             else:
                 return {"status": "error", "message": f"Unsupported action: {action}"}
 
             status = host_services.get_service_status(conn, service_name)
+            if isinstance(output, str) and output.startswith("Error:"):
+                return {
+                    "status": "error",
+                    "host": host_name,
+                    "service_name": service_name,
+                    "action": action,
+                    "message": output,
+                    "service_status": (status or "").strip(),
+                }
             return {
                 "status": "success",
                 "host": host_name,

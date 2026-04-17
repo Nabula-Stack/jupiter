@@ -7,14 +7,14 @@ TAG="${TAG:-latest}"
 
 cd "${PROJECT_ROOT}"
 
-docker build --file containers/db/Dockerfile --tag "${REGISTRY}/nebula_postgres:${TAG}" .
-docker build --file containers/redis/Dockerfile --tag "${REGISTRY}/nebula_redis:${TAG}" .
-docker build --file containers/web/Dockerfile --tag "${REGISTRY}/nebula_web:${TAG}" .
-docker build --file containers/sync-worker/Dockerfile --tag "${REGISTRY}/nebula_sync_worker:${TAG}" .
+docker build --file containers/db/Dockerfile --tag "${REGISTRY}/jupiter_postgres:${TAG}" .
+docker build --file containers/redis/Dockerfile --tag "${REGISTRY}/jupiter_redis:${TAG}" .
+docker build --file containers/web/Dockerfile --tag "${REGISTRY}/jupiter_web:${TAG}" .
+docker build --file containers/sync-worker/Dockerfile --tag "${REGISTRY}/jupiter_sync_worker:${TAG}" .
 
-docker push "${REGISTRY}/nebula_postgres:${TAG}"
-docker push "${REGISTRY}/nebula_redis:${TAG}"
-docker push "${REGISTRY}/nebula_web:${TAG}"
-docker push "${REGISTRY}/nebula_sync_worker:${TAG}"
+docker push "${REGISTRY}/jupiter_postgres:${TAG}"
+docker push "${REGISTRY}/jupiter_redis:${TAG}"
+docker push "${REGISTRY}/jupiter_web:${TAG}"
+docker push "${REGISTRY}/jupiter_sync_worker:${TAG}"
 
-echo "Built and pushed Nebula db, redis, web, and sync-worker images successfully."
+echo "Built and pushed jupiter db, redis, web, and sync-worker images successfully."

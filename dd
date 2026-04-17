@@ -1,0 +1,19 @@
+ctstatic.
+Restart the web container.
+Commands:
+
+
+docker-compose exec web python manage.py collectstatic --noinputdocker-compose restart web
+If you want, I can apply the settings change now and you only need to drop in the image files.
+
+UNFOLD = {
+    "SITE_TITLE": "Jupiter Manager",
+    "SITE_HEADER": "Jupiter Admin",
+    "SITE_SYMBOL": "settings_input_component",
+
+    # Add these:
+    "SITE_LOGO": "branding/logo.svg",
+    "SITE_ICON": "branding/favicon.ico",
+
+    ...
+}

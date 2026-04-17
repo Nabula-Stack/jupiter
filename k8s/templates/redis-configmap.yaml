@@ -1,0 +1,13 @@
+{{- if .Values.redis.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nebula.fullname" . }}-redis-config
+  namespace: {{ include "nebula.namespace" . }}
+  labels:
+    {{- include "nebula.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+data:
+  redis.conf: |
+{{ .Values.redis.config | indent 4 }}
+{{- end }}

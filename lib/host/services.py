@@ -1,9 +1,17 @@
 def control_service(client, service_name, action):
     """action: start, stop, restart"""
+    if hasattr(client, "control_service"):
+        result = client.control_service(service_name, action)
+        if str((result or {}).get("status", "success")).lower() == "error":
+            return f"Error: {(result or {}).get('message', 'Service action failed')}"
+        return str((result or {}).get("message") or (result or {}).get("status", "success"))
     return client.run(f"/etc/init.d/{service_name} {action}")
 
 def list_services(client):
     """Returns a list of all services."""
+    if hasattr(client, "list_services"):
+        rows = client.list_services() or []
+        return [str(r.get("name", "")) for r in rows if r.get("name")]
     raw = client.run("chkconfig --list | awk '{print $1}'")
     return raw.splitlines()
 
@@ -14,6 +22,12 @@ def list_services_with_status(client):
     This avoids many SSH round-trips (one status call per service), which can
     otherwise block request cancellation during ASGI shutdown.
     """
+    if hasattr(client, "list_services"):
+        rows = []
+        for svc in client.list_services() or []:
+            rows.append({"name": str(svc.get("name", "")).strip(), "status": str(svc.get("status", "Unknown")).strip()})
+        return rows
+
     cmd = (
         "for s in $(chkconfig --list | awk '{print $1}'); do "
         "st=$(/etc/init.d/$s status 2>/dev/null | head -n1); "
@@ -37,4 +51,17 @@ def list_services_with_status(client):
 
 def get_service_status(client, service_name):
     """Returns status of a specific service."""
+    if hasattr(client, "get_service_status"):
+        return str(client.get_service_status(service_name))
     return client.run(f"/etc/init.d/{service_name} status")
+
+
+def set_service_policy(client, service_name, enabled):
+    """Enable/disable service startup policy."""
+    if hasattr(client, "set_service_policy"):
+        result = client.set_service_policy(service_name, bool(enabled))
+        if str((result or {}).get("status", "success")).lower() == "error":
+            return f"Error: {(result or {}).get('message', 'Service policy update failed')}"
+        return str((result or {}).get("policy", ""))
+    state = "on" if enabled else "off"
+    return client.run(f"chkconfig {service_name} {state}")

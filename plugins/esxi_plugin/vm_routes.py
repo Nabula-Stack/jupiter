@@ -1,7 +1,15 @@
 import json
+import logging
+import os
 import posixpath
 import re
+import shutil
+import shlex
+import tarfile
+import tempfile
 import threading
+import uuid
+import xml.etree.ElementTree as ET
 from ninja import Router, File, UploadedFile
 from django.views.decorators.cache import cache_page
 from django.core.cache import cache
@@ -29,6 +37,7 @@ from lib.kvm import manage as kvm_manage
 from manager.services import sync_vms_for_host
 
 router = Router(tags=["Virtual Machine Management"])
+logger = logging.getLogger(__name__)
 
 # VMX guestOS values (short hyphenated format required by ESXi .vmx files).
 GUEST_OS_OPTIONS = [
@@ -71,8 +80,11 @@ def _to_bool(value, default=False):
 
 
 def _safe_list_esxi_pci_devices(conn):
-    """Best-effort parser for `esxcli hardware pci list` output."""
+    """Best-effort parser for ESXi PCI devices."""
     try:
+        if hasattr(conn, "list_pci_devices"):
+            return conn.list_pci_devices() or []
+
         raw = conn.run("esxcli hardware pci list")
         if not raw or str(raw).startswith("Error:"):
             return []
@@ -168,6 +180,232 @@ def bust_vm_cache(host_name, vmid=None):
         cache.clear()
 
 
+def _is_esxi_api_mode(host_obj) -> bool:
+    return (
+        host_obj.hypervisor_type == Host.HYPERVISOR_VMWARE_ESXI
+        and (getattr(host_obj, "esxi_connection_method", "") or Host.CONNECTION_SSH).lower() == Host.CONNECTION_API
+    )
+
+
+def _is_esxi_ssh_mode(host_obj) -> bool:
+    return (
+        host_obj.hypervisor_type == Host.HYPERVISOR_VMWARE_ESXI
+        and (getattr(host_obj, "esxi_connection_method", "") or Host.CONNECTION_SSH).lower() == Host.CONNECTION_SSH
+    )
+
+
+def _build_esxi_ssh_conn(host_obj):
+    """Build SSH connection for ESXi operations that are not available via API mode."""
+    if not _is_esxi_ssh_mode(host_obj):
+        raise RuntimeError(
+            "This operation requires ESXi SSH connection mode. "
+            "Set the host connection method to SSH to continue."
+        )
+
+    from plugins.esxi_ssh_plugin import build_esxi_ssh_connection
+
+    return build_esxi_ssh_connection(host_obj)
+
+
+def _ova_session_cache_key(session_id: str) -> str:
+    return f"ninja:ova_import_session:{session_id}"
+
+
+def _read_ovf_text_from_local_upload(local_path: str, filename: str) -> str:
+    lower_name = str(filename or "").lower()
+    if lower_name.endswith(".ovf"):
+        with open(local_path, "rb") as fp:
+            return fp.read().decode("utf-8", errors="ignore")
+
+    try:
+        with tarfile.open(local_path, "r:*") as tar:
+            ovf_member = next((m for m in tar.getmembers() if m.name.lower().endswith(".ovf")), None)
+            if not ovf_member:
+                raise ValueError("Uploaded OVA does not contain an OVF descriptor")
+            ovf_file = tar.extractfile(ovf_member)
+            if ovf_file is None:
+                raise ValueError("Failed to read OVF descriptor from OVA")
+            return ovf_file.read().decode("utf-8", errors="ignore")
+    except tarfile.ReadError:
+        # Some clients mislabel plain OVF files as .ova; gracefully detect XML envelope.
+        with open(local_path, "rb") as fp:
+            head = fp.read(8192).decode("utf-8", errors="ignore")
+        if "<Envelope" in head and "ovf" in head.lower():
+            with open(local_path, "rb") as fp:
+                return fp.read().decode("utf-8", errors="ignore")
+        raise ValueError(
+            "Uploaded file is not a valid OVA archive. Ensure you selected the original .ova/.ovf and re-upload."
+        )
+
+
+def _ovf_capacity_to_gb(capacity: str, units: str) -> float:
+    try:
+        cap = float(capacity)
+    except (TypeError, ValueError):
+        return 0.0
+
+    u = str(units or "").strip().lower()
+    if not u:
+        return max(cap, 0.0)
+
+    exp_match = re.search(r"2\^(\d+)", u)
+    if "byte" in u and exp_match:
+        mult = 2 ** int(exp_match.group(1))
+        return round((cap * mult) / (1024 ** 3), 2)
+    if "byte" in u:
+        return round(cap / (1024 ** 3), 2)
+    if "kb" in u:
+        return round(cap / (1024 ** 2), 2)
+    if "mb" in u:
+        return round(cap / 1024, 2)
+    if "tb" in u:
+        return round(cap * 1024, 2)
+    return round(cap, 2)
+
+
+def _parse_ovf_defaults(ovf_text: str, fallback_name: str) -> dict:
+    defaults = {
+        "name": fallback_name,
+        "cpu": 2,
+        "ram_mb": 2048,
+        "guest_os": "other-64",
+        "firmware": "bios",
+        "networks": [],
+        "disks": [],
+        "disk_files": [],
+    }
+    if not ovf_text:
+        return defaults
+
+    root = ET.fromstring(ovf_text)
+
+    for elem in root.iter():
+        if elem.tag.endswith("VirtualSystem"):
+            for child in list(elem):
+                if child.tag.endswith("Name") and (child.text or "").strip():
+                    defaults["name"] = child.text.strip()
+                    break
+            break
+
+    for elem in root.iter():
+        if elem.tag.endswith("Network"):
+            for k, v in elem.attrib.items():
+                if k.lower().endswith("name") and v and v not in defaults["networks"]:
+                    defaults["networks"].append(v)
+
+    cpu_val = None
+    mem_val = None
+    for item in root.iter():
+        if not item.tag.endswith("Item"):
+            continue
+        rtype = None
+        qty = None
+        for child in list(item):
+            if child.tag.endswith("ResourceType"):
+                rtype = (child.text or "").strip()
+            elif child.tag.endswith("VirtualQuantity"):
+                qty = (child.text or "").strip()
+        if rtype == "3" and qty:
+            try:
+                cpu_val = max(1, int(float(qty)))
+            except ValueError:
+                pass
+        elif rtype == "4" and qty:
+            try:
+                mem_val = max(256, int(float(qty)))
+            except ValueError:
+                pass
+    if cpu_val:
+        defaults["cpu"] = cpu_val
+    if mem_val:
+        defaults["ram_mb"] = mem_val
+
+    file_refs = {}
+    for elem in root.iter():
+        if not elem.tag.endswith("File"):
+            continue
+        file_id = ""
+        href = ""
+        for key, val in elem.attrib.items():
+            key_lower = key.lower()
+            if key_lower.endswith("id"):
+                file_id = str(val or "").strip()
+            elif key_lower.endswith("href"):
+                href = posixpath.basename(str(val or "").strip())
+        if file_id and href:
+            file_refs[file_id] = href
+
+    idx = 0
+    for elem in root.iter():
+        if not elem.tag.endswith("Disk"):
+            continue
+        cap = elem.attrib.get("capacity")
+        units = elem.attrib.get("capacityAllocationUnits", "")
+        file_ref = ""
+        for key, val in elem.attrib.items():
+            if key.lower().endswith("fileref"):
+                file_ref = str(val or "").strip()
+                break
+        size_gb = _ovf_capacity_to_gb(cap, units)
+        if size_gb <= 0:
+            size_gb = 16.0
+        disk_file = file_refs.get(file_ref, "")
+        if disk_file and disk_file not in defaults["disk_files"]:
+            defaults["disk_files"].append(disk_file)
+        defaults["disks"].append(
+            {
+                "label": elem.attrib.get("diskId") or f"Disk {idx + 1}",
+                "size_gb": max(1, int(round(size_gb))),
+                "file": disk_file,
+            }
+        )
+        idx += 1
+
+    if not defaults["disks"]:
+        defaults["disks"] = [{"label": "Disk 1", "size_gb": 16}]
+
+    return defaults
+
+
+def _read_remote_vmdk_size_gb(conn, vmdk_path: str) -> int:
+    try:
+        header = conn.run(f"head -40 '{vmdk_path}'")
+        if not header or str(header).startswith("Error:"):
+            return 16
+        match = re.search(r"RW\s+(\d+)", str(header))
+        if not match:
+            return 16
+        sectors = int(match.group(1))
+        size_gb = round((sectors * 512) / (1024 ** 3))
+        return max(1, int(size_gb))
+    except Exception:
+        return 16
+
+
+def _is_remote_vmdk_descriptor(conn, vmdk_path: str) -> bool:
+    """Return True for attachable VMDK roots (descriptor or monolithic sparse), not split extents."""
+    try:
+        header = conn.run(f"head -20 '{vmdk_path}'")
+        text = str(header or "")
+        if text and not text.startswith("Error:"):
+            if ("Disk DescriptorFile" in text) or ("ddb." in text):
+                return True
+
+        # Fallback: monolithic sparse VMDKs are valid roots but may not have a text descriptor.
+        probe = conn.run(f"vmkfstools -q '{vmdk_path}'")
+        probe_text = str(probe or "")
+        if not probe_text:
+            return True
+        if probe_text.startswith("Error:"):
+            return False
+        lowered = probe_text.lower()
+        if "not a virtual disk" in lowered or "invalid argument" in lowered:
+            return False
+        return True
+    except Exception:
+        return False
+
+
 # =========================================================
 # 0. REMOTE ACCESS
 # =========================================================
@@ -190,7 +428,27 @@ def get_vm_console_redirect(request, host_name: str, vmid: str):
     elif host_obj.hypervisor_type == Host.HYPERVISOR_KVM_LIBVIRT:
         console_url = f"https://{host_obj.ip_address}:9090"
     else:
-        console_url = f"https://{host_obj.ip_address}/ui/#/console/{vmid}"
+        # ESXi: use WebMKS ticket if available (API mode), otherwise fall back to direct URL (SSH mode)
+        try:
+            with get_conn(host_name) as conn:
+                if hasattr(conn, "get_vm_webmks_ticket"):
+                    ticket_result = conn.get_vm_webmks_ticket(vmid)
+                    console_id = str(ticket_result.get("console_id") or vmid)
+                    vm_name = str(ticket_result.get("vm_name") or vmid)
+                    if ticket_result.get("status") == "success":
+                        ticket = ticket_result.get("ticket", "")
+                        # WebMKS console URL with ticket auth
+                        console_url = f"https://{host_obj.ip_address}/ui/?vmId={console_id}&vmName={vm_name}#/console/{console_id}?ticket={ticket}"
+                    else:
+                        # Fallback to direct ESXi UI
+                        console_url = f"https://{host_obj.ip_address}/ui/#/console/{console_id}"
+                else:
+                    # SSH mode: direct ESXi UI URL
+                    console_url = f"https://{host_obj.ip_address}/ui/#/console/{vmid}"
+        except Exception as e:
+            # Fallback on error
+            console_url = f"https://{host_obj.ip_address}/ui/#/console/{vmid}"
+    
     print(f"[DEBUG] Console Redirect | Match Found: {host_obj.name} ({host_obj.ip_address}) | VMID: {vmid}")
     return redirect(console_url)
 
@@ -501,6 +759,8 @@ def get_create_vm_options(request, host_name: str):
                 "memory_hotplug": False,
                 "hardware_virtualization": True,
                 "pci_passthrough": False,
+                "reserve_all_cpu": False,
+                "reserve_all_memory": False,
             },
             "guest_os_options": [
                 {"value": "linux", "label": "Linux"},
@@ -527,6 +787,8 @@ def get_create_vm_options(request, host_name: str):
                 "memory_hotplug": False,
                 "hardware_virtualization": True,
                 "pci_passthrough_devices": [],
+                "reserve_all_cpu": False,
+                "reserve_all_memory": False,
             },
         }
 
@@ -568,6 +830,8 @@ def get_create_vm_options(request, host_name: str):
                     "memory_hotplug": True,
                     "hardware_virtualization": True,
                     "pci_passthrough": True,
+                    "reserve_all_cpu": False,
+                    "reserve_all_memory": False,
                 },
                 "guest_os_options": [
                     {"value": "l26", "label": "Linux 2.6+/3.x/4.x/5.x Kernel"},
@@ -598,6 +862,8 @@ def get_create_vm_options(request, host_name: str):
                     "memory_hotplug": True,
                     "hardware_virtualization": True,
                     "pci_passthrough_devices": [],
+                    "reserve_all_cpu": False,
+                    "reserve_all_memory": False,
                 },
             }
         except Exception as exc:
@@ -614,6 +880,8 @@ def get_create_vm_options(request, host_name: str):
                     "memory_hotplug": True,
                     "hardware_virtualization": True,
                     "pci_passthrough": True,
+                    "reserve_all_cpu": False,
+                    "reserve_all_memory": False,
                 },
                 "guest_os_options": [
                     {"value": "l26", "label": "Linux 2.6+/3.x/4.x/5.x Kernel"},
@@ -639,6 +907,8 @@ def get_create_vm_options(request, host_name: str):
                     "memory_hotplug": True,
                     "hardware_virtualization": True,
                     "pci_passthrough_devices": [],
+                    "reserve_all_cpu": False,
+                    "reserve_all_memory": False,
                 },
             }
 
@@ -648,8 +918,13 @@ def get_create_vm_options(request, host_name: str):
             portgroups = network_manage.list_portgroups(conn)
             pci_devices = _safe_list_esxi_pci_devices(conn)
             try:
-                iso_raw = conn.run("find /vmfs/volumes -maxdepth 4 -name '*.iso' 2>/dev/null")
-                isos = [l.strip() for l in iso_raw.splitlines() if l.strip().lower().endswith(".iso")]
+                if hasattr(conn, "list_iso_files"):
+                    isos = conn.list_iso_files() or []
+                elif hasattr(conn, "run"):
+                    iso_raw = conn.run("find /vmfs/volumes -maxdepth 4 -name '*.iso' 2>/dev/null")
+                    isos = [l.strip() for l in iso_raw.splitlines() if l.strip().lower().endswith(".iso")]
+                else:
+                    isos = []
             except Exception:
                 isos = []
             return {
@@ -663,6 +938,8 @@ def get_create_vm_options(request, host_name: str):
                     "memory_hotplug": True,
                     "hardware_virtualization": True,
                     "pci_passthrough": True,
+                    "reserve_all_cpu": True,
+                    "reserve_all_memory": True,
                 },
                 "guest_os_options": GUEST_OS_OPTIONS,
                 "nic_options": NIC_OPTIONS,
@@ -677,6 +954,8 @@ def get_create_vm_options(request, host_name: str):
                     "cpu_hotplug": False, "memory_hotplug": False,
                     "hardware_virtualization": False,
                     "pci_passthrough_devices": [],
+                    "reserve_all_cpu": False,
+                    "reserve_all_memory": False,
                 },
             }
     except Exception as exc:
@@ -693,6 +972,8 @@ def get_create_vm_options(request, host_name: str):
                 "memory_hotplug": True,
                 "hardware_virtualization": True,
                 "pci_passthrough": True,
+                "reserve_all_cpu": True,
+                "reserve_all_memory": True,
             },
             "guest_os_options": GUEST_OS_OPTIONS,
             "nic_options": NIC_OPTIONS,
@@ -715,6 +996,8 @@ def get_create_vm_options(request, host_name: str):
                 "memory_hotplug": False,
                 "hardware_virtualization": False,
                 "pci_passthrough_devices": [],
+                "reserve_all_cpu": False,
+                "reserve_all_memory": False,
             },
         }
 
@@ -727,6 +1010,8 @@ def create_vm_endpoint(
     power_on: bool = False, cd_iso_path: str = "",
     cpu_hotplug: bool = False, memory_hotplug: bool = False,
     hardware_virtualization: bool = False,
+    reserve_all_cpu: bool = False,
+    reserve_all_memory: bool = False,
 ):
     payload = {}
     if request.body:
@@ -758,10 +1043,13 @@ def create_vm_endpoint(
     cpu_hotplug = _to_bool(_pick("cpu_hotplug", cpu_hotplug), False)
     memory_hotplug = _to_bool(_pick("memory_hotplug", memory_hotplug), False)
     hardware_virtualization = _to_bool(_pick("hardware_virtualization", hardware_virtualization), False)
+    reserve_all_cpu = _to_bool(_pick("reserve_all_cpu", reserve_all_cpu), False)
+    reserve_all_memory = _to_bool(_pick("reserve_all_memory", reserve_all_memory), False)
     cd_iso_path = str(_pick("cd_iso_path", cd_iso_path) or "")
     extra_disks = payload.get("extra_disks", []) or []
     extra_nics = payload.get("extra_nics", []) or []
     pci_passthrough_devices = payload.get("pci_passthrough_devices", []) or []
+    source_ova_session_id = str(payload.get("source_ova_session_id") or "").strip()
 
     if not datastore or not name:
         return {"status": "error", "message": "Both datastore and name are required."}
@@ -989,6 +1277,190 @@ def create_vm_endpoint(
 
     try:
         with get_conn(host_name) as conn:
+            if source_ova_session_id:
+                if host_obj.hypervisor_type != Host.HYPERVISOR_VMWARE_ESXI:
+                    return {"status": "error", "message": "OVA import sessions are currently supported for ESXi hosts only."}
+
+                session = cache.get(_ova_session_cache_key(source_ova_session_id))
+                if not session:
+                    return {
+                        "status": "error",
+                        "message": "OVA import session expired or not found. Upload the OVA again.",
+                    }
+
+                if str(session.get("host_name")) != str(host_name):
+                    return {
+                        "status": "error",
+                        "message": "OVA import session host mismatch. Re-open the import wizard for this host.",
+                    }
+                if str(session.get("datastore")) != str(datastore):
+                    return {
+                        "status": "error",
+                        "message": "Datastore differs from OVA import session. Use the pre-filled datastore or upload again.",
+                    }
+
+                # ── API mode: OVF already on datastore, use pyVmomi import ──
+                if _is_esxi_api_mode(host_obj) and not session.get("api_ovf_source") and session.get("ovf_path"):
+                    session["api_ovf_source"] = True
+
+                if session.get("api_ovf_source"):
+                    ovf_vmfs_path = str(session.get("ovf_path") or "")
+                    if not ovf_vmfs_path:
+                        return {"status": "error", "message": "Session missing OVF path."}
+                    api_result = conn.import_ovf_from_datastore(
+                        ovf_vmfs_path=ovf_vmfs_path,
+                        vm_name=name,
+                        datastore_name=datastore,
+                        cpu_count=cpu,
+                        ram_mb=ram,
+                        guest_os=guest_os,
+                        network_name=network_name,
+                        nic_type=nic_type,
+                        scsi_controller=scsi_controller,
+                        firmware=firmware,
+                        hw_version=hw_version,
+                        disk_type=disk_type,
+                        power_on=power_on,
+                        extra_nics=extra_nics,
+                    )
+                    cache.delete(_ova_session_cache_key(source_ova_session_id))
+                    bust_vm_cache(host_name)
+                    sync_vms_for_host(host_obj)
+                    vm_obj = VirtualMachine.objects.filter(host=host_obj, name=name).order_by("-updated_at").first()
+                    if vm_obj:
+                        try:
+                            broadcast_vm_created(vm_obj)
+                        except Exception:
+                            pass
+                    status_key = "created_with_warning" if api_result.get("warning") else "created"
+                    response = {
+                        "status": status_key,
+                        "output": api_result.get("message", ""),
+                        "requested_config": {
+                            "name": name, "datastore": datastore, "cpu": cpu, "ram": ram,
+                            "disk_type": disk_type, "network_name": network_name,
+                            "nic_type": nic_type, "firmware": firmware,
+                            "hw_version": hw_version, "power_on": power_on,
+                            "source_ova_session_id": source_ova_session_id,
+                        },
+                    }
+                    if api_result.get("warning"):
+                        response["warning"] = api_result["warning"]
+                    return response
+
+                if _is_esxi_api_mode(host_obj):
+                    return {
+                        "status": "error",
+                        "message": "OVA session deployment is SSH-only. Set ESXi connection method to SSH for this host.",
+                    }
+
+                staging_dir = str(session.get("staging_dir") or "").strip()
+                if not staging_dir:
+                    return {"status": "error", "message": "Invalid OVA import session payload."}
+
+                if not hasattr(conn, "run"):
+                    return {
+                        "status": "error",
+                        "message": "Selected ESXi connection cannot run SSH OVA deployment commands.",
+                    }
+
+                try:
+                    result = vm_create.deploy_ova_from_session(
+                        conn,
+                        datastore=datastore,
+                        session_dir=staging_dir,
+                        disk_files=session.get("disk_files") or [],
+                        vm_name=name,
+                        cpu_count=cpu,
+                        ram_mb=ram,
+                        network_name=network_name,
+                        nic_type=nic_type,
+                        scsi_controller=scsi_controller,
+                        guest_os=guest_os,
+                        firmware=firmware,
+                        hw_version=hw_version,
+                        disk_type=disk_type,
+                        extra_nics=extra_nics,
+                        power_on=power_on,
+                    )
+                finally:
+                    pass
+
+                cache.delete(_ova_session_cache_key(source_ova_session_id))
+                try:
+                    with _build_esxi_ssh_conn(host_obj) as cleanup_conn:
+                        cleanup_conn.run(f"rm -rf '{staging_dir}'", timeout=120)
+                except Exception:
+                    logger.warning("Failed to cleanup OVA session staging directory: %s", staging_dir)
+
+                bust_vm_cache(host_name)
+                sync_vms_for_host(host_obj)
+                vm_obj = VirtualMachine.objects.filter(host=host_obj, name=name).order_by("-updated_at").first()
+                if vm_obj:
+                    try:
+                        broadcast_vm_created(vm_obj)
+                    except Exception:
+                        pass
+                return {
+                    "status": "created",
+                    "output": str(result).strip(),
+                    "requested_config": {
+                        "name": name,
+                        "datastore": datastore,
+                        "cpu": cpu,
+                        "ram": ram,
+                        "disk_type": disk_type,
+                        "network_name": network_name,
+                        "nic_type": nic_type,
+                        "firmware": firmware,
+                        "hw_version": hw_version,
+                        "power_on": power_on,
+                        "source_ova_session_id": source_ova_session_id,
+                    },
+                }
+
+            # ESXi API mode: use pyVmomi CreateVM_Task
+            if hasattr(conn, "create_vm"):
+                api_result = conn.create_vm(
+                    datastore_name=datastore, vm_name=name, ram_mb=ram, cpu_count=cpu,
+                    disk_size_gb=disk_size_gb, disk_type=disk_type, guest_os=guest_os,
+                    network_name=network_name, nic_type=nic_type, scsi_controller=scsi_controller,
+                    firmware=firmware, hw_version=hw_version, power_on=power_on,
+                    cd_iso_path=cd_iso_path, extra_disks=extra_disks, extra_nics=extra_nics,
+                    cpu_hotplug=cpu_hotplug, memory_hotplug=memory_hotplug,
+                    hardware_virtualization=hardware_virtualization,
+                    pci_passthrough_devices=pci_passthrough_devices,
+                    reserve_all_cpu=reserve_all_cpu,
+                    reserve_all_memory=reserve_all_memory,
+                )
+                if (api_result or {}).get("status") == "error":
+                    return {"status": "error", "message": api_result.get("message", "Create failed")}
+                bust_vm_cache(host_name)
+                sync_vms_for_host(host_obj)
+                vm_obj = VirtualMachine.objects.filter(host=host_obj, name=name).order_by("-updated_at").first()
+                if vm_obj:
+                    try:
+                        broadcast_vm_created(vm_obj)
+                    except Exception:
+                        pass
+                response = {
+                    "status": api_result.get("warning") and "created_with_warning" or "created",
+                    "output": api_result.get("message", ""),
+                    "requested_config": {
+                        "name": name, "datastore": datastore, "cpu": cpu, "ram": ram,
+                        "disk_size_gb": disk_size_gb, "disk_type": disk_type, "guest_os": guest_os,
+                        "network_name": network_name, "nic_type": nic_type, "firmware": firmware,
+                        "hw_version": hw_version, "power_on": power_on,
+                        "cd_iso_path": cd_iso_path, "cpu_hotplug": cpu_hotplug,
+                        "memory_hotplug": memory_hotplug,
+                        "hardware_virtualization": hardware_virtualization,
+                        "pci_passthrough_devices": pci_passthrough_devices,
+                    },
+                }
+                if api_result.get("warning"):
+                    response["warning"] = f"VM created but could not power on: {api_result['warning']}"
+                return response
+
             result, power_on_warning = vm_create.create_vm(
                 conn, datastore=datastore, vm_name=name, ram_mb=ram, cpu_count=cpu,
                 disk_size_gb=disk_size_gb, disk_type=disk_type, guest_os=guest_os,
@@ -998,6 +1470,8 @@ def create_vm_endpoint(
                 cpu_hotplug=cpu_hotplug, memory_hotplug=memory_hotplug,
                 hardware_virtualization=hardware_virtualization,
                 pci_passthrough_devices=pci_passthrough_devices,
+                reserve_all_cpu=reserve_all_cpu,
+                reserve_all_memory=reserve_all_memory,
             )
     except FileExistsError as exc:
         return {"status": "error", "message": str(exc)}
@@ -1026,6 +1500,8 @@ def create_vm_endpoint(
             "cpu_hotplug": cpu_hotplug, "memory_hotplug": memory_hotplug,
             "hardware_virtualization": hardware_virtualization,
             "pci_passthrough_devices": pci_passthrough_devices,
+            "reserve_all_cpu": reserve_all_cpu,
+            "reserve_all_memory": reserve_all_memory,
         },
     }
     if power_on_warning:
@@ -1033,7 +1509,24 @@ def create_vm_endpoint(
         response["warning"] = f"VM created successfully but could not power on: {power_on_warning}"
     return response
 
-@router.post("/{host_name}/deploy-ova", summary="Deploy OVA to ESXi")
+@router.get("/{host_name}/ova/session/{session_id}", summary="Get OVA Import Session Defaults")
+def get_ova_session_endpoint(request, host_name: str, session_id: str):
+    session = cache.get(_ova_session_cache_key(session_id))
+    if not session:
+        return {"status": "error", "message": "OVA import session expired or not found."}
+    if str(session.get("host_name")) != str(host_name):
+        return {"status": "error", "message": "OVA import session host mismatch."}
+    return {
+        "status": "success",
+        "session_id": session_id,
+        "host_name": session.get("host_name"),
+        "datastore": session.get("datastore"),
+        "prefill": session.get("prefill") or {},
+        "expires_in_seconds": int(session.get("expires_in_seconds") or 3600),
+    }
+
+
+@router.post("/{host_name}/deploy-ova", summary="Prepare OVA Import Session")
 def deploy_ova_endpoint(request, host_name: str, datastore: str, vm_name: str = "", file: UploadedFile = File(...)):
     host_obj = get_host_obj(host_name, require_active=True)
     if host_obj.hypervisor_type == Host.HYPERVISOR_PROXMOX_VE:
@@ -1042,46 +1535,737 @@ def deploy_ova_endpoint(request, host_name: str, datastore: str, vm_name: str = 
         return {"status": "error", "message": "OVA deploy is not supported for KVM hosts through this endpoint yet."}
 
     filename = posixpath.basename(file.name or "upload.ova")
+    sidecar_files = request.FILES.getlist("sidecar_files") if hasattr(request, "FILES") else []
     if not filename.lower().endswith((".ova", ".ovf")):
         return {"status": "error", "message": "Only .ova and .ovf files are supported."}
+    if filename.lower().endswith(".ovf") and not sidecar_files:
+        return {
+            "status": "error",
+            "message": "For OVF packages, upload the .ovf together with its .vmdk sidecar files. The .mf file is optional.",
+        }
 
-    ova_vm_name = (vm_name or "").strip() or filename.rsplit(".", 1)[0]
-    remote_tmp = f"/vmfs/volumes/{datastore}/{filename}"
+    requested_vm_name = (vm_name or "").strip()
+    ova_vm_name = requested_vm_name or filename.rsplit(".", 1)[0]
+    suffix = ".ovf" if filename.lower().endswith(".ovf") else ".ova"
+    fd, local_tmp = tempfile.mkstemp(prefix="nebula-ova-", suffix=suffix)
+    os.close(fd)
 
-    # Phase 1 (in-request): SFTP-upload the file to the host
     try:
-        with get_conn(host_name) as upload_conn:
-            upload_conn.upload_file(file, remote_tmp)
-    except FileExistsError as exc:
-        return {"status": "error", "message": str(exc)}
+        bytes_written = 0
+        with open(local_tmp, "wb") as temp_handle:
+            for chunk in file.chunks():
+                temp_handle.write(chunk)
+                bytes_written += len(chunk)
+        expected_size = int(getattr(file, "size", 0) or 0)
+        if bytes_written <= 0:
+            raise ValueError("Upload is empty")
+        if expected_size > 0 and bytes_written != expected_size:
+            raise ValueError(
+                f"Upload appears incomplete ({bytes_written} of {expected_size} bytes). Please retry the upload."
+            )
+        ovf_text = _read_ovf_text_from_local_upload(local_tmp, filename)
+        ovf_defaults = _parse_ovf_defaults(ovf_text, ova_vm_name)
     except Exception as exc:
-        return {"status": "error", "message": f"Upload to host failed: {str(exc)[:400]}"}
-
-    # Phase 2 (background): extract TAR, convert VMDKs, register VM
-    def _do_deploy() -> None:
         try:
-            with get_conn(host_name) as deploy_conn:
-                from lib.vms.create import deploy_ova
-                deploy_ova(deploy_conn, datastore, remote_tmp, vm_name=ova_vm_name)
-            bust_vm_cache(host_name)
-            sync_vms_for_host(host_obj)
-            vm_obj = VirtualMachine.objects.filter(host=host_obj, name=ova_vm_name).order_by("-updated_at").first()
-            if vm_obj:
+            if os.path.exists(local_tmp):
+                os.remove(local_tmp)
+        except OSError:
+            pass
+        return {"status": "error", "message": f"Failed to read OVA/OVF metadata: {str(exc)[:400]}"}
+
+    session_id = uuid.uuid4().hex
+    staging_dir = f"/vmfs/volumes/{datastore}/.nebula-ovf-staging/{session_id}"
+    remote_uploaded_file = f"{staging_dir}/{filename}"
+
+    if _is_esxi_api_mode(host_obj):
+        api_temp_files = []
+        try:
+            from plugins.esxi_api_plugin import EsxiApiClient
+
+            with EsxiApiClient(
+                host=host_obj.ip_address,
+                username=host_obj.username,
+                password=host_obj.password,
+                verify_ssl=False,
+            ).connect() as api:
+                api.make_datastore_directory(staging_dir, create_parents=True)
+
+                def _upload_via_api_only(local_path: str, remote_name: str) -> None:
+                    with open(local_path, "rb") as upload_fp:
+                        api.upload_datastore_file(staging_dir, remote_name, upload_fp)
+
+                ovf_remote_path = ""
+                uploaded_vmdks = {}
+
+                if filename.lower().endswith(".ova"):
+                    with tarfile.open(local_tmp, "r:*") as tar:
+                        members = [m for m in tar.getmembers() if m.isfile()]
+                        ovf_members = [m for m in members if str(m.name).lower().endswith(".ovf")]
+                        if not ovf_members:
+                            return {"status": "error", "message": "No OVF descriptor found inside uploaded OVA."}
+
+                        primary_ovf = sorted(ovf_members, key=lambda m: str(m.name).lower())[0]
+                        seen_names = set()
+
+                        for member in members:
+                            member_name = posixpath.basename(str(member.name or "").strip())
+                            if not member_name:
+                                continue
+                            lower_name = member_name.lower()
+                            if not (lower_name.endswith(".ovf") or lower_name.endswith(".vmdk") or lower_name.endswith(".mf")):
+                                continue
+                            if member_name in seen_names:
+                                continue
+                            seen_names.add(member_name)
+
+                            src = tar.extractfile(member)
+                            if src is None:
+                                continue
+
+                            suffix = os.path.splitext(member_name)[1] or ".bin"
+                            fd2, tmp_member = tempfile.mkstemp(prefix="nebula-ova-api-", suffix=suffix)
+                            os.close(fd2)
+                            api_temp_files.append(tmp_member)
+                            with open(tmp_member, "wb") as out_handle:
+                                shutil.copyfileobj(src, out_handle)
+
+                            _upload_via_api_only(tmp_member, member_name)
+
+                            remote_path = f"{staging_dir}/{member_name}"
+                            if str(member.name) == str(primary_ovf.name):
+                                ovf_remote_path = remote_path
+                            if lower_name.endswith(".vmdk") and not lower_name.endswith(("-flat.vmdk", "-delta.vmdk", "-sesparse.vmdk", "-ctk.vmdk")):
+                                uploaded_vmdks[member_name.lower()] = remote_path
+                else:
+                    _upload_via_api_only(local_tmp, filename)
+                    ovf_remote_path = f"{staging_dir}/{filename}"
+
+                    for extra in sidecar_files:
+                        extra_name = posixpath.basename(getattr(extra, "name", "") or "")
+                        if not extra_name or extra_name == filename:
+                            continue
+
+                        extra_suffix = os.path.splitext(extra_name)[1] or ".bin"
+                        extra_fd, extra_tmp = tempfile.mkstemp(prefix="nebula-ovf-sidecar-api-", suffix=extra_suffix)
+                        os.close(extra_fd)
+                        api_temp_files.append(extra_tmp)
+
+                        extra_written = 0
+                        with open(extra_tmp, "wb") as efp:
+                            for chunk in extra.chunks():
+                                efp.write(chunk)
+                                extra_written += len(chunk)
+                        if extra_written <= 0:
+                            continue
+
+                        _upload_via_api_only(extra_tmp, extra_name)
+                        if extra_name.lower().endswith(".vmdk") and not extra_name.lower().endswith(("-flat.vmdk", "-delta.vmdk", "-sesparse.vmdk", "-ctk.vmdk")):
+                            uploaded_vmdks[extra_name.lower()] = f"{staging_dir}/{extra_name}"
+
+                if not ovf_remote_path:
+                    return {
+                        "status": "error",
+                        "message": "OVF descriptor not found in uploaded content after extraction.",
+                    }
+
+                referenced_vmdks = []
+                for disk_file in ovf_defaults.get("disk_files") or []:
+                    matched = uploaded_vmdks.get(posixpath.basename(str(disk_file)).lower())
+                    if matched:
+                        referenced_vmdks.append(matched)
+
+                candidate_vmdks = referenced_vmdks or list(uploaded_vmdks.values())
+                candidate_vmdks = sorted(dict.fromkeys(candidate_vmdks))
+                if not candidate_vmdks:
+                    hint = ""
+                    if filename.lower().endswith(".ovf"):
+                        hint = " Ensure the OVF sidecar VMDK files were included in this same upload."
+                    return {
+                        "status": "error",
+                        "message": f"No attachable VMDK files found in extracted OVA/OVF payload.{hint}",
+                    }
+
+                ovf_disks = ovf_defaults.get("disks") or []
+                disk_defaults = ovf_disks or [{"label": "Disk 1", "size_gb": 16}]
+                primary_disk = disk_defaults[0]
+                extra_disk_defaults = [
+                    {"size_gb": int(d.get("size_gb") or 16), "type": "thin", "datastore": datastore}
+                    for d in disk_defaults[1:]
+                ]
+
+                ovf_networks = ovf_defaults.get("networks") or []
+                primary_network = ovf_networks[0] if ovf_networks else "VM Network"
+                extra_nic_defaults = [{"network": n, "type": "e1000"} for n in ovf_networks[1:]]
+
+                prefill = {
+                    "source": "ova_import_api",
+                    "name": requested_vm_name or ovf_defaults.get("name") or ova_vm_name,
+                    "cpu": int(ovf_defaults.get("cpu") or 2),
+                    "ram_mb": int(ovf_defaults.get("ram_mb") or 2048),
+                    "guest_os": ovf_defaults.get("guest_os") or "other-64",
+                    "firmware": ovf_defaults.get("firmware") or "bios",
+                    "hw_version": "13",
+                    "disk_type": "thin",
+                    "disk_size_gb": int(primary_disk.get("size_gb") or 16),
+                    "extra_disks": extra_disk_defaults,
+                    "network_name": primary_network,
+                    "extra_nics": extra_nic_defaults,
+                    "ovf_networks": ovf_networks,
+                }
+
+                session_payload = {
+                    "session_id": session_id,
+                    "host_name": host_name,
+                    "datastore": datastore,
+                    "staging_dir": staging_dir,
+                    "filename": filename,
+                    "disk_files": ovf_defaults.get("disk_files") or [],
+                    "vmdk_paths": candidate_vmdks,
+                    "ovf_path": ovf_remote_path,
+                    "api_ovf_source": True,
+                    "prefill": prefill,
+                    "expires_in_seconds": 3600,
+                }
+                cache.set(_ova_session_cache_key(session_id), session_payload, timeout=3600)
+
+                redirect_url = f"/admin/manager/virtualmachine/add/?host_name={host_name}&ova_session={session_id}"
+                return {
+                    "status": "ready_for_config",
+                    "message": "OVA/OVF uploaded via API. Review and edit VM settings before final creation.",
+                    "session_id": session_id,
+                    "redirect_url": redirect_url,
+                }
+        except Exception as exc:
+            logger.exception("Failed to prepare OVA import session via API: host=%s datastore=%s filename=%s", host_name, datastore, filename)
+            return {"status": "error", "message": f"Failed to prepare OVA import via API: {str(exc)[:500]}"}
+        finally:
+            for tmp_path in api_temp_files:
                 try:
-                    broadcast_vm_created(vm_obj)
+                    if os.path.exists(tmp_path):
+                        os.remove(tmp_path)
+                except OSError:
+                    pass
+
+    try:
+        with _build_esxi_ssh_conn(host_obj) as ssh_conn:
+            ssh_conn.run(f"mkdir -p '{staging_dir}'", timeout=120)
+            with open(local_tmp, "rb") as fp:
+                ssh_conn.upload_file(fp, remote_uploaded_file)
+
+            if filename.lower().endswith(".ova"):
+                out = ssh_conn.run(f"tar xf '{remote_uploaded_file}' -C '{staging_dir}'", timeout=3600)
+                if isinstance(out, str) and out.startswith("Error:"):
+                    return {"status": "error", "message": f"Failed to extract OVA on host: {out[:400]}"}
+                ssh_conn.run(f"rm -f '{remote_uploaded_file}'", timeout=60)
+            else:
+                for extra in sidecar_files:
+                    extra_name = posixpath.basename(getattr(extra, "name", "") or "")
+                    if not extra_name:
+                        continue
+                    if extra_name == filename:
+                        continue
+                    extra_tmp_suffix = os.path.splitext(extra_name)[1] or ".bin"
+                    extra_fd, extra_tmp = tempfile.mkstemp(prefix="nebula-ovf-sidecar-", suffix=extra_tmp_suffix)
+                    os.close(extra_fd)
+                    try:
+                        extra_written = 0
+                        with open(extra_tmp, "wb") as efp:
+                            for chunk in extra.chunks():
+                                efp.write(chunk)
+                                extra_written += len(chunk)
+                        if extra_written <= 0:
+                            continue
+                        extra_remote = f"{staging_dir}/{extra_name}"
+                        with open(extra_tmp, "rb") as efp:
+                            ssh_conn.upload_file(efp, extra_remote)
+                    finally:
+                        try:
+                            if os.path.exists(extra_tmp):
+                                os.remove(extra_tmp)
+                        except OSError:
+                            pass
+
+            ovf_remote = ssh_conn.run(f"ls -1 '{staging_dir}'/*.ovf 2>/dev/null | head -1")
+            if not ovf_remote or str(ovf_remote).startswith("Error:"):
+                return {
+                    "status": "error",
+                    "message": "OVF descriptor not found in uploaded content after extraction.",
+                }
+
+            uploaded_vmdks_raw = ssh_conn.run(f"find '{staging_dir}' -maxdepth 1 -type f \\( -iname '*.vmdk' \\) 2>/dev/null")
+            uploaded_vmdks = {}
+            for line in str(uploaded_vmdks_raw or "").splitlines():
+                p = line.strip()
+                if not p:
+                    continue
+                uploaded_vmdks[posixpath.basename(p).lower()] = p
+
+            referenced_vmdks = []
+            for disk_file in ovf_defaults.get("disk_files") or []:
+                matched = uploaded_vmdks.get(posixpath.basename(str(disk_file)).lower())
+                if matched:
+                    referenced_vmdks.append(matched)
+
+            candidate_vmdks = referenced_vmdks or list(uploaded_vmdks.values())
+            candidate_vmdks = sorted(dict.fromkeys(candidate_vmdks))
+            if not candidate_vmdks:
+                hint = ""
+                if filename.lower().endswith(".ovf"):
+                    hint = " Ensure the OVF sidecar VMDK files were included in this same upload."
+                return {
+                    "status": "error",
+                    "message": f"No attachable VMDK files found in extracted OVA/OVF payload.{hint}",
+                }
+
+            discovered_disks = []
+            for idx, vmdk in enumerate(candidate_vmdks, start=1):
+                discovered_disks.append(
+                    {
+                        "label": f"Disk {idx}",
+                        "size_gb": _read_remote_vmdk_size_gb(ssh_conn, vmdk),
+                    }
+                )
+
+        ovf_disks = ovf_defaults.get("disks") or []
+        disk_defaults = discovered_disks if len(discovered_disks) >= len(ovf_disks) else ovf_disks
+        if not disk_defaults:
+            disk_defaults = [{"label": "Disk 1", "size_gb": 16}]
+
+        primary_disk = disk_defaults[0]
+        extra_disk_defaults = [
+            {"size_gb": int(d.get("size_gb") or 16), "type": "thin", "datastore": datastore}
+            for d in disk_defaults[1:]
+        ]
+
+        ovf_networks = ovf_defaults.get("networks") or []
+        primary_network = ovf_networks[0] if ovf_networks else "VM Network"
+        extra_nic_defaults = [
+            {"network": n, "type": "e1000"}
+            for n in ovf_networks[1:]
+        ]
+
+        prefill = {
+            "source": "ova_import",
+            "name": requested_vm_name or ovf_defaults.get("name") or ova_vm_name,
+            "cpu": int(ovf_defaults.get("cpu") or 2),
+            "ram_mb": int(ovf_defaults.get("ram_mb") or 2048),
+            "guest_os": ovf_defaults.get("guest_os") or "other-64",
+            "firmware": ovf_defaults.get("firmware") or "bios",
+            "hw_version": "13",
+            "disk_type": "thin",
+            "disk_size_gb": int(primary_disk.get("size_gb") or 16),
+            "extra_disks": extra_disk_defaults,
+            "network_name": primary_network,
+            "extra_nics": extra_nic_defaults,
+            "ovf_networks": ovf_networks,
+        }
+
+        session_payload = {
+            "session_id": session_id,
+            "host_name": host_name,
+            "datastore": datastore,
+            "staging_dir": staging_dir,
+            "filename": filename,
+            "disk_files": ovf_defaults.get("disk_files") or [],
+            "prefill": prefill,
+            "expires_in_seconds": 3600,
+        }
+        cache.set(_ova_session_cache_key(session_id), session_payload, timeout=3600)
+
+        redirect_url = f"/admin/manager/virtualmachine/add/?host_name={host_name}&ova_session={session_id}"
+        return {
+            "status": "ready_for_config",
+            "message": "OVA uploaded and extracted. Review and edit VM settings before final creation.",
+            "session_id": session_id,
+            "redirect_url": redirect_url,
+        }
+    except Exception as exc:
+        logger.exception("Failed to prepare OVA import session: host=%s datastore=%s filename=%s", host_name, datastore, filename)
+        return {"status": "error", "message": f"Failed to prepare OVA import: {str(exc)[:500]}"}
+    finally:
+        try:
+            if os.path.exists(local_tmp):
+                os.remove(local_tmp)
+        except OSError:
+            logger.warning("Failed to remove temporary local OVA file: %s", local_tmp)
+
+
+@router.get("/{host_name}/register/browse-ovf", summary="Browse Datastore for OVF/OVA Files")
+@decorate_view(cache_page(60))
+def browse_ovf_for_register(request, host_name: str, path: str = "/vmfs/volumes", recursive: bool = False):
+    """Browse ESXi datastore for .ovf and .ova files to deploy from datastore."""
+    host_obj = get_host_obj(host_name, require_active=True)
+    if host_obj.hypervisor_type != Host.HYPERVISOR_VMWARE_ESXI:
+        return {"status": "error", "message": "OVF datastore deploy is only supported for ESXi hosts."}
+
+    normalized = posixpath.normpath(path)
+    if not normalized.startswith("/vmfs/volumes"):
+        return {"status": "error", "message": "Browsing is restricted to /vmfs/volumes"}
+
+    if _is_esxi_api_mode(host_obj):
+        # API mode: list the current directory only (fast), mirroring SSH browse behavior.
+        try:
+            from plugins.esxi_api_plugin import EsxiApiClient
+            client = EsxiApiClient(
+                host=host_obj.ip_address,
+                username=host_obj.username,
+                password=host_obj.password,
+                verify_ssl=False,
+            )
+            with client.connect() as api:
+                if recursive:
+                    ovf_paths = api.list_files_by_suffix_under(normalized, ".ovf")
+                    ova_paths = api.list_files_by_suffix_under(normalized, ".ova")
+                    entries = []
+                    for fpath in sorted(ovf_paths + ova_paths):
+                        fname = posixpath.basename(fpath)
+                        if not fname:
+                            continue
+                        lower = fname.lower()
+                        entries.append({
+                            "name": fname,
+                            "path": fpath,
+                            "is_dir": False,
+                            "kind": lower.rsplit(".", 1)[-1],
+                        })
+                    return {"status": "success", "path": normalized, "recursive": True, "entries": entries}
+
+                dir_entries = api.list_datastore_directory(normalized)
+
+            entries = []
+            for item in dir_entries:
+                name = str(getattr(item, "name", "") or "").strip()
+                entry_path = str(getattr(item, "path", "") or "").strip()
+                is_dir = bool(getattr(item, "is_dir", False))
+                if not name or not entry_path:
+                    continue
+
+                lower = name.lower()
+                if is_dir:
+                    entries.append({"name": name, "path": entry_path, "is_dir": True, "kind": "dir"})
+                elif lower.endswith(".ovf") or lower.endswith(".ova"):
+                    entries.append({
+                        "name": name,
+                        "path": entry_path,
+                        "is_dir": False,
+                        "kind": lower.rsplit(".", 1)[-1],
+                    })
+
+            entries.sort(key=lambda e: (not e["is_dir"], e["name"].lower()))
+            return {"status": "success", "path": normalized, "entries": entries}
+        except Exception as exc:
+            return {"status": "error", "message": str(exc)[:500]}
+
+    try:
+        with _build_esxi_ssh_conn(host_obj) as conn:
+            entries = []
+            if recursive:
+                target = normalized.rstrip("/")
+                raw = conn.run(
+                    f"find {shlex.quote(target)} -type f \\( -iname '*.ovf' -o -iname '*.ova' \\) 2>/dev/null"
+                )
+                for line in str(raw or "").splitlines():
+                    full_path = line.strip()
+                    if not full_path:
+                        continue
+                    name = posixpath.basename(full_path)
+                    lower = name.lower()
+                    entries.append({"name": name, "path": full_path, "is_dir": False, "kind": lower.rsplit(".", 1)[-1]})
+                entries.sort(key=lambda e: e["path"].lower())
+                return {"status": "success", "path": normalized, "recursive": True, "entries": entries}
+
+            target = normalized.rstrip("/") + "/"
+            raw = conn.run(f"ls -1Ap {shlex.quote(target)} 2>/dev/null")
+            for line in str(raw or "").splitlines():
+                name = line.strip()
+                if not name or name == "./" or name == "../":
+                    continue
+                is_dir = name.endswith("/")
+                clean_name = name.rstrip("/")
+                full_path = f"{normalized.rstrip('/')}/{clean_name}"
+                lower = clean_name.lower()
+                if is_dir:
+                    entries.append({"name": clean_name, "path": full_path, "is_dir": True, "kind": "dir"})
+                elif lower.endswith(".ovf") or lower.endswith(".ova"):
+                    entries.append({"name": clean_name, "path": full_path, "is_dir": False, "kind": lower.rsplit(".", 1)[-1]})
+            entries.sort(key=lambda e: (not e["is_dir"], e["name"].lower()))
+        return {"status": "success", "path": normalized, "entries": entries}
+    except Exception as exc:
+        return {"status": "error", "message": str(exc)[:500]}
+
+
+@router.post("/{host_name}/deploy-ovf-from-datastore", summary="Deploy OVF/OVA Already on Datastore")
+def deploy_ovf_from_datastore_endpoint(request, host_name: str, ovf_path: str, vm_name: str = "", datastore: str = ""):
+    """
+    Read an OVF (or OVA) that already exists on the ESXi datastore and create an
+    import session so the user can review settings before final deployment.
+    ovf_path must point to a .ovf or .ova under /vmfs/volumes.
+    """
+    host_obj = get_host_obj(host_name, require_active=True)
+    if host_obj.hypervisor_type != Host.HYPERVISOR_VMWARE_ESXI:
+        return {"status": "error", "message": "OVF datastore deploy is only supported for ESXi hosts."}
+
+    ovf_path = posixpath.normpath(str(ovf_path or "").strip())
+    if not ovf_path.startswith("/vmfs/volumes"):
+        return {"status": "error", "message": "ovf_path must be under /vmfs/volumes"}
+    lower_path = ovf_path.lower()
+    if not (lower_path.endswith(".ovf") or lower_path.endswith(".ova")):
+        return {"status": "error", "message": "ovf_path must point to a .ovf or .ova file"}
+
+    is_ova = lower_path.endswith(".ova")
+    source_dir = posixpath.dirname(ovf_path)
+    filename = posixpath.basename(ovf_path)
+    requested_vm_name = (vm_name or "").strip()
+    ova_vm_name = requested_vm_name or filename.rsplit(".", 1)[0]
+
+    # Auto-detect datastore from path when not supplied
+    if not datastore:
+        parts = ovf_path.lstrip("/").split("/")
+        datastore = parts[2] if len(parts) > 2 else ""
+    if not datastore:
+        return {"status": "error", "message": "Could not determine target datastore from ovf_path."}
+
+    # ── API mode: read OVF text via HTTP, discover VMDKs via datastore browser ──
+    if _is_esxi_api_mode(host_obj):
+        try:
+            from plugins.esxi_api_plugin import EsxiApiClient
+            client = EsxiApiClient(
+                host=host_obj.ip_address,
+                username=host_obj.username,
+                password=host_obj.password,
+                verify_ssl=False,
+            )
+
+            session_id = uuid.uuid4().hex
+            local_tmp_ova = None
+            local_extract_dir = None
+            with client.connect() as api:
+                session_staging_dir = source_dir
+                ovf_path_for_import = ovf_path
+
+                if is_ova:
+                    session_staging_dir = f"/vmfs/volumes/{datastore}/.nebula-ovf-staging/{session_id}"
+                    api.make_datastore_directory(session_staging_dir, create_parents=True)
+
+                    local_tmp_ova = api.download_datastore_file_to_local(ovf_path)
+                    local_extract_dir = tempfile.mkdtemp(prefix="nebula-ds-ova-api-")
+
+                    with tarfile.open(local_tmp_ova, "r:*") as tar:
+                        tar.extractall(local_extract_dir)
+
+                    ovf_candidates = []
+                    for root_dir, _, files in os.walk(local_extract_dir):
+                        for fname in files:
+                            if fname.lower().endswith(".ovf"):
+                                ovf_candidates.append(os.path.join(root_dir, fname))
+
+                    if not ovf_candidates:
+                        return {"status": "error", "message": "No OVF descriptor found after extracting datastore OVA."}
+
+                    primary_ovf_local = sorted(ovf_candidates)[0]
+                    with open(primary_ovf_local, "rb") as ovf_file_handle:
+                        ovf_text = ovf_file_handle.read().decode("utf-8", errors="replace")
+
+                    uploaded_names = set()
+                    for root_dir, _, files in os.walk(local_extract_dir):
+                        for fname in files:
+                            lower_name = fname.lower()
+                            if not (lower_name.endswith(".ovf") or lower_name.endswith(".vmdk") or lower_name.endswith(".mf")):
+                                continue
+                            if fname in uploaded_names:
+                                continue
+                            uploaded_names.add(fname)
+
+                            local_file_path = os.path.join(root_dir, fname)
+                            with open(local_file_path, "rb") as upload_handle:
+                                api.upload_datastore_file(session_staging_dir, fname, upload_handle)
+
+                    ovf_path_for_import = f"{session_staging_dir}/{posixpath.basename(primary_ovf_local)}"
+                else:
+                    ovf_bytes = api.read_datastore_file_content(ovf_path, max_bytes=2 * 1024 * 1024)
+                    ovf_text = ovf_bytes.decode("utf-8", errors="replace")
+
+                ovf_defaults = _parse_ovf_defaults(ovf_text, ova_vm_name)
+
+                # Discover VMDKs next to the OVF in the same directory
+                dir_entries = api.list_datastore_directory(session_staging_dir)
+                vmdk_paths = [
+                    e.path for e in dir_entries
+                    if (
+                        not e.is_dir
+                        and e.name.lower().endswith(".vmdk")
+                        and not e.name.lower().endswith(("-flat.vmdk", "-delta.vmdk", "-sesparse.vmdk", "-ctk.vmdk"))
+                    )
+                ]
+
+            ovf_disks = ovf_defaults.get("disks") or []
+            disk_defaults = [{"label": f"Disk {i+1}", "size_gb": int(d.get("size_gb") or 16)} for i, d in enumerate(ovf_disks)] or [{"label": "Disk 1", "size_gb": 16}]
+            primary_disk = disk_defaults[0]
+            extra_disk_defaults = [
+                {"size_gb": int(d.get("size_gb") or 16), "type": "thin", "datastore": datastore}
+                for d in disk_defaults[1:]
+            ]
+            ovf_networks = ovf_defaults.get("networks") or []
+            primary_network = ovf_networks[0] if ovf_networks else "VM Network"
+            extra_nic_defaults = [{"network": n, "type": "e1000"} for n in ovf_networks[1:]]
+
+            prefill = {
+                "source": "api_ovf_datastore",
+                "name": requested_vm_name or ovf_defaults.get("name") or ova_vm_name,
+                "cpu": int(ovf_defaults.get("cpu") or 2),
+                "ram_mb": int(ovf_defaults.get("ram_mb") or 2048),
+                "guest_os": ovf_defaults.get("guest_os") or "other-64",
+                "firmware": ovf_defaults.get("firmware") or "bios",
+                "hw_version": "13",
+                "disk_type": "thin",
+                "disk_size_gb": int(primary_disk.get("size_gb") or 16),
+                "extra_disks": extra_disk_defaults,
+                "network_name": primary_network,
+                "extra_nics": extra_nic_defaults,
+                "ovf_networks": ovf_networks,
+            }
+            session_payload = {
+                "session_id": session_id,
+                "host_name": host_name,
+                "datastore": datastore,
+                "staging_dir": session_staging_dir,
+                "ovf_path": ovf_path_for_import,
+                "disk_files": ovf_defaults.get("disk_files") or [],
+                "vmdk_paths": vmdk_paths,
+                "api_ovf_source": True,
+                "prefill": prefill,
+                "expires_in_seconds": 3600,
+            }
+            cache.set(_ova_session_cache_key(session_id), session_payload, timeout=3600)
+            return {
+                "status": "ready_for_config",
+                "message": "OVF/OVA prepared from datastore via API. Review and edit VM settings before final creation.",
+                "session_id": session_id,
+                "redirect_url": f"/admin/manager/virtualmachine/add/?host_name={host_name}&ova_session={session_id}",
+            }
+        except Exception as exc:
+            logger.exception("API OVF-from-datastore failed: host=%s ovf=%s", host_name, ovf_path)
+            return {"status": "error", "message": f"Failed to read OVF via API: {str(exc)[:500]}"}
+        finally:
+            if local_tmp_ova:
+                try:
+                    if os.path.exists(local_tmp_ova):
+                        os.remove(local_tmp_ova)
+                except OSError:
+                    pass
+            if local_extract_dir:
+                try:
+                    shutil.rmtree(local_extract_dir, ignore_errors=True)
                 except Exception:
                     pass
-        except Exception:
-            pass  # Errors visible in server logs; VM list stays unchanged on failure
 
-    threading.Thread(target=_do_deploy, daemon=True).start()
+    try:
+        with _build_esxi_ssh_conn(host_obj) as ssh_conn:
+            # For .ova: extract into a staging dir on the same datastore
+            if is_ova:
+                session_id = uuid.uuid4().hex
+                staging_dir = f"/vmfs/volumes/{datastore}/.nebula-ovf-staging/{session_id}"
+                ssh_conn.run(f"mkdir -p {shlex.quote(staging_dir)}", timeout=60)
+                out = ssh_conn.run(f"tar xf {shlex.quote(ovf_path)} -C {shlex.quote(staging_dir)}", timeout=3600)
+                if isinstance(out, str) and out.startswith("Error:"):
+                    return {"status": "error", "message": f"Failed to extract OVA on host: {out[:400]}"}
+                ovf_remote = ssh_conn.run(f"ls -1 {shlex.quote(staging_dir)}/*.ovf 2>/dev/null | head -1")
+                if not ovf_remote or str(ovf_remote).startswith("Error:"):
+                    return {"status": "error", "message": "No OVF descriptor found after extracting OVA."}
+                staging_source = staging_dir
+                ovf_text_raw = ssh_conn.run(f"cat {shlex.quote(str(ovf_remote).strip())}")
+            else:
+                # .ovf already on datastore – use its directory as staging source
+                session_id = uuid.uuid4().hex
+                staging_dir = f"/vmfs/volumes/{datastore}/.nebula-ovf-staging/{session_id}"
+                ssh_conn.run(f"mkdir -p {shlex.quote(staging_dir)}", timeout=60)
+                # Copy the whole OVF folder into staging so we can safely convert disks later
+                ssh_conn.run(f"cp -R {shlex.quote(source_dir)}/. {shlex.quote(staging_dir)}/", timeout=3600)
+                staging_source = staging_dir
+                ovf_remote_path = f"{staging_dir}/{filename}"
+                ovf_text_raw = ssh_conn.run(f"cat {shlex.quote(ovf_remote_path)}")
 
-    return {
-        "status": "processing",
-        "message": f"'{filename}' transferred to {host_name}. Extraction and registration is running in the background — the VM list will update automatically when complete.",
-        "remote_path": remote_tmp,
-        "vm_name": ova_vm_name,
-    }
+            ovf_text = str(ovf_text_raw or "")
+            if not ovf_text or ovf_text.startswith("Error:"):
+                return {"status": "error", "message": "Could not read OVF descriptor from datastore."}
+
+            ovf_defaults = _parse_ovf_defaults(ovf_text, ova_vm_name)
+
+            # Discover VMDKs in staging dir
+            vmdk_list_raw = ssh_conn.run(f"find {shlex.quote(staging_dir)} -maxdepth 1 -type f -iname '*.vmdk' 2>/dev/null")
+            uploaded_vmdks = {}
+            for line in str(vmdk_list_raw or "").splitlines():
+                p = line.strip()
+                if p:
+                    uploaded_vmdks[posixpath.basename(p).lower()] = p
+
+            referenced_vmdks = []
+            for disk_file in ovf_defaults.get("disk_files") or []:
+                matched = uploaded_vmdks.get(posixpath.basename(str(disk_file)).lower())
+                if matched:
+                    referenced_vmdks.append(matched)
+            candidate_vmdks = referenced_vmdks or list(uploaded_vmdks.values())
+            candidate_vmdks = sorted(dict.fromkeys(candidate_vmdks))
+
+            discovered_disks = []
+            for idx, vmdk in enumerate(candidate_vmdks, start=1):
+                discovered_disks.append({
+                    "label": f"Disk {idx}",
+                    "size_gb": _read_remote_vmdk_size_gb(ssh_conn, vmdk),
+                })
+
+        ovf_disks = ovf_defaults.get("disks") or []
+        disk_defaults = discovered_disks if len(discovered_disks) >= len(ovf_disks) else ovf_disks
+        if not disk_defaults:
+            disk_defaults = [{"label": "Disk 1", "size_gb": 16}]
+
+        primary_disk = disk_defaults[0]
+        extra_disk_defaults = [
+            {"size_gb": int(d.get("size_gb") or 16), "type": "thin", "datastore": datastore}
+            for d in disk_defaults[1:]
+        ]
+        ovf_networks = ovf_defaults.get("networks") or []
+        primary_network = ovf_networks[0] if ovf_networks else "VM Network"
+        extra_nic_defaults = [{"network": n, "type": "e1000"} for n in ovf_networks[1:]]
+
+        prefill = {
+            "source": "ovf_datastore",
+            "name": requested_vm_name or ovf_defaults.get("name") or ova_vm_name,
+            "cpu": int(ovf_defaults.get("cpu") or 2),
+            "ram_mb": int(ovf_defaults.get("ram_mb") or 2048),
+            "guest_os": ovf_defaults.get("guest_os") or "other-64",
+            "firmware": ovf_defaults.get("firmware") or "bios",
+            "hw_version": "13",
+            "disk_type": "thin",
+            "disk_size_gb": int(primary_disk.get("size_gb") or 16),
+            "extra_disks": extra_disk_defaults,
+            "network_name": primary_network,
+            "extra_nics": extra_nic_defaults,
+            "ovf_networks": ovf_networks,
+        }
+
+        session_payload = {
+            "session_id": session_id,
+            "host_name": host_name,
+            "datastore": datastore,
+            "staging_dir": staging_dir,
+            "filename": filename,
+            "disk_files": ovf_defaults.get("disk_files") or [],
+            "prefill": prefill,
+            "expires_in_seconds": 3600,
+        }
+        cache.set(_ova_session_cache_key(session_id), session_payload, timeout=3600)
+
+        redirect_url = f"/admin/manager/virtualmachine/add/?host_name={host_name}&ova_session={session_id}"
+        return {
+            "status": "ready_for_config",
+            "message": "OVF read from datastore. Review and edit VM settings before final creation.",
+            "session_id": session_id,
+            "redirect_url": redirect_url,
+        }
+    except Exception as exc:
+        logger.exception("Failed to prepare OVF-from-datastore session: host=%s ovf_path=%s", host_name, ovf_path)
+        return {"status": "error", "message": f"Failed to prepare OVF from datastore: {str(exc)[:500]}"}
 
 
 @router.get("/{host_name}/register/browse", summary="Browse Datastore for VMX Files")
@@ -1138,20 +2322,31 @@ def browse_vmx_for_register(request, host_name: str, path: str = "/vmfs/volumes"
         return {"status": "error", "message": "Browsing is restricted to /vmfs/volumes"}
     try:
         with get_conn(host_name) as conn:
-            target = normalized.rstrip("/") + "/"
-            raw = conn.run(f"ls -1Ap '{target}'")
             entries = []
-            for line in raw.splitlines():
-                name = line.strip()
-                if not name:
-                    continue
-                is_dir = name.endswith("/")
-                clean_name = name.rstrip("/")
-                full_path = f"{normalized.rstrip('/')}/{clean_name}"
-                if is_dir:
-                    entries.append({"name": clean_name, "path": full_path, "is_dir": True, "kind": "dir"})
-                elif clean_name.lower().endswith(".vmx"):
-                    entries.append({"name": clean_name, "path": full_path, "is_dir": False, "kind": "vmx"})
+            if hasattr(conn, "list_datastore_directory"):
+                for item in conn.list_datastore_directory(normalized):
+                    clean_name = str(getattr(item, "name", "") or "")
+                    full_path = str(getattr(item, "path", "") or "")
+                    is_dir = bool(getattr(item, "is_dir", False))
+                    if is_dir:
+                        entries.append({"name": clean_name, "path": full_path, "is_dir": True, "kind": "dir"})
+                    elif clean_name.lower().endswith(".vmx"):
+                        entries.append({"name": clean_name, "path": full_path, "is_dir": False, "kind": "vmx"})
+            else:
+                target = normalized.rstrip("/") + "/"
+                raw = conn.run(f"ls -1Ap '{target}'")
+                for line in raw.splitlines():
+                    name = line.strip()
+                    if not name:
+                        continue
+                    is_dir = name.endswith("/")
+                    clean_name = name.rstrip("/")
+                    full_path = f"{normalized.rstrip('/')}/{clean_name}"
+                    if is_dir:
+                        entries.append({"name": clean_name, "path": full_path, "is_dir": True, "kind": "dir"})
+                    elif clean_name.lower().endswith(".vmx"):
+                        entries.append({"name": clean_name, "path": full_path, "is_dir": False, "kind": "vmx"})
+
             entries.sort(key=lambda e: (not e["is_dir"], e["name"].lower()))
             return {"status": "success", "path": normalized, "entries": entries}
     except Exception as exc:
@@ -1205,6 +2400,21 @@ def register_vm_from_vmx_endpoint(request, host_name: str, vmx_path: str):
 
     try:
         with get_conn(host_name) as conn:
+            # ESXi API mode: use pyVmomi RegisterVM_Task
+            if hasattr(conn, "register_vm_from_path"):
+                api_result = conn.register_vm_from_path(normalized_vmx)
+                if api_result.get("status") == "error":
+                    return api_result
+                bust_vm_cache(host_name)
+                sync_vms_for_host(host_obj)
+                vm_obj = VirtualMachine.objects.filter(host=host_obj).order_by("-updated_at").first()
+                if vm_obj:
+                    try:
+                        broadcast_vm_created(vm_obj)
+                    except Exception:
+                        pass
+                return {"status": "registered", "message": f"Registered VM from {normalized_vmx}", "vmx_path": normalized_vmx}
+
             result = vm_manage.register_vm(conn, normalized_vmx)
             if isinstance(result, str) and result.startswith("Error"):
                 return {"status": "error", "message": result[:500]}
@@ -1326,6 +2536,10 @@ def get_vm_hardware_endpoint(request, host_name: str, vmid: str):
 
     try:
         with get_conn(host_name) as conn:
+            # API mode: read hardware directly from vm.config via vSphere API
+            if hasattr(conn, "get_vm_hardware_api"):
+                return conn.get_vm_hardware_api(vmid)
+
             vms = vm_modify.list_vms_summary(conn)
             vmx_path = next((vm["vmx"] for vm in vms if vm["vmid"] == vmid), None)
             if not vmx_path:
@@ -1336,6 +2550,11 @@ def get_vm_hardware_endpoint(request, host_name: str, vmid: str):
             data["cpu_hotplug"] = str(vmx.get("vcpu.hotadd", "FALSE")).upper() == "TRUE"
             data["memory_hotplug"] = str(vmx.get("mem.hotadd", "FALSE")).upper() == "TRUE"
             data["hardware_virtualization"] = str(vmx.get("vhv.enable", "FALSE")).upper() == "TRUE"
+            memsize_mb = int(str(vmx.get("memsize", "0") or "0") or 0)
+            mem_reservation_mb = int(str(vmx.get("sched.mem.min", "0") or "0") or 0)
+            cpu_reservation_mhz = int(str(vmx.get("sched.cpu.min", "0") or "0") or 0)
+            data["reserve_all_memory"] = memsize_mb > 0 and mem_reservation_mb >= memsize_mb
+            data["reserve_all_cpu"] = cpu_reservation_mhz > 0
 
             pci_passthrough = []
             for key, value in vmx.items():
@@ -1366,6 +2585,7 @@ def modify_vm_endpoint(
     guest_os: str = None, hw_version: str = None, disk_unit: int = None,
     nic_number: int = None, iso_path: str = None,
     enabled: str = None, pci_id: str = None, pci_slot: int = None,
+    reserve_all_cpu: bool = None, reserve_all_memory: bool = None,
 ):
     host_obj = get_host_obj(host_name, require_active=True)
 
@@ -1513,6 +2733,20 @@ def modify_vm_endpoint(
 
     try:
         with get_conn(host_name) as conn:
+            # ESXi API mode: use pyVmomi ReconfigVM_Task
+            if hasattr(conn, "reconfigure_vm"):
+                api_result = conn.reconfigure_vm(
+                    vm_identifier=vmid, modification=modification,
+                    cpu=cpu, memory=memory, disk_size=disk_size, disk_unit=disk_unit,
+                    disk_name=disk_name, datastore=datastore, network_name=network_name,
+                    adapter_type=adapter_type, guest_os=guest_os, hw_version=hw_version,
+                    nic_number=nic_number, iso_path=iso_path, enabled=enabled,
+                    pci_id=pci_id, pci_slot=pci_slot, value=value,
+                    reserve_all_cpu=reserve_all_cpu, reserve_all_memory=reserve_all_memory,
+                )
+                bust_vm_cache(host_name, vmid)
+                return api_result
+
             vms = vm_modify.list_vms_summary(conn)
             vmx_path = next((vm["vmx"] for vm in vms if vm["vmid"] == vmid), None)
             if not vmx_path:
@@ -1551,6 +2785,10 @@ def modify_vm_endpoint(
                 result = vm_modify.set_memory_hotplug(conn, vmid, vmx_path, _to_bool(enabled if enabled is not None else value, False))
             elif modification == "hardware_virtualization":
                 result = vm_modify.set_hardware_virtualization(conn, vmid, vmx_path, _to_bool(enabled if enabled is not None else value, False))
+            elif modification == "reserve_all_cpu":
+                result = vm_modify.set_reserve_all_cpu(conn, vmid, vmx_path, _to_bool(enabled if enabled is not None else value, False))
+            elif modification == "reserve_all_memory":
+                result = vm_modify.set_reserve_all_memory(conn, vmid, vmx_path, _to_bool(enabled if enabled is not None else value, False))
             elif modification == "mount_iso":
                 if not iso_path: return {"status": "error", "message": "iso_path parameter required"}
                 result = vm_modify.mount_iso(conn, vmid, vmx_path, iso_path)
@@ -1605,6 +2843,12 @@ def restore_vmx_endpoint(request, host_name: str, vmid: str):
 
     try:
         with get_conn(host_name) as conn:
+            # API mode has no VMX backup concept — use snapshots for config rollback
+            if hasattr(conn, "get_vm_hardware_api"):
+                return {
+                    "status": "error",
+                    "message": "VMX backup/restore is SSH-only. In API mode, use VM snapshots to roll back configuration changes.",
+                }
             vms = vm_modify.list_vms_summary(conn)
             vmx_path = next((vm["vmx"] for vm in vms if vm["vmid"] == vmid), None)
             if not vmx_path:
@@ -1642,11 +2886,41 @@ def delete_vm_endpoint(request, host_name: str, vmid: str):
         bust_vm_cache(host_name, vmid)
         return {"status": "deleted", "vmid": vmid}
 
+    if host_obj.hypervisor_type == Host.HYPERVISOR_PROXMOX_VE:
+        try:
+            with get_conn(host_name) as conn:
+                node = conn.resolve_node(host_obj.name)
+                conn.vm_delete(node, vmid, purge=False, destroy_unreferenced_disks=True)
+        except Exception as exc:
+            return {"status": "error", "message": str(exc)[:500]}
+
+        VirtualMachine.objects.filter(host=host_obj, vmid=vmid).delete()
+        bust_vm_cache(host_name, vmid)
+        return {"status": "deleted", "vmid": vmid}
+
+    if host_obj.hypervisor_type == Host.HYPERVISOR_KVM_LIBVIRT:
+        try:
+            with get_conn(host_name) as conn:
+                kvm_manage.delete_vm(conn, vmid)
+        except Exception as exc:
+            return {"status": "error", "message": str(exc)[:500]}
+
+        VirtualMachine.objects.filter(host=host_obj, vmid=vmid).delete()
+        bust_vm_cache(host_name, vmid)
+        return {"status": "deleted", "vmid": vmid}
+
+    # ESXi (SSH or API mode)
     try:
         with get_conn(host_name) as conn:
-            result = vm_manage.destroy_vm(conn, vmid)
-            if isinstance(result, str) and result.startswith("Error:"):
-                return {"status": "error", "message": result[:500]}
+            # ESXi API mode: use pyVmomi UnregisterVM + DeleteDatastoreFile
+            if hasattr(conn, "destroy_vm"):
+                result = conn.destroy_vm(vmid)
+                if result.get("status") == "error":
+                    return result
+            else:
+                result = vm_manage.destroy_vm(conn, vmid)
+                if isinstance(result, str) and result.startswith("Error:"):
+                    return {"status": "error", "message": result[:500]}
     except Exception as exc:
         return {"status": "error", "message": str(exc)[:500]}
 

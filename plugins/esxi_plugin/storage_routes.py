@@ -27,6 +27,24 @@ def _is_proxmox(host_obj) -> bool:
     return host_obj.hypervisor_type == Host.HYPERVISOR_PROXMOX_VE
 
 
+def _is_esxi_api(host_obj) -> bool:
+    return (
+        host_obj.hypervisor_type == Host.HYPERVISOR_VMWARE_ESXI
+        and (getattr(host_obj, "esxi_connection_method", "") or "ssh").lower() == Host.CONNECTION_API
+    )
+
+
+def _get_esxi_api_client(host_obj):
+    from plugins.esxi_api_plugin import EsxiApiClient
+
+    return EsxiApiClient(
+        host=host_obj.ip_address,
+        username=host_obj.username,
+        password=host_obj.password,
+        verify_ssl=False,
+    )
+
+
 def _storage_root_for(host_obj) -> str:
     return "/var/lib/vz" if _is_proxmox(host_obj) else "/vmfs/volumes"
 
@@ -40,6 +58,60 @@ def _normalize_storage_path(host_obj, path: str) -> str:
             normalized = normalized.replace(legacy_root, root, 1)
     return normalized
 
+
+def _to_int_bytes(value, default=0) -> int:
+    try:
+        if value is None:
+            return int(default)
+        if isinstance(value, bool):
+            return int(default)
+        if isinstance(value, (int, float)):
+            return int(value)
+        return int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return int(default)
+
+
+def _datastores_for_ui(datastores: list) -> list:
+    """Normalize datastore rows to {name,type,capacity,used,free,mounted} bytes shape for UI."""
+    normalized = []
+    for ds in datastores or []:
+        if not isinstance(ds, dict):
+            continue
+
+        # Native ESXi SSH/Proxmox style: already in bytes.
+        capacity = ds.get("capacity")
+        used = ds.get("used")
+        free = ds.get("free")
+
+        # ESXi API sync style: capacity_gb/free_gb/provisioned_gb.
+        if capacity is None and (ds.get("capacity_gb") is not None or ds.get("free_gb") is not None):
+            cap_b = int(float(ds.get("capacity_gb") or 0) * (1024 ** 3))
+            free_b = int(float(ds.get("free_gb") or 0) * (1024 ** 3))
+            used_b = max(0, cap_b - free_b)
+            capacity = cap_b
+            used = used_b
+            free = free_b
+
+        cap_i = _to_int_bytes(capacity, 0)
+        used_i = _to_int_bytes(used, 0)
+        free_i = _to_int_bytes(free, max(cap_i - used_i, 0))
+
+        if cap_i and (used_i + free_i) > cap_i:
+            # Keep values internally consistent for usage bar calculations.
+            free_i = max(cap_i - used_i, 0)
+
+        normalized.append({
+            "name": str(ds.get("name") or "").strip(),
+            "type": str(ds.get("type") or "").strip(),
+            "capacity": cap_i,
+            "used": used_i,
+            "free": free_i,
+            "mounted": bool(ds.get("mounted", True)),
+        })
+
+    return normalized
+
 # --- 1. DATASTORE & DISK DISCOVERY (CACHED) ---
 
 @router.get("/{host_name}/datastores", summary="List All Datastores")
@@ -47,7 +119,7 @@ def _normalize_storage_path(host_obj, path: str) -> str:
 def get_datastores(request, host_name: str):
     host_obj = _get_host_obj(host_name)
     data = host_obj.storage_data or {}
-    return {"datastores": data.get("datastores", [])}
+    return {"datastores": _datastores_for_ui(data.get("datastores", []))}
 
 @router.get("/{host_name}/disks/available", summary="List Physical Disks")
 @decorate_view(cache_page(600))
@@ -107,6 +179,16 @@ def browse_storage(request, host_name: str, path: str = ""):
     root = _storage_root_for(host_obj)
     browse_path = _normalize_storage_path(host_obj, path or root)
 
+    if _is_esxi_api(host_obj):
+        structured = browse_structured(request, host_name, browse_path)
+        if structured.get("error"):
+            return structured
+        names = []
+        for entry in structured.get("entries", []):
+            suffix = "/" if entry.get("is_dir") else ""
+            names.append(f"{entry.get('name', '')}{suffix}")
+        return {"status": "success", "path": structured.get("path"), "entries": names}
+
     if _is_proxmox(host_obj):
         structured = browse_structured(request, host_name, browse_path)
         if structured.get("error"):
@@ -128,6 +210,22 @@ def browse_structured(request, host_name: str, path: str = ""):
     normalized = _normalize_storage_path(host_obj, path or root)
     if not normalized.startswith(root):
         return {"error": f"Browsing is restricted to {root} (got: {normalized})"}
+
+    if _is_esxi_api(host_obj):
+        try:
+            with _get_esxi_api_client(host_obj).connect() as api:
+                entries = [
+                    {
+                        "name": item.name,
+                        "is_dir": item.is_dir,
+                        "size": item.size,
+                        "path": item.path,
+                    }
+                    for item in api.list_datastore_directory(normalized)
+                ]
+            return {"path": normalized, "entries": entries}
+        except Exception as exc:
+            return {"error": f"Failed to browse ESXi datastore via API: {exc}"}
 
     if _is_proxmox(host_obj):
         with get_conn(host_name) as conn:
@@ -207,6 +305,17 @@ def browse_structured(request, host_name: str, path: str = ""):
 @decorate_view(cache_page(60))
 def check_path(request, host_name: str, path: str):
     host_obj = _get_host_obj(host_name)
+    if _is_esxi_api(host_obj):
+        normalized = _normalize_storage_path(host_obj, path)
+        if not normalized.startswith("/vmfs/volumes"):
+            return {"exists": False, "path": normalized}
+        try:
+            with _get_esxi_api_client(host_obj).connect() as api:
+                exists = api.datastore_path_exists(normalized)
+            return {"exists": exists, "path": normalized}
+        except Exception as exc:
+            return {"exists": False, "path": normalized, "error": str(exc)}
+
     if _is_proxmox(host_obj):
         root = _storage_root_for(host_obj)
         normalized = _normalize_storage_path(host_obj, path or root)
@@ -243,6 +352,19 @@ def check_path(request, host_name: str, path: str):
 @router.post("/{host_name}/explorer/mkdir", summary="Create New Directory")
 def make_dir(request, host_name: str, path: str):
     host_obj = _get_host_obj(host_name)
+    if _is_esxi_api(host_obj):
+        normalized = _normalize_storage_path(host_obj, path)
+        if not normalized.startswith("/vmfs/volumes"):
+            return {"status": "error", "message": "Path must be under /vmfs/volumes"}
+        try:
+            with _get_esxi_api_client(host_obj).connect() as api:
+                result = api.make_datastore_directory(normalized, create_parents=True)
+            cache.delete_pattern(f"*{host_name}/explorer/ls*")
+            broadcast_storage_directory_created(host_name, normalized)
+            return {"status": "success", "output": result}
+        except Exception as exc:
+            return {"status": "error", "message": str(exc)}
+
     if _is_proxmox(host_obj):
         return {
             "status": "error",
@@ -262,6 +384,15 @@ def delete_item(request, host_name: str, path: str):
     host_obj = _get_host_obj(host_name)
     try:
         normalized = _normalize_storage_path(host_obj, path)
+        if _is_esxi_api(host_obj):
+            if not normalized.startswith("/vmfs/volumes"):
+                return {"status": "error", "message": "Delete restricted to /vmfs/volumes"}
+            with _get_esxi_api_client(host_obj).connect() as api:
+                api.delete_datastore_path(normalized)
+            cache.delete_pattern(f"*{host_name}/explorer*")
+            broadcast_storage_item_deleted(host_name, normalized)
+            return {"status": "item_deleted", "path": normalized}
+
         if _is_proxmox(host_obj):
             root = _storage_root_for(host_obj)
             if not normalized.startswith(root):
@@ -301,6 +432,19 @@ def delete_item(request, host_name: str, path: str):
 @router.post("/{host_name}/explorer/move", summary="Move / Rename File or Folder")
 def move_item(request, host_name: str, src: str, dest: str):
     host_obj = _get_host_obj(host_name)
+    if _is_esxi_api(host_obj):
+        try:
+            norm_src = posixpath.normpath(src)
+            norm_dest = posixpath.normpath(dest)
+            if not norm_src.startswith("/vmfs/volumes") or not norm_dest.startswith("/vmfs/volumes"):
+                return {"status": "error", "message": "Paths must be under /vmfs/volumes"}
+            with _get_esxi_api_client(host_obj).connect() as api:
+                api.move_datastore_path(norm_src, norm_dest, force=True)
+            cache.delete_pattern(f"*{host_name}/explorer*")
+            return {"status": "success", "src": norm_src, "dest": norm_dest}
+        except Exception as exc:
+            return {"status": "error", "message": str(exc)}
+
     if _is_proxmox(host_obj):
         return {
             "status": "error",
@@ -323,6 +467,19 @@ def move_item(request, host_name: str, src: str, dest: str):
 @router.post("/{host_name}/explorer/copy", summary="Copy File or Folder")
 def copy_item(request, host_name: str, src: str, dest: str):
     host_obj = _get_host_obj(host_name)
+    if _is_esxi_api(host_obj):
+        try:
+            norm_src = posixpath.normpath(src)
+            norm_dest = posixpath.normpath(dest)
+            if not norm_src.startswith("/vmfs/volumes") or not norm_dest.startswith("/vmfs/volumes"):
+                return {"status": "error", "message": "Paths must be under /vmfs/volumes"}
+            with _get_esxi_api_client(host_obj).connect() as api:
+                api.copy_datastore_path(norm_src, norm_dest, force=True)
+            cache.delete_pattern(f"*{host_name}/explorer*")
+            return {"status": "success", "src": norm_src, "dest": norm_dest}
+        except Exception as exc:
+            return {"status": "error", "message": str(exc)}
+
     if _is_proxmox(host_obj):
         return {
             "status": "error",
@@ -383,6 +540,27 @@ def create_new_ds(request, host_name: str, disk_id: str, ds_name: str):
 @router.post("/{host_name}/explorer/upload", summary="Upload File to Datastore")
 def upload_file(request, host_name: str, path: str, file: UploadedFile = File(...)):
     host_obj = _get_host_obj(host_name)
+    if _is_esxi_api(host_obj):
+        normalized = _normalize_storage_path(host_obj, path)
+        if not normalized.startswith("/vmfs/volumes"):
+            return {"status": "error", "message": "Uploads restricted to /vmfs/volumes"}
+
+        filename = posixpath.basename(file.name or "upload")
+        if not filename or "/" in filename or "\\" in filename or "\x00" in filename:
+            return {"status": "error", "message": "Invalid filename"}
+
+        try:
+            with _get_esxi_api_client(host_obj).connect() as api:
+                result = api.upload_datastore_file(normalized, filename, file)
+            cache.delete_pattern(f"*{host_name}/explorer*")
+            return {
+                "status": "success",
+                "path": result.get("path"),
+                "filename": result.get("filename"),
+            }
+        except Exception as exc:
+            return {"status": "error", "message": str(exc)}
+
     if _is_proxmox(host_obj):
         return {
             "status": "error",

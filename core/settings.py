@@ -65,6 +65,8 @@ ASGI_APPLICATION = 'core.asgi.application'
 # Requires: pip install channels channels-redis
 REDIS_HOST = os.getenv('REDIS_HOST', '192.168.1.37')
 REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
+REDIS_CACHE_TIMEOUT = int(os.getenv('REDIS_CACHE_TIMEOUT', '300'))
+REDIS_CACHE_MAX_CONNECTIONS = int(os.getenv('REDIS_CACHE_MAX_CONNECTIONS', '200'))
 
 CHANNEL_LAYERS = {
     "default": {
@@ -100,8 +102,18 @@ CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/1",
+        "TIMEOUT": REDIS_CACHE_TIMEOUT,
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "SOCKET_CONNECT_TIMEOUT": 2,
+            "SOCKET_TIMEOUT": 2,
+            "CONNECTION_POOL_KWARGS": {
+                "max_connections": REDIS_CACHE_MAX_CONNECTIONS,
+                "retry_on_timeout": True,
+                "socket_keepalive": True,
+            },
+            # Keep UI usable during short Redis/network blips.
+            "IGNORE_EXCEPTIONS": True,
         }
     }
 }

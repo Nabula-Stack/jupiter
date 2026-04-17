@@ -71,6 +71,28 @@ kubectl logs deployment/nebula-web -n nebula --tail=100
 kubectl logs deployment/nebula-sync-worker -n nebula --tail=100
 ```
 
+### Redis performance tuning (recommended)
+
+This chart now deploys Redis with a cache-oriented profile:
+
+- Persistence disabled (`save ""`, `appendonly no`) to reduce fork overhead and improve UI responsiveness.
+- LRU eviction enabled (`maxmemory-policy allkeys-lru`) with `maxmemory 192mb`.
+- Lazy freeing enabled for lower latency during key eviction/deletion.
+
+If your workload needs durable Redis data, override `redis.config` in your values file and enable persistence settings.
+
+### Linux host kernel setting for Redis
+
+On Kubernetes nodes, set `vm.overcommit_memory=1` to avoid Redis fork failures during background operations.
+
+Apply on each Linux node:
+
+```bash
+sudo sysctl vm.overcommit_memory=1
+echo 'vm.overcommit_memory = 1' | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+```
+
 ### Access
 
 - If ingress host resolves to your cluster, use: `https://nebula.prod.home` (or your configured host)

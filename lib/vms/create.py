@@ -1,4 +1,6 @@
 import shlex
+import re
+import os
 
 
 def _vmx_escape(value: object) -> str:
@@ -7,12 +9,34 @@ def _vmx_escape(value: object) -> str:
     return text.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def _run_or_raise(host, command: str) -> str:
+def _run_or_raise(host, command: str, timeout: int | None = None) -> str:
     """Runs a command on ESXi and raises if shell call fails."""
-    result = host.run(command)
+    result = host.run(command, timeout=timeout)
     if isinstance(result, str) and result.startswith("Error:"):
         raise RuntimeError(result)
     return result
+
+
+def _detect_host_cpu_mhz(host) -> int:
+    """Best-effort detection of host CPU speed in MHz for reservation math."""
+    probes = [
+        "esxcli hardware cpu list | grep -m1 'CPU Speed:'",
+        "esxcli hardware cpu global get | grep -E 'Hz|hz|MHz|mhz' | head -1",
+    ]
+    for cmd in probes:
+        try:
+            out = str(host.run(cmd) or "")
+        except Exception:
+            continue
+        if out.startswith("Error:"):
+            continue
+        mhz_match = re.search(r"(\d+)\s*MHz", out, flags=re.IGNORECASE)
+        if mhz_match:
+            return int(mhz_match.group(1))
+        hz_match = re.search(r"(\d{7,})\s*Hz", out, flags=re.IGNORECASE)
+        if hz_match:
+            return int(int(hz_match.group(1)) / 1_000_000)
+    return 1000
 
 
 def create_vm(
@@ -37,6 +61,8 @@ def create_vm(
     memory_hotplug: bool = False,
     hardware_virtualization: bool = False,
     pci_passthrough_devices: list | None = None,
+    reserve_all_cpu: bool = False,
+    reserve_all_memory: bool = False,
 ) -> str:
     """
     Creates and registers a VM with configurable options (ESXi-style).
@@ -73,6 +99,8 @@ def create_vm(
         firmware_mode = "bios"
 
     hw_version = str(hw_version).strip() or "13"
+    host_cpu_mhz = _detect_host_cpu_mhz(host)
+    cpu_reservation_mhz = int(cpu_count) * int(host_cpu_mhz)
 
     # Pre-flight: refuse to clobber an existing VM directory.
     exists_check = host.run(f"[ -d {vm_path_q} ] && echo EXISTS || echo OK")
@@ -120,6 +148,8 @@ def create_vm(
         f'vcpu.hotadd = "{"TRUE" if cpu_hotplug else "FALSE"}"',
         f'mem.hotadd = "{"TRUE" if memory_hotplug else "FALSE"}"',
         f'vhv.enable = "{"TRUE" if hardware_virtualization else "FALSE"}"',
+        f'sched.mem.min = "{int(ram_mb) if reserve_all_memory else 0}"',
+        f'sched.cpu.min = "{cpu_reservation_mhz if reserve_all_cpu else 0}"',
         f'displayName = "{_vmx_escape(vm_name)}"',
         f'guestOS = "{_vmx_escape(guest_os)}"',
         f'firmware = "{_vmx_escape(firmware_mode)}"',
@@ -215,7 +245,10 @@ def deploy_ova(host, datastore: str, ova_local_path: str, vm_name: str = "") -> 
     converts any VMDK stream-optimized disks, and registers the VM.
     """
     import os
-    ds_path = f"/vmfs/volumes/{shlex.quote(datastore)}"
+    datastore = str(datastore).strip().strip("/")
+    if not datastore:
+        raise ValueError("Datastore is required")
+    ds_path = f"/vmfs/volumes/{datastore}"
 
     # Determine VM name from filename if not given
     ova_basename = os.path.basename(ova_local_path)
@@ -236,14 +269,15 @@ def deploy_ova(host, datastore: str, ova_local_path: str, vm_name: str = "") -> 
     if "EXISTS" in str(exists_check):
         raise FileExistsError(f"Directory already exists: {vm_dir}")
 
-    _run_or_raise(host, f"mkdir -p {vm_dir_q}")
+    _run_or_raise(host, f"mkdir -p {vm_dir_q}", timeout=120)
 
     # The OVA should already be uploaded to the datastore by the API layer.
     # ova_local_path here is the remote path on ESXi.
     remote_ova = ova_local_path
 
     # Extract OVA (it's a tar archive)
-    _run_or_raise(host, f"tar xf {shlex.quote(remote_ova)} -C {vm_dir_q}")
+    # OVA extraction can be large and slow; use a generous timeout.
+    _run_or_raise(host, f"tar xf {shlex.quote(remote_ova)} -C {vm_dir_q}", timeout=3600)
 
     # Find the OVF file
     ovf_find = host.run(f"ls {vm_dir_q}/*.ovf 2>/dev/null")
@@ -260,7 +294,7 @@ def deploy_ova(host, datastore: str, ova_local_path: str, vm_name: str = "") -> 
         converted = vmdk.replace(".vmdk", "-converted.vmdk")
         converted_q = shlex.quote(converted)
         # Clone/convert to thin (handles stream-optimized → flat)
-        result = host.run(f"vmkfstools -i {vmdk_q} -d thin {converted_q}")
+        result = host.run(f"vmkfstools -i {vmdk_q} -d thin {converted_q}", timeout=7200)
         if isinstance(result, str) and result.startswith("Error:"):
             # If conversion fails, the disk may already be flat — skip
             continue
@@ -306,9 +340,187 @@ def deploy_ova(host, datastore: str, ova_local_path: str, vm_name: str = "") -> 
         _run_or_raise(host, f"cat > {shlex.quote(vmx_path)} <<'EOF'\n{vmx_body}EOF")
 
     # Register the VM
-    register_output = _run_or_raise(host, f"vim-cmd solo/registervm {shlex.quote(vmx_path)}")
+    register_output = _run_or_raise(host, f"vim-cmd solo/registervm {shlex.quote(vmx_path)}", timeout=180)
 
     # Clean up the uploaded OVA tar to save space
-    host.run(f"rm -f {shlex.quote(remote_ova)}")
+    host.run(f"rm -f {shlex.quote(remote_ova)}", timeout=120)
 
     return f"OVA deployed as '{vm_name}'. {register_output}"
+
+
+def deploy_ova_from_session(
+    host,
+    datastore: str,
+    session_dir: str,
+    vm_name: str,
+    disk_files: list | None = None,
+    cpu_count: int = 2,
+    ram_mb: int = 2048,
+    network_name: str = "VM Network",
+    nic_type: str = "e1000",
+    scsi_controller: str = "lsilogic",
+    guest_os: str = "other-64",
+    firmware: str = "bios",
+    hw_version: str = "13",
+    disk_type: str = "thin",
+    extra_nics: list | None = None,
+    power_on: bool = False,
+) -> str:
+    """Create/register VM from a prepared OVA session directory using user-edited settings."""
+    def _is_descriptor_file(vmdk_path: str) -> bool:
+        try:
+            header = host.run(f"head -20 {shlex.quote(vmdk_path)}")
+            text = str(header or "")
+            if text and not text.startswith("Error:"):
+                if ("Disk DescriptorFile" in text) or ("ddb." in text):
+                    return True
+
+            probe = host.run(f"vmkfstools -q {shlex.quote(vmdk_path)}")
+            probe_text = str(probe or "")
+            if not probe_text:
+                return True
+            if probe_text.startswith("Error:"):
+                return False
+            lowered = probe_text.lower()
+            if "not a virtual disk" in lowered or "invalid argument" in lowered:
+                return False
+            return True
+        except Exception:
+            return False
+
+    vm_name = str(vm_name or "").strip().replace(" ", "_")
+    datastore = str(datastore or "").strip().strip("/")
+    session_dir = str(session_dir or "").strip().rstrip("/")
+    if not vm_name:
+        raise ValueError("VM name is required")
+    if not datastore:
+        raise ValueError("Datastore is required")
+    if not session_dir.startswith("/vmfs/volumes/"):
+        raise ValueError("Invalid OVA staging directory")
+
+    vm_dir = f"/vmfs/volumes/{datastore}/{vm_name}"
+    vm_dir_q = shlex.quote(vm_dir)
+    session_dir_q = shlex.quote(session_dir)
+
+    exists_check = host.run(f"[ -d {vm_dir_q} ] && echo EXISTS || echo OK")
+    if "EXISTS" in str(exists_check):
+        raise FileExistsError(f"Directory already exists: {vm_dir}")
+
+    _run_or_raise(host, f"mkdir -p {vm_dir_q}")
+    _run_or_raise(host, f"cp -R {session_dir_q}/. {vm_dir_q}/", timeout=3600)
+
+    requested_disk_files = []
+    for disk_file in disk_files or []:
+        disk_name = os.path.basename(str(disk_file or "").strip())
+        if disk_name:
+            requested_disk_files.append(f"{vm_dir}/{disk_name}")
+
+    descriptors = []
+    if requested_disk_files:
+        for p in requested_disk_files:
+            exists = host.run(f"[ -f {shlex.quote(p)} ] && echo EXISTS || echo MISSING")
+            if "EXISTS" in str(exists):
+                descriptors.append(p)
+    else:
+        list_vmdk = host.run(f"find {vm_dir_q} -maxdepth 1 -type f \\( -iname '*.vmdk' \\) 2>/dev/null")
+        for path in (list_vmdk or "").splitlines():
+            p = path.strip()
+            if not p:
+                continue
+            lower = p.lower()
+            if lower.endswith("-flat.vmdk") or lower.endswith("-ctk.vmdk") or lower.endswith("-delta.vmdk") or lower.endswith("-sesparse.vmdk"):
+                continue
+            if not _is_descriptor_file(p):
+                continue
+            descriptors.append(p)
+    descriptors = sorted(set(descriptors))
+    if not descriptors:
+        raise RuntimeError("No attachable VMDK files found in prepared OVA session")
+
+    wanted_disk_type = str(disk_type or "thin").lower()
+    if wanted_disk_type not in {"thin", "zeroedthick", "eagerzeroedthick"}:
+        wanted_disk_type = "thin"
+
+    converted_descriptors = []
+    for src in descriptors:
+        src_q = shlex.quote(src)
+        conv = src.replace(".vmdk", "-import.vmdk")
+        conv_q = shlex.quote(conv)
+        out = host.run(f"vmkfstools -i {src_q} -d {wanted_disk_type} {conv_q}", timeout=7200)
+        if isinstance(out, str) and out.startswith("Error:"):
+            converted_descriptors.append(src)
+            continue
+        converted_descriptors.append(conv)
+
+    nic_model = str(nic_type).lower()
+    if nic_model not in {"e1000", "e1000e", "vmxnet3"}:
+        nic_model = "e1000"
+
+    scsi_model = str(scsi_controller).lower()
+    if scsi_model not in {"lsilogic", "lsisas1068", "pvscsi"}:
+        scsi_model = "lsilogic"
+
+    firmware_mode = str(firmware).lower()
+    if firmware_mode not in {"bios", "efi"}:
+        firmware_mode = "bios"
+
+    vmx_path = f"{vm_dir}/{vm_name}.vmx"
+    vmx_entries = [
+        '.encoding = "UTF-8"',
+        'config.version = "8"',
+        f'virtualHW.version = "{_vmx_escape(str(hw_version or "13"))}"',
+        f'memsize = "{int(ram_mb)}"',
+        f'numvcpus = "{int(cpu_count)}"',
+        f'displayName = "{_vmx_escape(vm_name)}"',
+        f'guestOS = "{_vmx_escape(guest_os)}"',
+        f'firmware = "{_vmx_escape(firmware_mode)}"',
+        'scsi0.present = "TRUE"',
+        f'scsi0.virtualDev = "{_vmx_escape(scsi_model)}"',
+    ]
+
+    for idx, path in enumerate(converted_descriptors):
+        vmdk_name = os.path.basename(path)
+        vmx_entries.extend([
+            f'scsi0:{idx}.present = "TRUE"',
+            f'scsi0:{idx}.fileName = "{_vmx_escape(vmdk_name)}"',
+            f'scsi0:{idx}.deviceType = "scsi-hardDisk"',
+        ])
+
+    vmx_entries.extend([
+        'ethernet0.present = "TRUE"',
+        f'ethernet0.virtualDev = "{_vmx_escape(nic_model)}"',
+        f'ethernet0.networkName = "{_vmx_escape(network_name)}"',
+        'ethernet0.addressType = "generated"',
+    ])
+
+    for idx, nic in enumerate(extra_nics or [], start=1):
+        en_type = str(nic.get("type", nic_model)).lower()
+        if en_type not in {"e1000", "e1000e", "vmxnet3"}:
+            en_type = "e1000"
+        en_net = str(nic.get("network", network_name))
+        vmx_entries.extend([
+            f'ethernet{idx}.present = "TRUE"',
+            f'ethernet{idx}.virtualDev = "{_vmx_escape(en_type)}"',
+            f'ethernet{idx}.networkName = "{_vmx_escape(en_net)}"',
+            f'ethernet{idx}.addressType = "generated"',
+        ])
+
+    vmx_body = "\n".join(vmx_entries) + "\n"
+    _run_or_raise(host, f"cat > {shlex.quote(vmx_path)} <<'EOF'\n{vmx_body}EOF")
+
+    register_output = _run_or_raise(host, f"vim-cmd solo/registervm {shlex.quote(vmx_path)}", timeout=180)
+
+    if power_on:
+        try:
+            vmid_output = _run_or_raise(host, "vim-cmd vmsvc/getallvms")
+            created_vmid = None
+            for line in str(vmid_output).splitlines()[1:]:
+                if vm_name in line and f"{vm_name}.vmx" in line:
+                    created_vmid = line.split()[0]
+                    break
+            if created_vmid:
+                _run_or_raise(host, f"vim-cmd vmsvc/power.on {created_vmid}")
+        except Exception:
+            pass
+
+    return f"OVA session deployed as '{vm_name}'. {register_output}"

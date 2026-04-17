@@ -2,6 +2,16 @@
 .ova-action-li{list-style:none}
 .ova-action-li a{cursor:pointer;display:flex;flex-grow:1;align-items:center;gap:8px;padding:8px 12px;text-align:left;white-space:nowrap;font-weight:500;font-size:14px;color:inherit;text-decoration:none}
 .ova-action-li a:hover{color:#7c3aed}
+/* Static action button bar */
+#nebula-vm-actions{display:flex;align-items:center;gap:8px;padding:0 0 12px 0}
+#nebula-vm-actions button{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-size:13px;font-weight:700;border:1px solid #e2e8f0;background:#fff;color:#334155;cursor:pointer;transition:background .15s,border-color .15s}
+#nebula-vm-actions button:hover{background:#f5f3ff;border-color:#7c3aed;color:#7c3aed}
+.dark #nebula-vm-actions button{background:#1e293b;border-color:#334155;color:#e2e8f0}
+.dark #nebula-vm-actions button:hover{background:#2d1b69;border-color:#7c3aed;color:#c4b5fd}
+.nebula-hdr-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-size:13px;font-weight:700;border:1px solid #e2e8f0;background:#fff;color:#334155;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
+.nebula-hdr-btn:hover{background:#f5f3ff;border-color:#7c3aed;color:#7c3aed}
+.dark .nebula-hdr-btn{background:#1e293b;border-color:#334155;color:#e2e8f0}
+.dark .nebula-hdr-btn:hover{background:#2d1b69;border-color:#7c3aed;color:#c4b5fd}
 /* Reposition the actions bar from fixed-bottom to inline above the table */
 #changelist-form > div:has(> #changelist-actions-wrapper){
     position:static!important;
@@ -100,8 +110,6 @@ aside#changelist-filter,
 .dark .ova-stage-sub{color:#94a3b8}
 </style>
 
-<!-- Button will be injected into header action bar via JS -->
-
 <div id="ovaModal" class="ova-overlay">
     <div class="ova-modal" style="width:520px">
         <div class="ova-modal-header">
@@ -148,10 +156,10 @@ aside#changelist-filter,
                 </div>
                 <div class="ova-f">
                     <label>OVA / OVF File *</label>
-                    <input type="file" id="ovaFileInput" accept=".ova,.ovf" style="display:none">
+                    <input type="file" id="ovaFileInput" accept=".ova,.ovf,.vmdk,.mf" multiple style="display:none">
                     <div class="ova-dropzone" id="ovaDropzone">
                         <span class="material-symbols-outlined">cloud_upload</span>
-                        Click or drag &amp; drop an .ova / .ovf file here
+                        Click or drag &amp; drop an .ova, or an OVF package (.ovf + .vmdk, optional .mf)
                         <div class="ova-file-name" id="ovaFileName"></div>
                     </div>
                 </div>
@@ -193,13 +201,29 @@ aside#changelist-filter,
     </div>
 </div>
 
+<style>
+.reg-tabs{display:flex;gap:0;border-bottom:2px solid #e5e7eb;margin-bottom:14px}
+.dark .reg-tabs{border-color:#334155}
+.reg-tab{padding:7px 16px;font-size:12px;font-weight:700;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;letter-spacing:.02em;text-transform:uppercase;transition:color .15s,border-color .15s}
+.reg-tab:hover{color:#7c3aed}
+.reg-tab.active{color:#7c3aed;border-bottom-color:#7c3aed}
+.reg-tab-pane{display:none}
+.reg-tab-pane.active{display:block}
+</style>
 <div id="registerVmModal" class="ova-overlay">
-    <div class="ova-modal">
+    <div class="ova-modal" style="width:520px">
         <div class="ova-modal-header">
             <span class="material-symbols-outlined" style="font-size:20px;color:#7c3aed">app_registration</span>
-            <h3>Register Existing VM</h3>
+            <h3>Register / Deploy VM</h3>
         </div>
         <div class="ova-modal-body">
+            <!-- Tabs -->
+            <div class="reg-tabs">
+                <div class="reg-tab active" id="regTabVmx" onclick="regSwitchTab('vmx')">Register Existing VM</div>
+                <div class="reg-tab" id="regTabOvf" onclick="regSwitchTab('ovf')">OVF from Datastore</div>
+            </div>
+
+            <!-- Shared host/datastore selectors -->
             <div class="ova-f">
                 <label for="reg_host">Host *</label>
                 <select id="reg_host"><option value="">Loading...</option></select>
@@ -208,15 +232,34 @@ aside#changelist-filter,
                 <label for="reg_datastore">Datastore *</label>
                 <select id="reg_datastore"><option value="">Select host first</option></select>
             </div>
-            <input id="reg_path_input" type="hidden" value="/vmfs/volumes">
-            <div class="reg-path" id="regSelectedPath">Select a .vmx file to register.</div>
-            <div class="reg-browser" id="regBrowser"></div>
-            <div id="regStatus" class="ova-status"></div>
+
+            <!-- Tab: Register VMX -->
+            <div class="reg-tab-pane active" id="regPaneVmx">
+                <input id="reg_path_input" type="hidden" value="/vmfs/volumes">
+                <div class="reg-path" id="regSelectedPath">Select a .vmx file to register.</div>
+                <div class="reg-browser" id="regBrowser"></div>
+            </div>
+
+            <!-- Tab: OVF from Datastore -->
+            <div class="reg-tab-pane" id="regPaneOvf">
+                <input id="regOvf_path_input" type="hidden" value="/vmfs/volumes">
+                <div class="ova-f" style="margin-bottom:10px">
+                    <label for="regOvfVmName">VM Name <span style="font-weight:400;text-transform:none">(leave blank to use filename)</span></label>
+                    <input type="text" id="regOvfVmName" placeholder="auto-detect from OVF">
+                </div>
+                <div class="reg-path" id="regOvfSelectedPath">Browse and select a .ovf or .ova file from the datastore.</div>
+                <div class="reg-browser" id="regOvfBrowser"></div>
+            </div>
+
+            <div id="regStatus" class="ova-status" style="margin-top:8px"></div>
         </div>
         <div class="ova-modal-footer">
             <button type="button" class="ova-btn-cancel" id="regCancel">Cancel</button>
-            <button type="button" class="ova-btn-deploy" id="regSubmit" disabled>
+            <button type="button" class="ova-btn-deploy" id="regSubmit" style="display:inline-flex" disabled>
                 <span class="material-symbols-outlined" style="font-size:16px">check</span> Register VM
+            </button>
+            <button type="button" class="ova-btn-deploy" id="regOvfDeploy" style="display:none" disabled>
+                <span class="material-symbols-outlined" style="font-size:16px">rocket_launch</span> Deploy OVF
             </button>
         </div>
     </div>
@@ -224,27 +267,12 @@ aside#changelist-filter,
 
 <script>
 (function() {
-    // ── Inject action buttons into Unfold header bar ──────────────────────────
-    var actionUl = document.querySelector('.flex.flex-row.items-center.ml-auto ul');
-    if (actionUl) {
-        var regLi = document.createElement('li');
-        regLi.className = 'ova-action-li';
-        regLi.innerHTML = '<a id="registerVmBtn"><span class="material-symbols-outlined">app_registration</span>Register VM</a>';
-        actionUl.appendChild(regLi);
-        var li = document.createElement('li');
-        li.className = 'ova-action-li';
-        li.innerHTML = '<a id="ovaDeployBtn"><span class="material-symbols-outlined">cloud_upload</span>Deploy OVA</a>';
-        actionUl.appendChild(li);
-    } else {
-        var content = document.querySelector('#content, main, .container');
-        if (content) {
-            var bar = document.createElement('div');
-            bar.style.cssText = 'padding:12px 20px';
-            bar.innerHTML = '<a id="registerVmBtn" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:14px;margin-right:14px"><span class="material-symbols-outlined">app_registration</span>Register VM</a>' +
-                            '<a id="ovaDeployBtn" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:14px"><span class="material-symbols-outlined">cloud_upload</span>Deploy OVA</a>';
-            content.insertBefore(bar, content.firstChild);
-        }
-    }
+    // ── Expose modal openers early so header buttons work immediately ─────
+    // The actual functions are assigned below after definition.
+    // These stubs queue clicks until the real functions are ready.
+    var _ovaReady = false, _regReady = false;
+    window._nebulaOpenOva = function() { _ovaReady = true; };
+    window._nebulaOpenRegister = function() { _regReady = true; };
 
     // ── OVA Deploy Wizard ─────────────────────────────────────────────────────
     var modal       = document.getElementById('ovaModal');
@@ -276,6 +304,7 @@ aside#changelist-filter,
     var stage3Sub   = document.getElementById('ovaStage3Sub');
 
     var selectedFile    = null;
+    var selectedSidecars = [];
     var currentStep     = 1;
     var hostHypervisors = {};   // name → hypervisor_type
     var deployDone      = false;
@@ -328,12 +357,13 @@ aside#changelist-filter,
     function openModal() {
         deployDone   = false;
         selectedFile = null;
+        selectedSidecars = [];
         nameInput.value = '';
         fileInput.value = '';
         ovaStatus('', '');
         progressEl.style.display = 'none';
         progressBar.style.width  = '0%';
-        dropzone.innerHTML = '<span class="material-symbols-outlined">cloud_upload</span>Click or drag &amp; drop an .ova / .ovf file here<div class="ova-file-name"></div>';
+        dropzone.innerHTML = '<span class="material-symbols-outlined">cloud_upload</span>Click or drag &amp; drop an .ova, or an OVF package (.ovf + .vmdk, optional .mf)<div class="ova-file-name"></div>';
         submitBtn.disabled = true;
         nextBtn.disabled   = false;
         [stage1, stage2, stage3].forEach(function(s) { s.className = 'ova-stage pending'; });
@@ -348,7 +378,6 @@ aside#changelist-filter,
         modal.classList.remove('open');
     }
 
-    document.getElementById('ovaDeployBtn') && document.getElementById('ovaDeployBtn').addEventListener('click', openModal);
     document.getElementById('ovaCancel').addEventListener('click', closeModal);
     modal.addEventListener('click', function(e) { if (e.target === modal) closeModal(); });
 
@@ -442,25 +471,61 @@ aside#changelist-filter,
     dropzone.addEventListener('drop', function(e) {
         e.preventDefault();
         dropzone.classList.remove('dragover');
-        if (e.dataTransfer.files.length) pickFile(e.dataTransfer.files[0]);
+        if (e.dataTransfer.files.length) pickFiles(e.dataTransfer.files);
     });
     fileInput.addEventListener('change', function() {
-        if (fileInput.files.length) pickFile(fileInput.files[0]);
+        if (fileInput.files.length) pickFiles(fileInput.files);
     });
 
-    function pickFile(f) {
-        if (!f.name.toLowerCase().match(/\.(ova|ovf)$/)) {
-            alert('Please select an .ova or .ovf file.');
+    function pickFiles(fileList) {
+        var files = Array.prototype.slice.call(fileList || []);
+        if (!files.length) return;
+        ovaStatus('', '');
+
+        var primary = null;
+        files.forEach(function(f) {
+            var n = (f.name || '').toLowerCase();
+            if (!primary && n.match(/\.ova$/)) primary = f;
+        });
+        if (!primary) {
+            files.forEach(function(f) {
+                var n = (f.name || '').toLowerCase();
+                if (!primary && n.match(/\.ovf$/)) primary = f;
+            });
+        }
+
+        if (!primary) {
+            selectedFile = null;
+            selectedSidecars = [];
+            submitBtn.disabled = true;
+            ovaStatus('error', 'Select either a .ova file, or an OVF package that includes a .ovf file.');
             return;
         }
-        selectedFile = f;
+
+        var nextSidecars = files.filter(function(f) { return f !== primary; });
+
+        if (primary.name.toLowerCase().endsWith('.ovf') && !nextSidecars.length) {
+            selectedFile = null;
+            selectedSidecars = [];
+            submitBtn.disabled = true;
+            ovaStatus('error', 'For OVF import, also select the sidecar .vmdk files. The .mf file is optional.');
+            return;
+        }
+
+        selectedFile = primary;
+        selectedSidecars = nextSidecars;
+
         if (!nameInput.value.trim())
-            nameInput.value = f.name.replace(/\.(ova|ovf)$/i, '');
-        var sizeStr = f.size > 1073741824 ? (f.size / 1073741824).toFixed(1) + ' GB'
-                                          : (f.size / 1048576).toFixed(1) + ' MB';
+            nameInput.value = selectedFile.name.replace(/\.(ova|ovf)$/i, '');
+        var totalSize = files.reduce(function(sum, f) { return sum + (f.size || 0); }, 0);
+        var sizeStr = totalSize > 1073741824 ? (totalSize / 1073741824).toFixed(1) + ' GB'
+                                             : (totalSize / 1048576).toFixed(1) + ' MB';
+        var packageText = selectedSidecars.length
+            ? (selectedFile.name + ' + ' + selectedSidecars.length + ' sidecar file(s)')
+            : selectedFile.name;
         dropzone.innerHTML =
             '<span class="material-symbols-outlined" style="color:#7c3aed">check_circle</span>' +
-            '<div class="ova-file-name">' + f.name + '</div>' +
+            '<div class="ova-file-name">' + packageText + '</div>' +
             '<div style="font-size:11px;color:#94a3b8;margin-top:2px">' + sizeStr + '</div>';
         submitBtn.disabled = false;
     }
@@ -484,6 +549,9 @@ aside#changelist-filter,
 
         var formData = new FormData();
         formData.append('file', selectedFile);
+        selectedSidecars.forEach(function(f) {
+            formData.append('sidecar_files', f);
+        });
         var url = '/api/v1/vms/' + encodeURIComponent(host) + '/deploy-ova?datastore=' + encodeURIComponent(ds);
         if (vmName) url += '&vm_name=' + encodeURIComponent(vmName);
 
@@ -512,6 +580,13 @@ aside#changelist-filter,
                 if (data.status === 'error') {
                     setStage(stage2, stage2Sub, 'error', data.message || 'Transfer failed');
                     ovaStatus('error', data.message || 'Deploy failed.');
+                } else if (data.status === 'ready_for_config') {
+                    setStage(stage2, stage2Sub, 'done', 'OVA extracted to host staging area');
+                    setStage(stage3, stage3Sub, 'done', 'Opening VM configuration page...');
+                    ovaStatus('ok', data.message || 'OVA prepared. Redirecting to editable VM configuration...');
+                    setTimeout(function() {
+                        window.location.href = data.redirect_url || '/admin/manager/virtualmachine/add/';
+                    }, 700);
                 } else if (data.status === 'processing') {
                     setStage(stage2, stage2Sub, 'done', 'File transferred to host');
                     setStage(stage3, stage3Sub, 'running', 'Running in background \u2014 VM list updates automatically');
@@ -545,16 +620,35 @@ aside#changelist-filter,
     });
 
     // ── Register VM Modal ─────────────────────────────────────────────────────
-    var regModal      = document.getElementById('registerVmModal');
-    var regHostSel    = document.getElementById('reg_host');
-    var regDsSel      = document.getElementById('reg_datastore');
-    var regPathInput  = document.getElementById('reg_path_input');
-    var regBrowser    = document.getElementById('regBrowser');
-    var regStatusEl   = document.getElementById('regStatus');
-    var regSelectedEl = document.getElementById('regSelectedPath');
-    var regSubmitBtn  = document.getElementById('regSubmit');
-    var regSelectedVmx = '';
+    var regModal        = document.getElementById('registerVmModal');
+    var regHostSel      = document.getElementById('reg_host');
+    var regDsSel        = document.getElementById('reg_datastore');
+    var regPathInput    = document.getElementById('reg_path_input');
+    var regBrowser      = document.getElementById('regBrowser');
+    var regStatusEl     = document.getElementById('regStatus');
+    var regSelectedEl   = document.getElementById('regSelectedPath');
+    var regSubmitBtn    = document.getElementById('regSubmit');
+    var regOvfDeployBtn = document.getElementById('regOvfDeploy');
+    var regOvfBrowser   = document.getElementById('regOvfBrowser');
+    var regOvfPathInput = document.getElementById('regOvf_path_input');
+    var regOvfSelEl     = document.getElementById('regOvfSelectedPath');
+    var regOvfVmName    = document.getElementById('regOvfVmName');
+    var regSelectedVmx  = '';
+    var regSelectedOvf  = '';
+    var regCurrentTab   = 'vmx';
     var regHostHypervisors = {};
+
+    function regSwitchTab(tab) {
+        regCurrentTab = tab;
+        document.getElementById('regTabVmx').classList.toggle('active', tab === 'vmx');
+        document.getElementById('regTabOvf').classList.toggle('active', tab === 'ovf');
+        document.getElementById('regPaneVmx').classList.toggle('active', tab === 'vmx');
+        document.getElementById('regPaneOvf').classList.toggle('active', tab === 'ovf');
+        regSubmitBtn.style.display    = tab === 'vmx' ? '' : 'none';
+        regOvfDeployBtn.style.display = tab === 'ovf' ? '' : 'none';
+        if (regStatusEl) { regStatusEl.className = 'ova-status'; regStatusEl.textContent = ''; }
+    }
+    window.regSwitchTab = regSwitchTab;
 
     if (regModal && regModal.parentElement !== document.body) document.body.appendChild(regModal);
     if (regModal) regModal.classList.remove('open');
@@ -567,18 +661,25 @@ aside#changelist-filter,
 
     function openRegisterModal() {
         regSelectedVmx = '';
+        regSelectedOvf = '';
         regSubmitBtn.disabled = true;
+        regOvfDeployBtn.disabled = true;
         regPathInput.value = '/vmfs/volumes';
+        regOvfPathInput.value = '/vmfs/volumes';
         regSelectedEl.textContent = 'Select a .vmx file to register.';
+        regOvfSelEl.textContent = 'Browse and select a .ovf or .ova file from the datastore.';
+        regOvfVmName.value = '';
         regStatus('', '');
         regBrowser.innerHTML = '<div class="reg-row"><span class="material-symbols-outlined">folder</span>Select host and datastore to browse VMX files.</div>';
+        regOvfBrowser.innerHTML = '<div class="reg-row"><span class="material-symbols-outlined">folder</span>Select host and datastore to browse OVF/OVA files.</div>';
+        // Always start on VMX tab
+        regSwitchTab('vmx');
         regModal.classList.add('open');
         loadRegisterHosts();
     }
 
     function closeRegisterModal() { regModal.classList.remove('open'); }
 
-    document.getElementById('registerVmBtn') && document.getElementById('registerVmBtn').addEventListener('click', openRegisterModal);
     document.getElementById('regCancel').addEventListener('click', closeRegisterModal);
     regModal.addEventListener('click', function(e) { if (e.target === regModal) closeRegisterModal(); });
 
@@ -660,16 +761,23 @@ aside#changelist-filter,
         }
     }
 
-    regHostSel.addEventListener('change', function() { regSelectedVmx = ''; regSubmitBtn.disabled = true; regSelectedEl.textContent = 'Select a VM entry.'; loadRegisterDatastores(); });
+    regHostSel.addEventListener('change', function() {
+        regSelectedVmx = ''; regSelectedOvf = '';
+        regSubmitBtn.disabled = true; regOvfDeployBtn.disabled = true;
+        regSelectedEl.textContent = 'Select a VM entry.';
+        regOvfSelEl.textContent = 'Browse and select a .ovf or .ova file from the datastore.';
+        loadRegisterDatastores();
+    });
     regDsSel.addEventListener('change', function() {
-        regSelectedVmx = ''; regSubmitBtn.disabled = true;
+        regSelectedVmx = ''; regSelectedOvf = '';
+        regSubmitBtn.disabled = true; regOvfDeployBtn.disabled = true;
         var host = regHostSel.value;
         var htype = regHostHypervisors[host] || '';
-        if (htype.indexOf('proxmox') >= 0) {
-            browseRegisterPath('/proxmox/vms');
-            return;
+        if (htype.indexOf('proxmox') >= 0) { browseRegisterPath('/proxmox/vms'); return; }
+        if (regDsSel.value) {
+            browseRegisterPath('/vmfs/volumes/' + regDsSel.value);
+            browseOvfPath('/vmfs/volumes/' + regDsSel.value);
         }
-        if (regDsSel.value) browseRegisterPath('/vmfs/volumes/' + regDsSel.value);
     });
     regBrowser.addEventListener('click', function(e) {
         var row = e.target.closest('.reg-row');
@@ -682,6 +790,53 @@ aside#changelist-filter,
             regSelectedEl.textContent = 'Selected: ' + vmx;
             regSubmitBtn.disabled = false;
             regBrowser.querySelectorAll('.reg-row').forEach(function(r) { r.classList.remove('sel'); });
+            row.classList.add('sel');
+        }
+    });
+
+    // OVF browser
+    async function browseOvfPath(path) {
+        var host = regHostSel.value;
+        if (!host) return;
+        regOvfPathInput.value = path;
+        regOvfBrowser.innerHTML = '<div class="reg-row">Loading...</div>';
+        try {
+            var r = await fetch('/api/v1/vms/' + encodeURIComponent(host) + '/register/browse-ovf?path=' + encodeURIComponent(path));
+            var d = await r.json();
+            if (d.status === 'error') { regOvfBrowser.innerHTML = '<div class="reg-row">' + (d.message || 'Browse error') + '</div>'; return; }
+            var html = '';
+            if (d.path && d.path !== '/vmfs/volumes') {
+                var parent = d.path.split('/').slice(0, -1).join('/') || '/vmfs/volumes';
+                html += '<div class="reg-row" data-ovf-dir="' + parent.replace(/"/g, '&quot;') + '"><span class="material-symbols-outlined">arrow_upward</span>..</div>';
+            }
+            (d.entries || []).forEach(function(entry) {
+                if (entry.is_dir) {
+                    html += '<div class="reg-row" data-ovf-dir="' + entry.path.replace(/"/g, '&quot;') + '"><span class="material-symbols-outlined">folder</span>' + entry.name + '</div>';
+                } else {
+                    var icon = entry.kind === 'ova' ? 'archive' : 'description';
+                    html += '<div class="reg-row" data-ovf-file="' + entry.path.replace(/"/g, '&quot;') + '"><span class="material-symbols-outlined">' + icon + '</span>' + entry.name + '</div>';
+                }
+            });
+            regOvfBrowser.innerHTML = html || '<div class="reg-row">No .ovf or .ova files found in this folder.</div>';
+        } catch (e) {
+            regOvfBrowser.innerHTML = '<div class="reg-row">Network error.</div>';
+        }
+    }
+
+    regOvfBrowser.addEventListener('click', function(e) {
+        var row = e.target.closest('.reg-row');
+        if (!row) return;
+        var dir = row.getAttribute('data-ovf-dir');
+        var ovf = row.getAttribute('data-ovf-file');
+        if (dir) { browseOvfPath(dir); return; }
+        if (ovf) {
+            regSelectedOvf = ovf;
+            regOvfSelEl.textContent = 'Selected: ' + ovf;
+            regOvfDeployBtn.disabled = false;
+            if (!regOvfVmName.value.trim()) {
+                regOvfVmName.value = ovf.split('/').pop().replace(/\.(ovf|ova)$/i, '');
+            }
+            regOvfBrowser.querySelectorAll('.reg-row').forEach(function(r) { r.classList.remove('sel'); });
             row.classList.add('sel');
         }
     });
@@ -709,5 +864,67 @@ aside#changelist-filter,
             regSubmitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">check</span> Register VM';
         }
     });
+
+    regOvfDeployBtn.addEventListener('click', async function() {
+        var host = regHostSel.value;
+        var ds   = regDsSel.value;
+        if (!host || !regSelectedOvf) { regStatus('error', 'Select an OVF or OVA file first.'); return; }
+        regOvfDeployBtn.disabled = true;
+        regOvfDeployBtn.innerHTML = '<span class="ova-spinner"></span> Preparing...';
+        regStatus('warn', 'Reading OVF from datastore...');
+        try {
+            var url = '/api/v1/vms/' + encodeURIComponent(host) + '/deploy-ovf-from-datastore?ovf_path=' + encodeURIComponent(regSelectedOvf);
+            if (ds) url += '&datastore=' + encodeURIComponent(ds);
+            var vmName = (regOvfVmName.value || '').trim();
+            if (vmName) url += '&vm_name=' + encodeURIComponent(vmName);
+            var r = await fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            var d = await r.json();
+            if (d.status === 'error') {
+                regStatus('error', d.message || 'Deploy failed.');
+                regOvfDeployBtn.disabled = false;
+                regOvfDeployBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">rocket_launch</span> Deploy OVF';
+                return;
+            }
+            if (d.status === 'ready_for_config') {
+                regStatus('ok', 'OVF read. Redirecting to configuration page...');
+                setTimeout(function() { window.location.href = d.redirect_url || '/admin/manager/virtualmachine/add/'; }, 700);
+                return;
+            }
+            regStatus('error', 'Unexpected response: ' + (d.message || d.status));
+            regOvfDeployBtn.disabled = false;
+            regOvfDeployBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">rocket_launch</span> Deploy OVF';
+        } catch (e) {
+            regStatus('error', 'Network error.');
+            regOvfDeployBtn.disabled = false;
+            regOvfDeployBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">rocket_launch</span> Deploy OVF';
+        }
+    });
+    // Expose modal openers for the header buttons
+    window._nebulaOpenOva = openModal;
+    window._nebulaOpenRegister = openRegisterModal;
+    // If a header button was clicked before functions were ready, fire now
+    if (_ovaReady) openModal();
+    if (_regReady) openRegisterModal();
+
+    // ── Intercept header action links to open modals instead of navigating ──
+    function hijackHeaderButtons() {
+        document.querySelectorAll('a[href*="register_vm_modal_action"]').forEach(function(a) {
+            a.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); openRegisterModal(); });
+            a.removeAttribute('href');
+        });
+        document.querySelectorAll('a[href*="deploy_ova_modal_action"]').forEach(function(a) {
+            a.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); openModal(); });
+            a.removeAttribute('href');
+        });
+    }
+    // Run now and also after Alpine/HTMX may have rendered
+    hijackHeaderButtons();
+    document.addEventListener('DOMContentLoaded', hijackHeaderButtons);
+    if (window.htmx) document.body.addEventListener('htmx:afterSettle', hijackHeaderButtons);
+    // Observe for late DOM insertions (Alpine deferred rendering)
+    new MutationObserver(function(mutations, obs) {
+        var found = document.querySelector('a[href*="register_vm_modal_action"], a[href*="deploy_ova_modal_action"]');
+        if (found) { hijackHeaderButtons(); obs.disconnect(); }
+    }).observe(document.body, { childList: true, subtree: true });
 })();
 </script>

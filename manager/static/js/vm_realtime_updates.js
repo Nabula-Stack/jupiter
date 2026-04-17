@@ -161,8 +161,9 @@
         if (powerStateElement) {
             const s = (data.power_state || "").toLowerCase();
             const isOn = s.includes("on");
-            const color = isOn ? "#10b981" : "#ef4444";
-            const text = isOn ? "Running" : "Stopped";
+            const isSuspended = s.includes("suspend");
+            const color = isOn ? "#10b981" : (isSuspended ? "#f59e0b" : "#ef4444");
+            const text = isOn ? "Running" : (isSuspended ? "Suspended" : "Stopped");
             
             powerStateElement.textContent = `● ${text}`;
             powerStateElement.style.color = color;

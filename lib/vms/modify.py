@@ -2,6 +2,25 @@ import re
 from . import info as vm_info
 
 
+def _detect_host_cpu_mhz(host):
+    """Best-effort host CPU MHz detection for VMX CPU reservation math."""
+    probes = [
+        "esxcli hardware cpu list | grep -m1 'CPU Speed:'",
+        "esxcli hardware cpu global get | grep -E 'Hz|hz|MHz|mhz' | head -1",
+    ]
+    for cmd in probes:
+        out = str(host.run(cmd) or "")
+        if out.startswith("Error:"):
+            continue
+        mhz_match = re.search(r"(\d+)\s*MHz", out, flags=re.IGNORECASE)
+        if mhz_match:
+            return int(mhz_match.group(1))
+        hz_match = re.search(r"(\d{7,})\s*Hz", out, flags=re.IGNORECASE)
+        if hz_match:
+            return int(int(hz_match.group(1)) / 1_000_000)
+    return 1000
+
+
 def _ds_to_path(ds_path):
     """Convert VMware datastore path '[DATASTORE] relative/path' to /vmfs/volumes/DATASTORE/relative/path."""
     m = re.match(r'^\[(.+?)\]\s+(.+)$', ds_path.strip())
@@ -446,6 +465,50 @@ def set_hardware_virtualization(host, vmid, vmx_path, enabled):
         "modification": "hardware_virtualization",
         "enabled": bool(enabled),
         "message": f"Nested virtualization {'enabled' if enabled else 'disabled'}. Configuration reloaded.",
+    }
+
+
+def set_reserve_all_memory(host, vmid, vmx_path, enabled):
+    """Enable/disable full memory reservation (sched.mem.min). VM must be powered off."""
+    state = get_vm_state(host, vmid)
+    if state == "poweredOn":
+        power_off_vm(host, vmid)
+
+    vmx = get_vmx_content(host, vmx_path)
+    memsize_mb = int(str(vmx.get("memsize", "0") or "0") or 0)
+
+    _backup_vmx(host, vmx_path)
+    _vmx_set_key(host, vmx_path, "sched.mem.min", str(memsize_mb if bool(enabled) else 0))
+    reload_vm_config(host, vmid)
+    return {
+        "status": "success",
+        "vmid": vmid,
+        "modification": "reserve_all_memory",
+        "enabled": bool(enabled),
+        "message": f"Full memory reservation {'enabled' if enabled else 'disabled'}. Configuration reloaded.",
+    }
+
+
+def set_reserve_all_cpu(host, vmid, vmx_path, enabled):
+    """Enable/disable full CPU reservation (sched.cpu.min). VM must be powered off."""
+    state = get_vm_state(host, vmid)
+    if state == "poweredOn":
+        power_off_vm(host, vmid)
+
+    vmx = get_vmx_content(host, vmx_path)
+    cpu_count = int(str(vmx.get("numvcpus", "1") or "1") or 1)
+    host_cpu_mhz = _detect_host_cpu_mhz(host)
+    reservation_mhz = cpu_count * host_cpu_mhz if bool(enabled) else 0
+
+    _backup_vmx(host, vmx_path)
+    _vmx_set_key(host, vmx_path, "sched.cpu.min", str(reservation_mhz))
+    reload_vm_config(host, vmid)
+    return {
+        "status": "success",
+        "vmid": vmid,
+        "modification": "reserve_all_cpu",
+        "enabled": bool(enabled),
+        "message": f"Full CPU reservation {'enabled' if enabled else 'disabled'}. Configuration reloaded.",
     }
 
 

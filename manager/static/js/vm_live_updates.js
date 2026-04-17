@@ -105,9 +105,11 @@
         // Update power status
         const statusEl = document.getElementById('vm-status-' + data.vm_id);
         if (statusEl && data.power_state !== undefined && data.power_state !== null) {
-            const isOn = String(data.power_state).toLowerCase().includes('on');
-            const color = isOn ? '#10b981' : '#ef4444';
-            const text = isOn ? 'Running' : 'Stopped';
+            const state = String(data.power_state).toLowerCase();
+            const isOn = state.includes('on');
+            const isSuspended = state.includes('suspend');
+            const color = isOn ? '#10b981' : (isSuspended ? '#f59e0b' : '#ef4444');
+            const text = isOn ? 'Running' : (isSuspended ? 'Suspended' : 'Stopped');
             console.log('[VM-Live] Updating status for VM', data.vm_id, ':', text);
             statusEl.textContent = '● ' + text;
             statusEl.style.color = color;

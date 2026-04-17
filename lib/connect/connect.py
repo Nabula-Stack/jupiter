@@ -104,7 +104,20 @@ class ESXiConnect:
             self.open()
         sftp = self.client.open_sftp()
         try:
-            sftp.putfo(file_obj, remote_path)
+            # Ensure transfer starts at the beginning when the object supports seek.
+            if hasattr(file_obj, "seek"):
+                try:
+                    file_obj.seek(0)
+                except Exception:
+                    pass
+
+            # Stream in chunks to avoid buffering large files in memory.
+            with sftp.open(remote_path, "wb") as remote_file:
+                while True:
+                    chunk = file_obj.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    remote_file.write(chunk)
         finally:
             sftp.close()
 

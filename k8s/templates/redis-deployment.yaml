@@ -29,9 +29,16 @@ spec:
         - name: redis
           image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
           imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          command:
+            - redis-server
+            - /usr/local/etc/redis/redis.conf
           ports:
             - name: redis
               containerPort: {{ .Values.redis.port }}
+          volumeMounts:
+            - name: redis-config
+              mountPath: /usr/local/etc/redis/redis.conf
+              subPath: redis.conf
           readinessProbe:
             exec:
               command:
@@ -50,4 +57,8 @@ spec:
             timeoutSeconds: 3
           resources:
             {{- toYaml .Values.redis.resources | nindent 12 }}
+      volumes:
+        - name: redis-config
+          configMap:
+            name: {{ include "nebula.fullname" . }}-redis-config
 {{- end }}

@@ -2,6 +2,9 @@ import re
 
 def get_physical_nics(host):
     """Checks if the physical cables are actually plugged in."""
+    if hasattr(host, "list_physical_nics"):
+        return host.list_physical_nics() or []
+
     raw = host.run("esxcli network nic list")
     nics = []
     for line in raw.splitlines()[2:]:

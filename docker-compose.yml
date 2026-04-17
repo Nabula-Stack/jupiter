@@ -47,11 +47,10 @@ services:
       DB_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      SSH_KEY_PATH: ${SSH_KEY_PATH:-/app/nebula_rsa}
-      SSH_PRIVATE_KEY_B64: ${SSH_PRIVATE_KEY_B64:-}
+      SSH_KEY_PATH: /app/ssh_keys/rsa
       SSH_KEY_CONTAINER_PATH: /run/secrets/ssh_key
-      ESXI_SSH_KEY_PATH: /run/secrets/esxi_key
-      KVM_SSH_KEY_PATH: /run/secrets/kvm_key
+      ESXI_SSH_KEY_PATH: /app/ssh_keys/nebula_rsa
+      KVM_SSH_KEY_PATH: /app/ssh_keys/rsa
     depends_on:
       db:
         condition: service_healthy
@@ -59,8 +58,8 @@ services:
         condition: service_healthy
     volumes:
       - static_files:/app/staticfiles
-      - ./ssh_keys/rsa:/run/secrets/esxi_key:ro
-      - ./ssh_keys/nebula_rsa:/run/secrets/kvm_key:ro
+      - ./ssh_keys/rsa:/app/ssh_keys/rsa:ro
+      - ./ssh_keys/nebula_rsa:/app/ssh_keys/nebula_rsa:ro
 
   # --- Background sync worker (updates DB snapshots continuously) ---
   sync-worker:
@@ -78,19 +77,18 @@ services:
       DB_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      SSH_KEY_PATH: ${SSH_KEY_PATH:-/app/nebula_rsa}
-      SSH_PRIVATE_KEY_B64: ${SSH_PRIVATE_KEY_B64:-}
+      SSH_KEY_PATH: /app/ssh_keys/rsa
       SSH_KEY_CONTAINER_PATH: /run/secrets/ssh_key
-      ESXI_SSH_KEY_PATH: /run/secrets/esxi_key
-      KVM_SSH_KEY_PATH: /run/secrets/kvm_key
+      ESXI_SSH_KEY_PATH: /app/ssh_keys/nebula_rsa
+      KVM_SSH_KEY_PATH: /app/ssh_keys/rsa
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - ./ssh_keys/rsa:/run/secrets/esxi_key:ro
-      - ./ssh_keys/nebula_rsa:/run/secrets/kvm_key:ro
+      - ./ssh_keys/rsa:/app/ssh_keys/rsa:ro
+      - ./ssh_keys/nebula_rsa:/app/ssh_keys/nebula_rsa:ro
 volumes:
   pgdata:
   static_files:

@@ -43,7 +43,7 @@ def fetch_active_hosts(max_retries=3, delay_seconds=3):
     return []
 
 def sync_host_and_vms_worker(host):
-    """Sync host metadata and VMs using a single SSH session per host cycle."""
+    """Sync host metadata and VMs using a single connection per host cycle."""
     close_old_connections()
     try:
         with get_conn(host.name) as conn:
@@ -115,7 +115,7 @@ def debug_cache_state():
             print(f"   ❌ DEBUG: Cache key '{key}' is EMPTY. Sync might not be saving to cache.")
 
 def start_worker():
-    print("🚀 ESXi Background Sync Worker Started (SINGLE SSH SESSION PER HOST MODE)...")
+    print("🚀 Hypervisor Background Sync Worker Started (single connection per host mode)...")
     print("--- Press Ctrl+C to stop ---")
 
     auth_failures = {}
@@ -182,7 +182,7 @@ def start_worker():
                 time.sleep(5)
                 continue
 
-            # Run per-host syncs in parallel, each host reuses one SSH session for host+VM sync.
+            # Run per-host syncs in parallel, each host reuses one connection for host+VM sync.
             host_results = []
             vm_results = []
             total_vms = 0
@@ -191,7 +191,7 @@ def start_worker():
             with ThreadPoolExecutor(max_workers=min(len(runnable_hosts), os.cpu_count() or 4)) as executor:
                 futures = {executor.submit(sync_host_and_vms_worker, host): host for host in runnable_hosts}
 
-                print("   📊 Syncing Host Metadata + VMs (shared SSH session per host):")
+                print("   📊 Syncing Host Metadata + VMs (shared host connection):")
                 for future in as_completed(futures, timeout=180):
                     try:
                         result = future.result()
