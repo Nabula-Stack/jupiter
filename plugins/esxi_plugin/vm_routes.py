@@ -8,6 +8,7 @@ import shlex
 import tarfile
 import tempfile
 import threading
+import time
 import uuid
 import xml.etree.ElementTree as ET
 from ninja import Router, File, UploadedFile
@@ -15,6 +16,7 @@ from django.views.decorators.cache import cache_page
 from django.core.cache import cache
 from ninja.decorators import decorate_view
 from django.shortcuts import get_object_or_404, redirect
+from django.db import close_old_connections
 
 from manager.models import VirtualMachine
 from manager.models import Host
@@ -29,7 +31,6 @@ from manager.websocket_broadcaster import (
 from lib.vms import manage as vm_manage
 from lib.vms import info as vm_info
 from lib.vms import create as vm_create
-from lib.vms import migrate as vm_migrate
 from lib.vms import modify as vm_modify
 from lib.storage import manage as storage_manage
 from lib.network import manage as network_manage
@@ -38,6 +39,9 @@ from manager.services import sync_vms_for_host
 
 router = Router(tags=["Virtual Machine Management"])
 logger = logging.getLogger(__name__)
+
+MIGRATION_OPTIONS_CACHE_KEY = "ninja:vm_migrate_options:v1"
+MIGRATION_OPTIONS_CACHE_TTL = 30
 
 # VMX guestOS values (short hyphenated format required by ESXi .vmx files).
 GUEST_OS_OPTIONS = [
@@ -77,6 +81,527 @@ def _to_bool(value, default=False):
     if isinstance(value, (int, float)):
         return bool(value)
     return str(value).strip().lower() in {"1", "true", "yes", "on", "enabled"}
+
+
+def _extract_vmx_components(vmx_path: str, fallback_name: str = "") -> dict:
+    """Parse VMX path and return datastore/path components."""
+    raw = str(vmx_path or "").strip()
+    fallback_file = f"{(fallback_name or 'vm').strip()}.vmx"
+
+    if not raw:
+        return {
+            "source_datastore": "",
+            "vmx_rel_path": fallback_file,
+            "vm_dir": (fallback_name or "vm").strip(),
+            "vmx_file": fallback_file,
+            "bracket_vmx": "",
+        }
+
+    if raw.startswith("["):
+        match = re.match(r"^\[(?P<ds>[^\]]+)\]\s*(?P<rel>.+)$", raw)
+        if match:
+            source_datastore = match.group("ds").strip()
+            vmx_rel_path = posixpath.normpath(match.group("rel").strip())
+        else:
+            source_datastore = ""
+            vmx_rel_path = posixpath.basename(raw)
+    elif raw.startswith("/vmfs/volumes/"):
+        parts = raw.split("/", 4)
+        source_datastore = parts[3].strip() if len(parts) > 3 else ""
+        vmx_rel_path = parts[4].strip() if len(parts) > 4 else posixpath.basename(raw)
+    else:
+        source_datastore = ""
+        vmx_rel_path = posixpath.basename(raw)
+
+    vmx_rel_path = posixpath.normpath(vmx_rel_path or fallback_file)
+    vmx_file = posixpath.basename(vmx_rel_path) or fallback_file
+    vm_dir = posixpath.dirname(vmx_rel_path).strip("./")
+    if not vm_dir:
+        vm_dir = (fallback_name or posixpath.splitext(vmx_file)[0] or "vm").strip()
+
+    bracket_vmx = f"[{source_datastore}] {vmx_rel_path}" if source_datastore else raw
+    return {
+        "source_datastore": source_datastore,
+        "vmx_rel_path": vmx_rel_path,
+        "vm_dir": vm_dir,
+        "vmx_file": vmx_file,
+        "bracket_vmx": bracket_vmx,
+    }
+
+
+def _host_datastore_names(host_obj: Host) -> list:
+    cache_key = f"ninja:vm_migrate:host_datastores:{host_obj.id}"
+    cached = cache.get(cache_key)
+    if isinstance(cached, list):
+        return sorted({str(name).strip() for name in cached if str(name).strip()})
+
+    names = []
+    try:
+        data = host_obj.storage_data or {}
+        for ds in (data.get("datastores") or []):
+            if isinstance(ds, dict):
+                name = str(ds.get("name") or "").strip()
+                if name:
+                    names.append(name)
+    except Exception:
+        pass
+    normalized = sorted(set(names))
+    cache.set(cache_key, normalized, timeout=300)
+    return normalized
+
+
+def _invalidate_migration_options_cache(host_ids=None) -> None:
+    cache.delete(MIGRATION_OPTIONS_CACHE_KEY)
+    for host_id in (host_ids or []):
+        cache.delete(f"ninja:vm_migrate:host_datastores:{host_id}")
+
+
+def _list_active_esxi_hosts() -> list:
+    return list(
+        Host.objects.filter(
+            is_active=True,
+            hypervisor_type=Host.HYPERVISOR_VMWARE_ESXI,
+        ).order_by("name")
+    )
+
+
+def _is_datastore_on_all_esxi_hosts(datastore_name: str) -> bool:
+    datastore_name = str(datastore_name or "").strip()
+    if not datastore_name:
+        return False
+    esxi_hosts = _list_active_esxi_hosts()
+    if not esxi_hosts:
+        return False
+    for host_obj in esxi_hosts:
+        if datastore_name not in _host_datastore_names(host_obj):
+            return False
+    return True
+
+
+def _is_invalid_powered_off_state(error_text: str) -> bool:
+    text = str(error_text or "")
+    lowered = text.lower()
+    return (
+        "invalidpowerstate" in lowered
+        and ("poweredoff" in lowered or "powered off" in lowered)
+    )
+
+
+def _is_vm_powered_on(conn, vm_identifier: str, vm_obj: VirtualMachine = None) -> bool:
+    # ESXi API mode (pyVmomi-backed connection)
+    try:
+        if hasattr(conn, "_find_vm_by_identifier"):
+            vm_ref = conn._find_vm_by_identifier(str(vm_identifier))
+            if vm_ref is not None and getattr(vm_ref, "runtime", None) is not None:
+                state = str(getattr(vm_ref.runtime, "powerState", "") or "").strip().lower()
+                return state == "poweredon"
+    except Exception:
+        pass
+
+    # ESXi SSH mode
+    try:
+        if hasattr(conn, "run"):
+            raw = conn.run(f"vim-cmd vmsvc/power.getstate {shlex.quote(str(vm_identifier))}")
+            state_text = str(raw or "").lower()
+            if "powered on" in state_text:
+                return True
+            if "powered off" in state_text:
+                return False
+    except Exception:
+        pass
+
+    # Fallback to cached DB state
+    fallback_state = str(getattr(vm_obj, "power_state", "") or "").strip().lower()
+    return fallback_state == "poweredon"
+
+
+def _send_guest_shutdown(conn, vm_identifier: str) -> None:
+    try:
+        result = vm_manage.power_op(conn, vm_identifier, "power.shutdown")
+        if isinstance(result, str) and result.startswith("Error:"):
+            if _is_invalid_powered_off_state(result):
+                return
+            raise RuntimeError(result)
+    except Exception as exc:
+        if _is_invalid_powered_off_state(exc):
+            return
+        raise RuntimeError(f"Guest shutdown failed: {exc}")
+
+
+def _power_off_vm(conn, vm_identifier: str) -> None:
+    result = vm_manage.power_op(conn, vm_identifier, "power.off")
+    if isinstance(result, str) and result.startswith("Error:"):
+        if _is_invalid_powered_off_state(result):
+            return
+        raise RuntimeError(result)
+
+
+def _power_on_vm(conn, vm_identifier: str) -> None:
+    result = vm_manage.power_op(conn, vm_identifier, "power.on")
+    if isinstance(result, str) and result.startswith("Error:"):
+        raise RuntimeError(result)
+
+
+def _unregister_vm(conn, vm_identifier: str) -> None:
+    result = vm_manage.unregister_vm(conn, vm_identifier)
+    if isinstance(result, str) and result.startswith("Error:"):
+        raise RuntimeError(result)
+
+
+def _register_vm(conn, vmx_path: str) -> dict:
+    result = vm_manage.register_vm(conn, vmx_path)
+    if isinstance(result, str) and result.startswith("Error:"):
+        raise RuntimeError(result)
+    registered_vmid = None
+    match = re.search(r"\b(\d+)\b", str(result or ""))
+    if match:
+        registered_vmid = match.group(1)
+    return {
+        "raw": str(result or ""),
+        "registered_vmid": registered_vmid,
+    }
+
+
+def _copy_vm_dir_between_hosts(src_host_obj: Host, dest_host_obj: Host, src_vmfs_dir: str, dest_vmfs_dir: str) -> None:
+    from plugins.esxi_ssh_plugin import build_esxi_ssh_connection
+
+    with build_esxi_ssh_connection(dest_host_obj) as dest_ssh:
+        dest_ssh.run(f"mkdir -p {shlex.quote(dest_vmfs_dir)}")
+
+    src_content_path = src_vmfs_dir.rstrip("/") + "/."
+    scp_cmd = (
+        "scp -r -p -o StrictHostKeyChecking=no -o BatchMode=yes "
+        f"{shlex.quote(src_content_path)} "
+        f"{shlex.quote(str(dest_host_obj.username))}@{shlex.quote(str(dest_host_obj.ip_address))}:{shlex.quote(dest_vmfs_dir.rstrip('/') + '/')}"
+    )
+
+    with build_esxi_ssh_connection(src_host_obj) as src_ssh:
+        transfer_result = src_ssh.run(scp_cmd)
+        transfer_text = str(transfer_result or "")
+        lowered = transfer_text.lower()
+        if "permission denied" in lowered or "lost connection" in lowered or transfer_text.startswith("Error:"):
+            raise RuntimeError(
+                "Cross-host copy failed. Verify SSH key trust and reachability between ESXi hosts. "
+                f"Raw output: {transfer_text[:300]}"
+            )
+
+
+def _resolve_destination_vmx_path(conn, dest_vmfs_dir: str, expected_vmx_file: str = "") -> str:
+    """Find a VMX under destination directory and return [datastore] relative path for registration."""
+    normalized_dir = posixpath.normpath(str(dest_vmfs_dir or "").strip())
+    if not normalized_dir.startswith("/vmfs/volumes/"):
+        raise RuntimeError(f"Invalid destination VMFS path: {normalized_dir}")
+
+    parts = normalized_dir.split("/", 4)
+    datastore_name = parts[3].strip() if len(parts) > 3 else ""
+    rel_base = parts[4].strip() if len(parts) > 4 else ""
+    if not datastore_name:
+        raise RuntimeError(f"Could not determine destination datastore from path: {normalized_dir}")
+
+    candidates = []
+    exp_name = str(expected_vmx_file or "").strip()
+
+    # API mode: use datastore browser helpers if available.
+    try:
+        if hasattr(conn, "list_files_by_suffix_under"):
+            found = conn.list_files_by_suffix_under(normalized_dir, ".vmx") or []
+            candidates.extend([str(path).strip() for path in found if str(path).strip()])
+    except Exception:
+        pass
+
+    # SSH mode fallback.
+    if not candidates and hasattr(conn, "run"):
+        find_cmd = f"find {shlex.quote(normalized_dir)} -type f -name '*.vmx' 2>/dev/null"
+        raw = conn.run(find_cmd)
+        lines = [line.strip() for line in str(raw or "").splitlines() if line.strip()]
+        candidates.extend(lines)
+
+    # Keep only paths under destination directory.
+    candidates = [p for p in candidates if p.startswith(normalized_dir.rstrip("/") + "/") or p == normalized_dir]
+
+    if not candidates:
+        raise RuntimeError(
+            "No VMX file found on destination datastore after copy. "
+            f"Checked under: {normalized_dir}"
+        )
+
+    chosen = ""
+    if exp_name:
+        for path in candidates:
+            if posixpath.basename(path) == exp_name:
+                chosen = path
+                break
+    if not chosen:
+        candidates = sorted(set(candidates))
+        chosen = candidates[0]
+
+    rel_path = chosen[len(f"/vmfs/volumes/{datastore_name}/"):].strip()
+    if not rel_path:
+        raise RuntimeError(f"Resolved VMX path is invalid: {chosen}")
+    return f"[{datastore_name}] {rel_path}"
+
+
+def _migration_options_payload() -> dict:
+    cached_payload = cache.get(MIGRATION_OPTIONS_CACHE_KEY)
+    if isinstance(cached_payload, dict):
+        return cached_payload
+
+    esxi_hosts = _list_active_esxi_hosts()
+    host_rows = []
+    host_ds_map = {}
+
+    for host_obj in esxi_hosts:
+        ds_names = _host_datastore_names(host_obj)
+        host_ds_map[host_obj.name] = set(ds_names)
+        host_rows.append(
+            {
+                "id": host_obj.id,
+                "name": host_obj.name,
+                "ip": str(host_obj.ip_address),
+                "datastores": ds_names,
+            }
+        )
+
+    vm_rows = []
+    vm_qs = VirtualMachine.objects.select_related("host").filter(
+        host__is_active=True,
+        host__hypervisor_type=Host.HYPERVISOR_VMWARE_ESXI,
+    ).order_by("name", "vmid")
+
+    for vm_obj in vm_qs:
+        vmx_parts = _extract_vmx_components(vm_obj.vmx_path, vm_obj.name)
+        source_ds = vmx_parts["source_datastore"]
+        source_host_name = vm_obj.host.name
+        all_hosts_have_source_ds = bool(source_ds) and all(
+            source_ds in host_ds_map.get(h.name, set())
+            for h in esxi_hosts
+        )
+        fast_destinations = [
+            h.name for h in esxi_hosts
+            if h.name != source_host_name and source_ds in host_ds_map.get(h.name, set())
+        ]
+        vm_rows.append(
+            {
+                "id": vm_obj.id,
+                "name": vm_obj.name,
+                "vmid": vm_obj.vmid,
+                "source_host_id": vm_obj.host.id,
+                "source_host": source_host_name,
+                "power_state": vm_obj.power_state,
+                "source_datastore": source_ds,
+                "vmx_path": vm_obj.vmx_path,
+                "all_esxi_have_source_datastore": all_hosts_have_source_ds,
+                "fast_destinations": fast_destinations,
+                # Shared datastore only: local datastore migration is not supported.
+                "migration_mode": "fast" if all_hosts_have_source_ds else "unsupported",
+                "migration_message": (
+                    "Fast migration"
+                    if all_hosts_have_source_ds
+                    else "Migration is not supported on local datastores"
+                ),
+            }
+        )
+
+    payload = {
+        "hosts": host_rows,
+        "vms": vm_rows,
+        "source": "database+redis",
+        "generated_at": int(time.time()),
+    }
+    cache.set(MIGRATION_OPTIONS_CACHE_KEY, payload, timeout=MIGRATION_OPTIONS_CACHE_TTL)
+    return payload
+
+
+def _migration_task_key(task_id: str) -> str:
+    return f"ninja:vm_migration_task:{task_id}"
+
+
+def _save_migration_state(task_id: str, payload: dict, ttl: int = 3600) -> None:
+    cache.set(_migration_task_key(task_id), payload, timeout=ttl)
+
+
+def _load_migration_state(task_id: str) -> dict:
+    return cache.get(_migration_task_key(task_id)) or {}
+
+
+def _advance_migration_stage(task_id: str, stage_key: str, stage_label: str, message: str = "") -> None:
+    state = _load_migration_state(task_id)
+    completed = list(state.get("completed_stages") or [])
+    if stage_key not in completed:
+        completed.append(stage_key)
+    state.update(
+        {
+            "status": "running",
+            "current_stage": stage_key,
+            "current_stage_label": stage_label,
+            "completed_stages": completed,
+            "message": message or state.get("message", ""),
+            "updated_at": int(time.time()),
+        }
+    )
+    _save_migration_state(task_id, state)
+
+
+def _run_migration_task(task_id: str, vm_obj: VirtualMachine, dest_host_obj: Host, destination_datastore: str = "") -> None:
+    close_old_connections()
+    try:
+        _advance_migration_stage(task_id, "validating", "Validating request", "Preparing migration.")
+
+        def _progress(stage_key: str, stage_label: str, message: str = ""):
+            _advance_migration_stage(task_id, stage_key, stage_label, message)
+
+        result = _migrate_esxi_vm(vm_obj, dest_host_obj, destination_datastore, progress_cb=_progress)
+        if (result or {}).get("status") == "success":
+            _advance_migration_stage(task_id, "completed", "Completed", result.get("message") or "Migration completed.")
+            state = _load_migration_state(task_id)
+            state.update(
+                {
+                    "status": "success",
+                    "result": result,
+                    "updated_at": int(time.time()),
+                }
+            )
+            _save_migration_state(task_id, state)
+            return
+
+        state = _load_migration_state(task_id)
+        state.update(
+            {
+                "status": "error",
+                "error": (result or {}).get("message", "Migration failed."),
+                "result": result,
+                "updated_at": int(time.time()),
+            }
+        )
+        _save_migration_state(task_id, state)
+    except Exception as exc:
+        state = _load_migration_state(task_id)
+        state.update(
+            {
+                "status": "error",
+                "error": f"Migration task failed: {str(exc)[:500]}",
+                "updated_at": int(time.time()),
+            }
+        )
+        _save_migration_state(task_id, state)
+    finally:
+        close_old_connections()
+
+
+def _migrate_esxi_vm(vm_obj: VirtualMachine, dest_host_obj: Host, destination_datastore: str = "", progress_cb=None) -> dict:
+    src_host_obj = vm_obj.host
+    vmx_parts = _extract_vmx_components(vm_obj.vmx_path, vm_obj.name)
+    source_ds = vmx_parts["source_datastore"]
+    vm_dir = vmx_parts["vm_dir"]
+    vmx_file = vmx_parts["vmx_file"]
+    source_vmx_bracket = vmx_parts["bracket_vmx"]
+
+    if not source_ds:
+        return {
+            "status": "error",
+            "message": "Could not determine source datastore from VMX path.",
+        }
+
+    if src_host_obj.id == dest_host_obj.id:
+        return {
+            "status": "error",
+            "message": "Destination host must be different from source host.",
+        }
+
+    source_on_all_esxi = _is_datastore_on_all_esxi_hosts(source_ds)
+    dest_datastores = set(_host_datastore_names(dest_host_obj))
+    fast_mode = source_on_all_esxi
+    if not fast_mode:
+        return {
+            "status": "error",
+            "message": "Migration is not supported on local datastores. VM datastore must be available on all ESXi hosts.",
+        }
+
+    if source_ds not in dest_datastores:
+        return {
+            "status": "error",
+            "message": (
+                f"Migration is allowed only when datastore '{source_ds}' is available on destination host '{dest_host_obj.name}'."
+            ),
+        }
+
+    target_ds = source_ds
+
+    vm_identifier = vm_obj.vmid
+    source_vmfs_dir = f"/vmfs/volumes/{source_ds}/{vm_dir}".replace("//", "/")
+    target_vmfs_dir = f"/vmfs/volumes/{target_ds}/{vm_dir}".replace("//", "/")
+    target_vmx = f"[{target_ds}] {vm_dir}/{vmx_file}" if vm_dir else f"[{target_ds}] {vmx_file}"
+
+    try:
+        with get_conn(src_host_obj.name) as src_conn:
+            vm_is_powered_on = _is_vm_powered_on(src_conn, vm_identifier, vm_obj)
+
+            if vm_is_powered_on:
+                if callable(progress_cb):
+                    progress_cb("shutdown", "Shutting down guest", "VM is powered on; requesting guest shutdown.")
+                _send_guest_shutdown(src_conn, vm_identifier)
+                # Give VMware Tools a short grace period, then ensure powered off.
+                time.sleep(6)
+                if _is_vm_powered_on(src_conn, vm_identifier, vm_obj):
+                    _power_off_vm(src_conn, vm_identifier)
+            elif callable(progress_cb):
+                progress_cb("shutdown", "Shutting down guest", "VM is already powered off; skipping shutdown.")
+
+            if callable(progress_cb):
+                progress_cb("unregister", "Unregistering on source", "Removing VM from source inventory.")
+            _unregister_vm(src_conn, vm_identifier)
+    except Exception as exc:
+        return {"status": "error", "message": f"Source host preparation failed: {str(exc)[:500]}"}
+
+    if callable(progress_cb):
+        progress_cb("copy", "Copying VM files", "Shared datastore detected, skipping file copy.")
+
+    register_meta = {}
+    try:
+        with get_conn(dest_host_obj.name) as dest_conn:
+            if callable(progress_cb):
+                progress_cb("register", "Registering on destination", "Registering VM on destination host.")
+            register_meta = _register_vm(dest_conn, target_vmx)
+            power_identifier = register_meta.get("registered_vmid") or vm_obj.uuid or vm_obj.name
+            if callable(progress_cb):
+                progress_cb("poweron", "Powering on VM", "Starting VM on destination host.")
+            _power_on_vm(dest_conn, str(power_identifier))
+    except Exception as exc:
+        return {"status": "error", "message": f"Destination registration/power-on failed: {str(exc)[:500]}"}
+
+    # Refresh both hosts so DB reflects the move.
+    if callable(progress_cb):
+        progress_cb("sync", "Syncing inventory", "Refreshing VM inventory on source and destination.")
+    sync_vms_for_host(src_host_obj)
+    sync_vms_for_host(dest_host_obj)
+    bust_vm_cache(src_host_obj.name)
+    bust_vm_cache(dest_host_obj.name)
+    _invalidate_migration_options_cache(host_ids=[src_host_obj.id, dest_host_obj.id])
+
+    return {
+        "status": "success",
+        "migration_mode": "fast" if fast_mode else "slow",
+        "vm": {
+            "name": vm_obj.name,
+            "vmid": vm_obj.vmid,
+        },
+        "source": {
+            "host": src_host_obj.name,
+            "datastore": source_ds,
+            "vmx": source_vmx_bracket,
+        },
+        "destination": {
+            "host": dest_host_obj.name,
+            "datastore": target_ds,
+            "vmx": target_vmx,
+            "registered_vmid": register_meta.get("registered_vmid"),
+        },
+        "message": (
+            "Fast migration completed: guest shutdown, unregister/register, and power on."
+            if fast_mode
+            else "Slow migration completed: guest shutdown, unregister, copy, register, and power on."
+        ),
+    }
 
 
 def _safe_list_esxi_pci_devices(conn):
@@ -2928,24 +3453,127 @@ def delete_vm_endpoint(request, host_name: str, vmid: str):
     bust_vm_cache(host_name, vmid)
     return {"status": "deleted", "vmid": vmid}
 
-@router.post("/migrate", summary="Cross-Host Cold Migration")
-def migrate_vm_endpoint(request, src_host: str, dest_host: str, vmid: str, vm_name: str, src_ds: str, dest_ds: str):
-    src_host_obj = get_host_obj(src_host, require_active=True)
-    dest_host_obj = get_host_obj(dest_host, require_active=True)
-    if (
-        src_host_obj.hypervisor_type == Host.HYPERVISOR_PROXMOX_VE
-        or dest_host_obj.hypervisor_type == Host.HYPERVISOR_PROXMOX_VE
-        or src_host_obj.hypervisor_type == Host.HYPERVISOR_KVM_LIBVIRT
-        or dest_host_obj.hypervisor_type == Host.HYPERVISOR_KVM_LIBVIRT
-    ):
+@router.get("/migrate/options", summary="List VM Migration Options")
+def migrate_vm_options(request):
+    return _migration_options_payload()
+
+
+@router.post("/migrate/start", summary="Start Cross-Host ESXi Migration Task")
+def start_migrate_vm_task(request, vm_id: int, destination_host: str, destination_datastore: str = ""):
+    vm_obj = get_object_or_404(VirtualMachine.objects.select_related("host"), pk=vm_id)
+    dest_host_name = str(destination_host or "").strip()
+    if not dest_host_name:
+        return {"status": "error", "message": "destination_host is required."}
+
+    dest_host_obj = get_host_obj(dest_host_name, require_active=True)
+    if vm_obj.host.hypervisor_type != Host.HYPERVISOR_VMWARE_ESXI or dest_host_obj.hypervisor_type != Host.HYPERVISOR_VMWARE_ESXI:
+        return {
+            "status": "error",
+            "message": "This migration endpoint is ESXi-only.",
+        }
+
+    task_id = uuid.uuid4().hex
+    _save_migration_state(
+        task_id,
+        {
+            "status": "queued",
+            "task_id": task_id,
+            "vm": {
+                "id": vm_obj.id,
+                "name": vm_obj.name,
+                "vmid": vm_obj.vmid,
+            },
+            "source_host": vm_obj.host.name,
+            "destination_host": dest_host_obj.name,
+            "destination_datastore": str(destination_datastore or "").strip(),
+            "current_stage": "queued",
+            "current_stage_label": "Queued",
+            "completed_stages": [],
+            "message": "Migration task queued.",
+            "created_at": int(time.time()),
+            "updated_at": int(time.time()),
+        },
+    )
+
+    worker = threading.Thread(
+        target=_run_migration_task,
+        args=(task_id, vm_obj, dest_host_obj, str(destination_datastore or "").strip()),
+        daemon=True,
+    )
+    worker.start()
+
+    return {
+        "status": "queued",
+        "task_id": task_id,
+        "message": "Migration task started.",
+    }
+
+
+@router.get("/migrate/status", summary="Get VM Migration Task Status")
+def migrate_vm_task_status(request, task_id: str):
+    state = _load_migration_state(str(task_id or "").strip())
+    if not state:
+        return {
+            "status": "error",
+            "message": "Migration task not found or expired.",
+        }
+    return state
+
+
+@router.post("/migrate", summary="Cross-Host ESXi Migration")
+def migrate_vm_endpoint(
+    request,
+    vm_id: int = None,
+    destination_host: str = "",
+    destination_datastore: str = "",
+    # Legacy compatibility params (older callers)
+    src_host: str = "",
+    dest_host: str = "",
+    vmid: str = "",
+    vm_name: str = "",
+    src_ds: str = "",
+    dest_ds: str = "",
+):
+    # New flow: resolve by DB VM id + destination host.
+    if vm_id is not None:
+        vm_obj = get_object_or_404(VirtualMachine.objects.select_related("host"), pk=vm_id)
+        dest_host_name = str(destination_host or "").strip()
+        if not dest_host_name:
+            return {"status": "error", "message": "destination_host is required."}
+        dest_host_obj = get_host_obj(dest_host_name, require_active=True)
+        if vm_obj.host.hypervisor_type != Host.HYPERVISOR_VMWARE_ESXI or dest_host_obj.hypervisor_type != Host.HYPERVISOR_VMWARE_ESXI:
+            return {
+                "status": "error",
+                "message": "This migration endpoint is ESXi-only.",
+            }
+        return _migrate_esxi_vm(vm_obj, dest_host_obj, destination_datastore)
+
+    # Backward compatibility for existing callers using src_host/dest_host/vmid.
+    src_host_name = str(src_host or "").strip()
+    dest_host_name = str(dest_host or "").strip()
+    vm_identifier = str(vmid or "").strip()
+    vm_name_legacy = str(vm_name or "").strip()
+    if not src_host_name or not dest_host_name:
+        return {"status": "error", "message": "Provide vm_id + destination_host (preferred) or src_host + dest_host."}
+
+    src_host_obj = get_host_obj(src_host_name, require_active=True)
+    dest_host_obj = get_host_obj(dest_host_name, require_active=True)
+    if src_host_obj.hypervisor_type != Host.HYPERVISOR_VMWARE_ESXI or dest_host_obj.hypervisor_type != Host.HYPERVISOR_VMWARE_ESXI:
         return {
             "status": "error",
             "message": "This migration endpoint is ESXi-only. Use vendor-native workflows for Proxmox/KVM hosts.",
         }
 
-    with get_conn(src_host) as src_conn:
-        with get_conn(dest_host) as dest_conn:
-            result = vm_migrate.cold_migrate(src_conn, dest_conn, vmid, vm_name, src_ds, dest_ds, dest_conn.host)
-            bust_vm_cache(src_host)
-            bust_vm_cache(dest_host)
-            return result
+    vm_obj = None
+    if vm_identifier:
+        vm_obj = VirtualMachine.objects.filter(host=src_host_obj, vmid=vm_identifier).first()
+    if vm_obj is None and vm_name_legacy:
+        vm_obj = VirtualMachine.objects.filter(host=src_host_obj, name=vm_name_legacy).first()
+    if vm_obj is None:
+        return {
+            "status": "error",
+            "message": "VM was not found in Nebula inventory on source host.",
+        }
+
+    chosen_dest_ds = str(destination_datastore or dest_ds or src_ds or "").strip()
+    return _migrate_esxi_vm(vm_obj, dest_host_obj, chosen_dest_ds)

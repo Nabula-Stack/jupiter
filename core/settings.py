@@ -137,9 +137,23 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 UNFOLD = {
     "SITE_TITLE": "Jupiter Manager",
     "SITE_HEADER": "Jupiter Admin",
-    "SITE_SYMBOL": "settings_input_component",
+    "SITE_SYMBOL": "public",
     "SHOW_HISTORY": True,
     "SEARCH_PAGE_LABEL": "Search Inventory",
+    "COLORS": {
+        "primary": {
+            "50": "253 246 242",
+            "100": "250 234 225",
+            "200": "244 209 193",
+            "300": "235 176 152",
+            "400": "222 138 106",
+            "500": "206 111 77",
+            "600": "182 90 58",
+            "700": "150 70 46",
+            "800": "116 54 37",
+            "900": "83 39 29"
+        }
+    },
     "SIDEBAR": {
         "show_search": True,
         "navigation": [

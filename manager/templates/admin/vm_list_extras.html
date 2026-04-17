@@ -1,17 +1,17 @@
 <style>
 .ova-action-li{list-style:none}
 .ova-action-li a{cursor:pointer;display:flex;flex-grow:1;align-items:center;gap:8px;padding:8px 12px;text-align:left;white-space:nowrap;font-weight:500;font-size:14px;color:inherit;text-decoration:none}
-.ova-action-li a:hover{color:#7c3aed}
+.ova-action-li a:hover{color:#c46f4f}
 /* Static action button bar */
 #nebula-vm-actions{display:flex;align-items:center;gap:8px;padding:0 0 12px 0}
 #nebula-vm-actions button{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-size:13px;font-weight:700;border:1px solid #e2e8f0;background:#fff;color:#334155;cursor:pointer;transition:background .15s,border-color .15s}
-#nebula-vm-actions button:hover{background:#f5f3ff;border-color:#7c3aed;color:#7c3aed}
+#nebula-vm-actions button:hover{background:#fff1e8;border-color:#c46f4f;color:#c46f4f}
 .dark #nebula-vm-actions button{background:#1e293b;border-color:#334155;color:#e2e8f0}
-.dark #nebula-vm-actions button:hover{background:#2d1b69;border-color:#7c3aed;color:#c4b5fd}
+.dark #nebula-vm-actions button:hover{background:#3a241f;border-color:#c46f4f;color:#f4ddcf}
 .nebula-hdr-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-size:13px;font-weight:700;border:1px solid #e2e8f0;background:#fff;color:#334155;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
-.nebula-hdr-btn:hover{background:#f5f3ff;border-color:#7c3aed;color:#7c3aed}
+.nebula-hdr-btn:hover{background:#fff1e8;border-color:#c46f4f;color:#c46f4f}
 .dark .nebula-hdr-btn{background:#1e293b;border-color:#334155;color:#e2e8f0}
-.dark .nebula-hdr-btn:hover{background:#2d1b69;border-color:#7c3aed;color:#c4b5fd}
+.dark .nebula-hdr-btn:hover{background:#3a241f;border-color:#c46f4f;color:#f4ddcf}
 /* Reposition the actions bar from fixed-bottom to inline above the table */
 #changelist-form > div:has(> #changelist-actions-wrapper){
     position:static!important;
@@ -38,11 +38,11 @@
 .dark .ova-f label{color:#94a3b8}
 .ova-f input,.ova-f select{width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff;box-sizing:border-box}
 .dark .ova-f input,.dark .ova-f select{background:#0f172a;border-color:#475569;color:#e2e8f0}
-.ova-f input:focus,.ova-f select:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12)}
+.ova-f input:focus,.ova-f select:focus{outline:none;border-color:#c46f4f;box-shadow:0 0 0 3px rgba(196,111,79,.12)}
 .ova-dropzone{border:2px dashed #d1d5db;border-radius:8px;padding:30px 20px;text-align:center;color:#64748b;font-size:13px;cursor:pointer;transition:all .15s}
-.ova-dropzone:hover,.ova-dropzone.dragover{border-color:#7c3aed;background:#f5f3ff;color:#7c3aed}
+.ova-dropzone:hover,.ova-dropzone.dragover{border-color:#c46f4f;background:#fff1e8;color:#c46f4f}
 .ova-dropzone .material-symbols-outlined{font-size:36px;display:block;margin:0 auto 8px;color:#94a3b8}
-.ova-dropzone.dragover .material-symbols-outlined{color:#7c3aed}
+.ova-dropzone.dragover .material-symbols-outlined{color:#c46f4f}
 .ova-dropzone .ova-file-name{font-weight:700;color:#1e293b;margin-top:6px}
 .dark .ova-dropzone .ova-file-name{color:#e2e8f0}
 .ova-modal-footer{padding:12px 20px 16px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid #f1f5f9}
@@ -50,8 +50,8 @@
 .ova-modal-footer button{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:700;border:0;cursor:pointer}
 .ova-btn-cancel{background:#f1f5f9;color:#334155;border:1px solid #cbd5e1!important}
 .ova-btn-cancel:hover{background:#e2e8f0}
-.ova-btn-deploy{background:#7c3aed;color:#fff}
-.ova-btn-deploy:hover{background:#6d28d9}
+.ova-btn-deploy{background:#c46f4f;color:#fff}
+.ova-btn-deploy:hover{background:#8a4a35}
 .ova-btn-deploy:disabled{opacity:.55;cursor:not-allowed}
 .ova-status{margin-top:10px;padding:10px 12px;border-radius:6px;font-size:12px;font-weight:700;display:none}
 .ova-status.err{display:block;background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
@@ -60,15 +60,15 @@
 .ova-spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top:2px solid #fff;border-radius:50%;animation:ovaspin .7s linear infinite;vertical-align:middle}
 @keyframes ovaspin{to{transform:rotate(360deg)}}
 .ova-progress{width:100%;height:6px;background:#e5e7eb;border-radius:4px;overflow:hidden;margin-top:8px;display:none}
-.ova-progress-bar{height:100%;background:#7c3aed;border-radius:4px;transition:width .3s;width:0%}
+.ova-progress-bar{height:100%;background:#c46f4f;border-radius:4px;transition:width .3s;width:0%}
 .reg-browser{border:2px dashed #d1d5db;border-radius:8px;background:#fff;max-height:260px;overflow:auto}
 .dark .reg-browser{background:#0f172a;border-color:#475569}
 .reg-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:13px}
 .dark .reg-row{border-color:#1e293b;color:#e2e8f0}
 .reg-row:last-child{border-bottom:0}
-.reg-row:hover{background:#f5f3ff;color:#7c3aed}
+.reg-row:hover{background:#fff1e8;color:#c46f4f}
 .dark .reg-row:hover{background:#1e293b}
-.reg-row.sel{background:#ede9fe;color:#5b21b6}
+.reg-row.sel{background:#f6e0d1;color:#8a4a35}
 .reg-path{font-size:12px;color:#64748b;margin-bottom:8px;word-break:break-all}
 /* Force full-width VM list view: hide Unfold filter drawer on this page */
 #changelist-filter,
@@ -79,11 +79,11 @@ aside#changelist-filter,
 /* OVA wizard steps */
 .ova-steps{display:flex;align-items:center;gap:0;margin-bottom:18px;padding:14px 20px 0}
 .ova-step{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;flex:1}
-.ova-step.active{color:#7c3aed}
+.ova-step.active{color:#c46f4f}
 .ova-step.done{color:#16a34a}
 .ova-step-num{width:22px;height:22px;border-radius:50%;border:2px solid #d1d5db;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;background:#fff;line-height:1}
 .dark .ova-step-num{background:#1e293b;border-color:#475569}
-.ova-step.active .ova-step-num{border-color:#7c3aed;color:#7c3aed}
+.ova-step.active .ova-step-num{border-color:#c46f4f;color:#c46f4f}
 .ova-step.done .ova-step-num{border-color:#16a34a;background:#dcfce7;color:#16a34a}
 .ova-step-connector{flex:1;height:2px;background:#e5e7eb;margin:0 4px}
 .dark .ova-step-connector{background:#334155}
@@ -99,10 +99,10 @@ aside#changelist-filter,
 .dark .ova-stage{background:#0f172a;border-color:#334155;color:#e2e8f0}
 .ova-stage-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px}
 .ova-stage.pending .ova-stage-icon{background:#f1f5f9;color:#94a3b8}
-.ova-stage.running .ova-stage-icon{background:#ede9fe;color:#7c3aed}
+.ova-stage.running .ova-stage-icon{background:#f6e0d1;color:#c46f4f}
 .ova-stage.done .ova-stage-icon{background:#dcfce7;color:#16a34a}
 .ova-stage.error .ova-stage-icon{background:#fee2e2;color:#dc2626}
-.ova-stage.running{border-color:#c4b5fd}
+.ova-stage.running{border-color:#e5bba6}
 .ova-stage.done{border-color:#86efac}
 .ova-stage.error{border-color:#fca5a5}
 .ova-stage-label{flex:1}
@@ -113,7 +113,7 @@ aside#changelist-filter,
 <div id="ovaModal" class="ova-overlay">
     <div class="ova-modal" style="width:520px">
         <div class="ova-modal-header">
-            <span class="material-symbols-outlined" style="font-size:20px;color:#7c3aed">cloud_upload</span>
+            <span class="material-symbols-outlined" style="font-size:20px;color:#c46f4f">cloud_upload</span>
             <h3>Deploy OVA / OVF</h3>
         </div>
         <!-- Step indicators -->
@@ -205,15 +205,15 @@ aside#changelist-filter,
 .reg-tabs{display:flex;gap:0;border-bottom:2px solid #e5e7eb;margin-bottom:14px}
 .dark .reg-tabs{border-color:#334155}
 .reg-tab{padding:7px 16px;font-size:12px;font-weight:700;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;letter-spacing:.02em;text-transform:uppercase;transition:color .15s,border-color .15s}
-.reg-tab:hover{color:#7c3aed}
-.reg-tab.active{color:#7c3aed;border-bottom-color:#7c3aed}
+.reg-tab:hover{color:#c46f4f}
+.reg-tab.active{color:#c46f4f;border-bottom-color:#c46f4f}
 .reg-tab-pane{display:none}
 .reg-tab-pane.active{display:block}
 </style>
 <div id="registerVmModal" class="ova-overlay">
     <div class="ova-modal" style="width:520px">
         <div class="ova-modal-header">
-            <span class="material-symbols-outlined" style="font-size:20px;color:#7c3aed">app_registration</span>
+            <span class="material-symbols-outlined" style="font-size:20px;color:#c46f4f">app_registration</span>
             <h3>Register / Deploy VM</h3>
         </div>
         <div class="ova-modal-body">
@@ -265,14 +265,74 @@ aside#changelist-filter,
     </div>
 </div>
 
+<style>
+.mig-hint{display:block;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+.mig-hint.slow{background:#fef3c7;color:#92400e;border-color:#fde68a}
+.mig-stages{display:none!important}
+.mig-stage{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;font-size:12px}
+.dark .mig-stage{background:#0f172a;border-color:#334155}
+.mig-stage-icon{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;background:#e2e8f0;color:#64748b;flex-shrink:0}
+.mig-stage.pending .mig-stage-icon{background:#e2e8f0;color:#64748b}
+.mig-stage.running .mig-stage-icon{background:#dbeafe;color:#1d4ed8}
+.mig-stage.done .mig-stage-icon{background:#dcfce7;color:#166534}
+.mig-stage.error .mig-stage-icon{background:#fee2e2;color:#b91c1c}
+.mig-stage-text{font-weight:600;color:#334155}
+.dark .mig-stage-text{color:#cbd5e1}
+</style>
+<div id="migrateVmModal" class="ova-overlay">
+    <div class="ova-modal" style="width:520px">
+        <div class="ova-modal-header">
+            <span class="material-symbols-outlined" style="font-size:20px;color:#0ea5e9">swap_horiz</span>
+            <h3>Migrate VM</h3>
+        </div>
+        <div class="ova-modal-body">
+            <div class="ova-f">
+                <label for="mig_vm">Virtual Machine *</label>
+                <select id="mig_vm"><option value="">Loading...</option></select>
+            </div>
+            <div class="ova-f">
+                <label for="mig_source">Source Host</label>
+                <input id="mig_source" type="text" readonly placeholder="Auto-filled from VM">
+            </div>
+            <div class="ova-f">
+                <label for="mig_dest_host">Destination Host *</label>
+                <select id="mig_dest_host"><option value="">Select VM first</option></select>
+            </div>
+            <div class="ova-f">
+                <label for="mig_dest_ds">Destination Datastore</label>
+                <select id="mig_dest_ds"><option value="">Select destination host</option></select>
+            </div>
+            <div id="migHint" class="ova-status mig-hint">Select a VM to see migration mode.</div>
+            <div id="migStages" class="mig-stages">
+                <div class="mig-stage pending" data-stage="validating"><div class="mig-stage-icon">1</div><div class="mig-stage-text">Validate request</div></div>
+                <div class="mig-stage pending" data-stage="shutdown"><div class="mig-stage-icon">2</div><div class="mig-stage-text">Shutdown guest</div></div>
+                <div class="mig-stage pending" data-stage="unregister"><div class="mig-stage-icon">3</div><div class="mig-stage-text">Unregister source VM</div></div>
+                <div class="mig-stage pending" data-stage="copy"><div class="mig-stage-icon">4</div><div class="mig-stage-text">Copy VM files (slow mode)</div></div>
+                <div class="mig-stage pending" data-stage="register"><div class="mig-stage-icon">5</div><div class="mig-stage-text">Register on destination</div></div>
+                <div class="mig-stage pending" data-stage="poweron"><div class="mig-stage-icon">6</div><div class="mig-stage-text">Power on VM</div></div>
+                <div class="mig-stage pending" data-stage="sync"><div class="mig-stage-icon">7</div><div class="mig-stage-text">Sync inventory</div></div>
+                <div class="mig-stage pending" data-stage="completed"><div class="mig-stage-icon">8</div><div class="mig-stage-text">Complete</div></div>
+            </div>
+            <div id="migStatus" class="ova-status" style="margin-top:8px"></div>
+        </div>
+        <div class="ova-modal-footer">
+            <button type="button" class="ova-btn-cancel" id="migCancel">Cancel</button>
+            <button type="button" class="ova-btn-deploy" id="migSubmit" disabled>
+                <span class="material-symbols-outlined" style="font-size:16px">swap_horizontal_circle</span> Migrate VM
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
 (function() {
     // ── Expose modal openers early so header buttons work immediately ─────
     // The actual functions are assigned below after definition.
     // These stubs queue clicks until the real functions are ready.
-    var _ovaReady = false, _regReady = false;
+    var _ovaReady = false, _regReady = false, _migReady = false;
     window._nebulaOpenOva = function() { _ovaReady = true; };
     window._nebulaOpenRegister = function() { _regReady = true; };
+    window._nebulaOpenMigrate = function() { _migReady = true; };
 
     // ── OVA Deploy Wizard ─────────────────────────────────────────────────────
     var modal       = document.getElementById('ovaModal');
@@ -524,7 +584,7 @@ aside#changelist-filter,
             ? (selectedFile.name + ' + ' + selectedSidecars.length + ' sidecar file(s)')
             : selectedFile.name;
         dropzone.innerHTML =
-            '<span class="material-symbols-outlined" style="color:#7c3aed">check_circle</span>' +
+            '<span class="material-symbols-outlined" style="color:#c46f4f">check_circle</span>' +
             '<div class="ova-file-name">' + packageText + '</div>' +
             '<div style="font-size:11px;color:#94a3b8;margin-top:2px">' + sizeStr + '</div>';
         submitBtn.disabled = false;
@@ -899,17 +959,369 @@ aside#changelist-filter,
             regOvfDeployBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">rocket_launch</span> Deploy OVF';
         }
     });
+
+    // ── Migrate VM Modal ──────────────────────────────────────────────────────
+    var migModal      = document.getElementById('migrateVmModal');
+    var migVmSel      = document.getElementById('mig_vm');
+    var migSourceIn   = document.getElementById('mig_source');
+    var migDestHost   = document.getElementById('mig_dest_host');
+    var migDestDs     = document.getElementById('mig_dest_ds');
+    var migHint       = document.getElementById('migHint');
+    var migStatusEl   = document.getElementById('migStatus');
+    var migSubmitBtn  = document.getElementById('migSubmit');
+    var migStagesWrap = document.getElementById('migStages');
+    var migOptions    = { hosts: [], vms: [] };
+    var migVmById     = {};
+    var migHostById   = {};
+    var migHostByName = {};
+    var migPollTimer  = null;
+
+    function migStatus(type, msg) {
+        migStatusEl.className = 'ova-status';
+        migStatusEl.textContent = msg || '';
+        if (msg) migStatusEl.classList.add(type === 'error' ? 'err' : type === 'warn' ? 'warn' : 'ok');
+    }
+
+    function setMigHint(vmInfo) {
+        if (!vmInfo) {
+            migHint.className = 'ova-status mig-hint';
+            migHint.textContent = 'Select a VM to see migration mode.';
+            return;
+        }
+        if (vmInfo.migration_mode === 'fast') {
+            migHint.className = 'ova-status mig-hint';
+            migHint.textContent = vmInfo.migration_message || 'Fast migration';
+            return;
+        }
+        migHint.className = 'ova-status mig-hint slow';
+        migHint.textContent = vmInfo.migration_message || 'Migration is not supported on local datastores';
+    }
+
+    function refreshMigSubmitState() {
+        var vmInfo = migVmById[migVmSel.value || ''];
+        var hasVm = !!vmInfo;
+        var hasDestHost = !!(migDestHost.value || '').trim();
+        if (!hasVm) {
+            migSubmitBtn.disabled = true;
+            return;
+        }
+        if (vmInfo.migration_mode !== 'fast') {
+            migSubmitBtn.disabled = true;
+            return;
+        }
+        if (!hasDestHost) {
+            migSubmitBtn.disabled = true;
+            return;
+        }
+        var selectedHost = migHostById[String(migDestHost.value || '')] || null;
+        var selectedDs = (vmInfo.source_datastore || '').trim();
+        var hasSourceDsOnDest = !!selectedHost && (selectedHost.datastores || []).indexOf(selectedDs) >= 0;
+        migSubmitBtn.disabled = !hasSourceDsOnDest;
+    }
+
+    function resetMigStages() {
+        if (!migStagesWrap) return;
+        migStagesWrap.querySelectorAll('.mig-stage').forEach(function(el) {
+            el.classList.remove('running', 'done', 'error');
+            el.classList.add('pending');
+        });
+    }
+
+    function paintMigStages(taskState) {
+        if (!migStagesWrap) return;
+        var done = (taskState.completed_stages || []);
+        var current = taskState.current_stage || '';
+        var isError = taskState.status === 'error';
+        migStagesWrap.querySelectorAll('.mig-stage').forEach(function(el) {
+            var key = el.getAttribute('data-stage') || '';
+            el.classList.remove('pending', 'running', 'done', 'error');
+            if (done.indexOf(key) >= 0) {
+                el.classList.add('done');
+            } else if (current === key && taskState.status === 'running') {
+                el.classList.add('running');
+            } else {
+                el.classList.add('pending');
+            }
+            if (isError && current === key) {
+                el.classList.remove('pending', 'running', 'done');
+                el.classList.add('error');
+            }
+        });
+    }
+
+    function stopMigPolling() {
+        if (migPollTimer) {
+            clearInterval(migPollTimer);
+            migPollTimer = null;
+        }
+    }
+
+    function startMigPolling(taskId) {
+        stopMigPolling();
+        migPollTimer = setInterval(async function() {
+            try {
+                var r = await fetch('/api/v1/vms/migrate/status?task_id=' + encodeURIComponent(taskId));
+                var d = await r.json();
+                if (d.status === 'error' && !d.task_id) {
+                    migStatus('error', d.message || 'Migration task not found.');
+                    stopMigPolling();
+                    migSubmitBtn.disabled = false;
+                    migSubmitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">swap_horizontal_circle</span> Migrate VM';
+                    return;
+                }
+
+                paintMigStages(d);
+                if (d.status === 'running' || d.status === 'queued') {
+                    migStatus('warn', d.message || d.current_stage_label || 'Migration in progress...');
+                    return;
+                }
+                if (d.status === 'success') {
+                    migStatus('ok', (d.result && d.result.message) || d.message || 'Migration completed. Reloading...');
+                    stopMigPolling();
+                    setTimeout(function() { window.location.reload(); }, 1600);
+                    return;
+                }
+                if (d.status === 'error') {
+                    migStatus('error', d.error || d.message || 'Migration failed.');
+                    stopMigPolling();
+                    migSubmitBtn.disabled = false;
+                    migSubmitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">swap_horizontal_circle</span> Migrate VM';
+                }
+            } catch (e) {
+                migStatus('error', 'Failed to poll migration status.');
+                stopMigPolling();
+                migSubmitBtn.disabled = false;
+                migSubmitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">swap_horizontal_circle</span> Migrate VM';
+            }
+        }, 1200);
+    }
+
+    function destinationHostDatastores(hostId) {
+        var key = String(hostId || '').trim();
+        if (!key) return [];
+        var hostInfo = migHostById[key] || {};
+        return hostInfo.datastores || [];
+    }
+
+    function populateDestinationDatastores(hostId) {
+        var selectedDestHostId = String(hostId || '').trim();
+        var vmInfo = migVmById[migVmSel.value || ''] || null;
+        var sourceDs = vmInfo ? String(vmInfo.source_datastore || '').trim() : '';
+        var dsList = destinationHostDatastores(selectedDestHostId);
+        migDestDs.innerHTML = '';
+        if (!selectedDestHostId) {
+            migDestDs.innerHTML = '<option value="">Select destination host</option>';
+            refreshMigSubmitState();
+            return;
+        }
+        if (!dsList.length) {
+            migDestDs.innerHTML = '<option value="">No datastores on selected destination host</option>';
+            refreshMigSubmitState();
+            return;
+        }
+        // Shared-datastore migration only: show only the VM source datastore if destination host has it.
+        if (sourceDs && dsList.indexOf(sourceDs) >= 0) {
+            var opt = document.createElement('option');
+            opt.value = sourceDs;
+            opt.textContent = sourceDs;
+            migDestDs.appendChild(opt);
+            migDestDs.value = sourceDs;
+        } else {
+            migDestDs.innerHTML = '<option value="">VM datastore is not available on this destination host</option>';
+        }
+        refreshMigSubmitState();
+    }
+
+    function populateDestinationHosts(vmInfo) {
+        migDestHost.innerHTML = '';
+        var rows = (migOptions.hosts || []).filter(function(h) {
+            return String(h.id) !== String(vmInfo.source_host_id);
+        });
+        // Shared datastore only: include only destination hosts that contain source datastore.
+        var sourceDs = String(vmInfo.source_datastore || '').trim();
+        rows = rows.filter(function(h) {
+            return sourceDs && (h.datastores || []).indexOf(sourceDs) >= 0;
+        });
+        if (!rows.length) {
+            migDestHost.innerHTML = '<option value="">No destination hosts</option>';
+            migDestDs.innerHTML = '<option value="">No datastores</option>';
+            refreshMigSubmitState();
+            return;
+        }
+        rows.forEach(function(h) {
+            var o = document.createElement('option');
+            o.value = String(h.id);
+            o.textContent = h.name + ' (' + h.ip + ')';
+            migDestHost.appendChild(o);
+        });
+        var selectedDest = (rows[0] && rows[0].id != null) ? String(rows[0].id) : '';
+        migDestHost.value = selectedDest;
+        populateDestinationDatastores(selectedDest);
+    }
+
+    function onMigVmSelected() {
+        var vmInfo = migVmById[migVmSel.value || ''];
+        migStatus('', '');
+        if (!vmInfo) {
+            migSourceIn.value = '';
+            migDestHost.innerHTML = '<option value="">Select VM first</option>';
+            migDestDs.innerHTML = '<option value="">Select destination host</option>';
+            setMigHint(null);
+            refreshMigSubmitState();
+            return;
+        }
+        migSourceIn.value = vmInfo.source_host;
+        setMigHint(vmInfo);
+        if (vmInfo.migration_mode !== 'fast') {
+            migDestHost.innerHTML = '<option value="">Migration is not supported on local datastores</option>';
+            migDestDs.innerHTML = '<option value="">Migration is not supported on local datastores</option>';
+            refreshMigSubmitState();
+            return;
+        }
+        populateDestinationHosts(vmInfo);
+        refreshMigSubmitState();
+    }
+
+    function renderMigVmOptions() {
+        migVmSel.innerHTML = '';
+        migVmById = {};
+        (migOptions.vms || []).forEach(function(vm) {
+            var key = String(vm.id);
+            migVmById[key] = vm;
+            var o = document.createElement('option');
+            o.value = key;
+            o.textContent = vm.name;
+            migVmSel.appendChild(o);
+        });
+        if ((migOptions.vms || []).length) onMigVmSelected();
+        else {
+            migVmSel.innerHTML = '<option value="">No ESXi VMs found</option>';
+            onMigVmSelected();
+        }
+    }
+
+    async function loadMigrationOptions() {
+        migHostById = {};
+        migHostByName = {};
+        migVmSel.innerHTML = '<option value="">Loading...</option>';
+        try {
+            var r = await fetch('/api/v1/vms/migrate/options');
+            var d = await r.json();
+            migOptions = d || { hosts: [], vms: [] };
+            (migOptions.hosts || []).forEach(function(h) {
+                migHostByName[h.name] = h;
+                migHostById[String(h.id)] = h;
+            });
+            renderMigVmOptions();
+        } catch (e) {
+            migVmSel.innerHTML = '<option value="">Failed to load VM list</option>';
+            migDestHost.innerHTML = '<option value="">Failed to load host list</option>';
+            migDestDs.innerHTML = '<option value="">Failed to load datastores</option>';
+            migStatus('error', 'Failed to load migration options.');
+            refreshMigSubmitState();
+        }
+    }
+
+    function openMigrateModal() {
+        stopMigPolling();
+        migStatus('', '');
+        setMigHint(null);
+        resetMigStages();
+        migSourceIn.value = '';
+        migDestHost.innerHTML = '<option value="">Select VM first</option>';
+        migDestDs.innerHTML = '<option value="">Select destination host</option>';
+        migSubmitBtn.disabled = true;
+        migSubmitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">swap_horizontal_circle</span> Migrate VM';
+        migModal.classList.add('open');
+        loadMigrationOptions();
+    }
+
+    function closeMigrateModal() {
+        stopMigPolling();
+        migModal.classList.remove('open');
+    }
+
+    if (migModal && migModal.parentElement !== document.body) document.body.appendChild(migModal);
+    if (migModal) migModal.classList.remove('open');
+    document.getElementById('migCancel').addEventListener('click', closeMigrateModal);
+    migModal.addEventListener('click', function(e) { if (e.target === migModal) closeMigrateModal(); });
+    migVmSel.addEventListener('change', onMigVmSelected);
+    migDestHost.addEventListener('change', function() {
+        migStatus('', '');
+        populateDestinationDatastores(migDestHost.value || '');
+        refreshMigSubmitState();
+    });
+    migDestDs.addEventListener('change', refreshMigSubmitState);
+
+    migSubmitBtn.addEventListener('click', async function() {
+        var vmInfo = migVmById[migVmSel.value || ''];
+        if (!vmInfo) { migStatus('error', 'Select a VM first.'); return; }
+        if (vmInfo.migration_mode !== 'fast') {
+            migStatus('error', 'Migration is not supported on local datastores.');
+            return;
+        }
+        if (!migDestHost.value) { migStatus('error', 'Select a destination host.'); return; }
+
+        var allowedDs = destinationHostDatastores(migDestHost.value || '');
+        var requiredDs = String(vmInfo.source_datastore || '').trim();
+        if (!requiredDs || allowedDs.indexOf(requiredDs) < 0) {
+            migStatus('error', 'Selected datastore is not available on destination host.');
+            return;
+        }
+
+        var selectedDest = migHostById[String(migDestHost.value || '')] || null;
+        if (!selectedDest || !selectedDest.name) {
+            migStatus('error', 'Invalid destination host selection.');
+            return;
+        }
+
+        migSubmitBtn.disabled = true;
+        migSubmitBtn.innerHTML = '<span class="ova-spinner"></span> Migrating...';
+        migStatus('warn', 'Migration started. This can take some time.');
+
+        resetMigStages();
+        var query = '/api/v1/vms/migrate/start?vm_id=' + encodeURIComponent(vmInfo.id)
+            + '&destination_host=' + encodeURIComponent(selectedDest.name);
+        query += '&destination_datastore=' + encodeURIComponent(requiredDs);
+
+        try {
+            var r = await fetch(query, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            var d = await r.json();
+            if (d.status === 'error') {
+                migStatus('error', d.message || 'Migration failed.');
+                migSubmitBtn.disabled = false;
+                migSubmitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">swap_horizontal_circle</span> Migrate VM';
+                return;
+            }
+            migStatus('warn', d.message || 'Migration task queued.');
+            startMigPolling(d.task_id);
+        } catch (e) {
+            migStatus('error', 'Network error while running migration.');
+            migSubmitBtn.disabled = false;
+            migSubmitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">swap_horizontal_circle</span> Migrate VM';
+        }
+    });
+
     // Expose modal openers for the header buttons
     window._nebulaOpenOva = openModal;
     window._nebulaOpenRegister = openRegisterModal;
+    window._nebulaOpenMigrate = openMigrateModal;
     // If a header button was clicked before functions were ready, fire now
     if (_ovaReady) openModal();
     if (_regReady) openRegisterModal();
+    if (_migReady) openMigrateModal();
 
     // ── Intercept header action links to open modals instead of navigating ──
     function hijackHeaderButtons() {
         document.querySelectorAll('a[href*="register_vm_modal_action"]').forEach(function(a) {
             a.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); openRegisterModal(); });
+            a.removeAttribute('href');
+        });
+        document.querySelectorAll('a[href*="migrate_vm_modal_action"]').forEach(function(a) {
+            a.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); openMigrateModal(); });
             a.removeAttribute('href');
         });
         document.querySelectorAll('a[href*="deploy_ova_modal_action"]').forEach(function(a) {
@@ -923,7 +1335,7 @@ aside#changelist-filter,
     if (window.htmx) document.body.addEventListener('htmx:afterSettle', hijackHeaderButtons);
     // Observe for late DOM insertions (Alpine deferred rendering)
     new MutationObserver(function(mutations, obs) {
-        var found = document.querySelector('a[href*="register_vm_modal_action"], a[href*="deploy_ova_modal_action"]');
+        var found = document.querySelector('a[href*="register_vm_modal_action"], a[href*="migrate_vm_modal_action"], a[href*="deploy_ova_modal_action"]');
         if (found) { hijackHeaderButtons(); obs.disconnect(); }
     }).observe(document.body, { childList: true, subtree: true });
 })();

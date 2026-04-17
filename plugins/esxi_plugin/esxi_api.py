@@ -30,7 +30,7 @@ import urllib.parse
 import requests
 from typing import Any, Optional, List, Dict
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from contextlib import contextmanager
 
 try:
@@ -99,6 +99,11 @@ class VMInfo:
     ip_addresses: List[str] = field(default_factory=list)
     dns_name: Optional[str] = None
     dns_servers: List[str] = field(default_factory=list)
+    storage_used_gb: float = 0.0
+    storage_provisioned_gb: float = 0.0
+    cpu_usage_mhz: int = 0
+    mem_active_mb: int = 0
+    uptime_human: Optional[str] = None
 
 
 @dataclass
@@ -560,6 +565,39 @@ class EsxiApiClient:
                     config = vm.config
                     runtime = vm.runtime
                     guest = vm.guest
+                    summary = getattr(vm, "summary", None)
+                    quick_stats = getattr(summary, "quickStats", None)
+                    storage_summary = getattr(summary, "storage", None)
+
+                    cpu_usage_mhz = int(getattr(quick_stats, "overallCpuUsage", 0) or 0)
+                    mem_active_mb = int(getattr(quick_stats, "guestMemoryUsage", 0) or 0)
+
+                    committed = float(getattr(storage_summary, "committed", 0) or 0)
+                    uncommitted = float(getattr(storage_summary, "uncommitted", 0) or 0)
+                    storage_used_gb = round(committed / (1024**3), 2) if committed > 0 else 0.0
+                    storage_provisioned_gb = round((committed + uncommitted) / (1024**3), 2) if (committed + uncommitted) > 0 else storage_used_gb
+
+                    uptime_human = "N/A"
+                    try:
+                        boot_time = getattr(runtime, "bootTime", None)
+                        if boot_time:
+                            if getattr(boot_time, "tzinfo", None) is None:
+                                boot_time = boot_time.replace(tzinfo=timezone.utc)
+                            delta = datetime.now(timezone.utc) - boot_time
+                            total_seconds = int(max(delta.total_seconds(), 0))
+                            days, rem = divmod(total_seconds, 86400)
+                            hours, rem = divmod(rem, 3600)
+                            minutes, seconds = divmod(rem, 60)
+                            if days > 0:
+                                uptime_human = f"{days}d {hours}h"
+                            elif hours > 0:
+                                uptime_human = f"{hours}h {minutes}m"
+                            elif minutes > 0:
+                                uptime_human = f"{minutes}m {seconds}s"
+                            else:
+                                uptime_human = f"{seconds}s"
+                    except Exception:
+                        uptime_human = "N/A"
 
                     vm_info = VMInfo(
                         name=config.name if config else "Unknown",
@@ -574,6 +612,11 @@ class EsxiApiClient:
                         datastorage=config.files.vmPathName if config and config.files else "",
                         guest_os=config.guestFullName if config else "",
                         dns_name=guest.hostName if guest else "",
+                        storage_used_gb=storage_used_gb,
+                        storage_provisioned_gb=storage_provisioned_gb,
+                        cpu_usage_mhz=cpu_usage_mhz,
+                        mem_active_mb=mem_active_mb,
+                        uptime_human=uptime_human,
                     )
 
                     # Extract IP addresses

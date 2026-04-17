@@ -5,11 +5,30 @@
     {{ block.super }}
     <style>
         :root {
-            --nebula-primary: #417690;
-            --nebula-secondary: #2c5aa0;
-            --nebula-accent: #0066cc;
-            --nebula-light: #f5f7fa;
-            --nebula-border: #e0e0e0;
+            --nebula-primary: #c46f4f;
+            --nebula-secondary: #8a4a35;
+            --nebula-accent: #e19a7f;
+            --nebula-light: #f8f1ec;
+            --nebula-border: #e8d3c6;
+            --nebula-page-bg: linear-gradient(135deg, #f8f1ec 0%, #efdfd4 100%);
+            --nebula-surface: #ffffff;
+            --nebula-surface-soft: #f8f1ec;
+            --nebula-text: #2f271d;
+            --nebula-muted: #6d6252;
+            --nebula-icon: #8a4a35;
+            --nebula-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .dark {
+            --nebula-light: #1f1a20;
+            --nebula-border: #3a333d;
+            --nebula-page-bg: linear-gradient(135deg, #161317 0%, #1f1a1f 45%, #282127 100%);
+            --nebula-surface: #241f26;
+            --nebula-surface-soft: #1d1a20;
+            --nebula-text: #eee7db;
+            --nebula-muted: #b9ae9a;
+            --nebula-icon: #d1c6b0;
+            --nebula-shadow: 0 2px 10px rgba(0,0,0,0.35);
         }
         
         * {
@@ -19,9 +38,18 @@
         }
         
         body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            background: var(--nebula-page-bg);
             min-height: 100vh;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: var(--nebula-text);
+        }
+
+        .jupiter-logo {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
+            flex-shrink: 0;
         }
         
         #header {
@@ -47,9 +75,9 @@
         
         .sidebar {
             width: 280px;
-            background: white;
+            background: var(--nebula-surface);
             padding: 30px 20px;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.08);
+            box-shadow: var(--nebula-shadow);
             max-height: calc(100vh - 80px);
             overflow-y: auto;
         }
@@ -80,7 +108,7 @@
         }
         
         .sidebar-items {
-            background: var(--nebula-light);
+            background: var(--nebula-surface-soft);
             border-radius: 6px;
             overflow: hidden;
             border: 1px solid var(--nebula-border);
@@ -91,9 +119,9 @@
             align-items: center;
             gap: 10px;
             padding: 12px 15px;
-            border-bottom: 1px solid rgba(0,0,0,0.05);
+            border-bottom: 1px solid var(--nebula-border);
             text-decoration: none;
-            color: #333;
+            color: var(--nebula-text);
             transition: all 0.2s ease;
             font-size: 13px;
         }
@@ -103,7 +131,7 @@
         }
         
         .sidebar-item:hover {
-            background: white;
+            background: var(--nebula-surface);
             color: var(--nebula-accent);
             padding-left: 18px;
         }
@@ -111,14 +139,14 @@
         .sidebar-item i {
             min-width: 18px;
             text-align: center;
-            color: var(--nebula-secondary);
+            color: var(--nebula-icon);
         }
         
         .sidebar-item.has-badge::after {
             content: attr(data-count);
             margin-left: auto;
             background: var(--nebula-accent);
-            color: white;
+            color: #2f271d;
             padding: 2px 6px;
             border-radius: 3px;
             font-size: 11px;
@@ -131,10 +159,11 @@
         }
         
         .dashboard-header {
-            background: white;
+            background: var(--nebula-surface);
+            border: 1px solid var(--nebula-border);
             padding: 30px;
             border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: var(--nebula-shadow);
             margin-bottom: 30px;
         }
         
@@ -149,8 +178,14 @@
         
         .dashboard-header p {
             margin: 0;
-            color: #666;
+            color: var(--nebula-muted);
             font-size: 14px;
+        }
+
+        .dashboard-title {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
         }
         
         .management-grid {
@@ -161,10 +196,11 @@
         }
         
         .management-panel {
-            background: white;
+            background: var(--nebula-surface);
+            border: 1px solid var(--nebula-border);
             border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: var(--nebula-shadow);
             transition: all 0.3s ease;
         }
         
@@ -210,7 +246,7 @@
             padding: 12px 15px;
             border-bottom: 1px solid var(--nebula-border);
             text-decoration: none;
-            color: #333;
+            color: var(--nebula-text);
             transition: all 0.2s ease;
             font-size: 13px;
         }
@@ -227,14 +263,14 @@
         
         .panel-link i {
             min-width: 16px;
-            color: var(--nebula-secondary);
+            color: var(--nebula-icon);
             text-align: center;
         }
         
         .empty-state {
             padding: 40px 20px;
             text-align: center;
-            color: #999;
+            color: var(--nebula-muted);
         }
         
         .empty-state i {
@@ -406,8 +442,11 @@
     <div class="content">
         <div class="dashboard-header">
             <h2>
-                <i class="fas fa-gauge-high"></i>
-                Jupiter Dashboard
+                <span class="dashboard-title">
+                    <img src="{% static 'manager/img/jupiter-logo.svg' %}" alt="Jupiter" class="jupiter-logo" />
+                    <i class="fas fa-gauge-high"></i>
+                    Jupiter Dashboard
+                </span>
             </h2>
             <p>Centralized management for ESXi hosts, networks, storage, and virtual machines</p>
         </div>

@@ -13,6 +13,21 @@
 .tab-refresh-btn,.tab-collapse-btn,.tab-link-btn,.neb-ds-actions-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;box-sizing:border-box;border-radius:6px;border:1px solid var(--color-base-200,#d1d5db);background:transparent;cursor:pointer;font-size:13px;font-weight:700;line-height:1;color:var(--color-font-important,#374151);transition:all .15s;appearance:none;-webkit-appearance:none}
 .tab-refresh-btn:hover,.tab-collapse-btn:hover,.tab-link-btn:hover,.neb-ds-actions-btn:hover{background:var(--color-base-200,#f3f4f6)}
 .tab-link-btn{color:var(--color-font-important,#374151)!important;text-decoration:none!important}
+.dark .tab-refresh-btn,
+.dark .tab-collapse-btn,
+.dark .tab-link-btn,
+.dark .neb-ds-actions-btn{
+    background:var(--color-base-800,#1f2937);
+    border-color:var(--color-base-700,#374151);
+    color:var(--color-font-important,#e5e7eb)!important;
+}
+.dark .tab-refresh-btn:hover,
+.dark .tab-collapse-btn:hover,
+.dark .tab-link-btn:hover,
+.dark .neb-ds-actions-btn:hover{
+    background:var(--color-base-700,#374151);
+    border-color:var(--color-base-600,#4b5563);
+}
 .tab-refresh-btn .material-symbols-outlined,
 .tab-collapse-btn .material-symbols-outlined,
 .tab-link-btn .material-symbols-outlined,
@@ -35,6 +50,29 @@
 #storage-panel .tab-empty{color:#94a3b8!important}
 #storage-panel .tab-refresh-btn{color:#374151!important}
 .dark #storage-panel{color:#dbe4ef}
+#storage-panel .tab-collapse-btn{color:#374151!important}
+#storage-panel .tab-link-btn{color:#374151!important}
+#services-panel .tab-collapse-btn{color:#374151!important}
+#services-panel .tab-link-btn{color:#374151!important}
+.dark #storage-panel .tab-refresh-btn,
+.dark #storage-panel .tab-collapse-btn,
+.dark #storage-panel .tab-link-btn,
+.dark #services-panel .tab-refresh-btn,
+.dark #services-panel .tab-collapse-btn,
+.dark #services-panel .tab-link-btn{
+    color:var(--color-font-important,#e5e7eb)!important;
+    background:var(--color-base-800,#1f2937)!important;
+    border-color:var(--color-base-700,#374151)!important;
+}
+.dark #storage-panel .tab-refresh-btn:hover,
+.dark #storage-panel .tab-collapse-btn:hover,
+.dark #storage-panel .tab-link-btn:hover,
+.dark #services-panel .tab-refresh-btn:hover,
+.dark #services-panel .tab-collapse-btn:hover,
+.dark #services-panel .tab-link-btn:hover{
+    background:var(--color-base-700,#374151)!important;
+    border-color:var(--color-base-600,#4b5563)!important;
+}
 #services-panel{color:#1e293b}
 #services-panel .tab-section-title{color:#6b7280!important}
 #services-panel .tab-host-header h3 span.material-symbols-outlined{color:#06b6d4!important}
@@ -57,18 +95,18 @@
 .dark .neb-ds-actions-menu{background:#1e293b;border-color:#334155}
 .neb-ds-actions-menu.open{display:block}
 .neb-ds-actions-item{display:flex;align-items:center;gap:6px;min-height:36px;padding:7px 14px;font-size:13px;font-weight:700;line-height:1;cursor:pointer;color:inherit;white-space:nowrap}
-.neb-ds-actions-item:hover{background:#f5f3ff;color:#7c3aed}
-.dark .neb-ds-actions-item:hover{background:rgba(124,58,237,.15)}
+.neb-ds-actions-item:hover{background:#fff1e8;color:#c46f4f}
+.dark .neb-ds-actions-item:hover{background:rgba(196,111,79,.15)}
 .neb-ds-actions-item.danger:hover{background:#fee2e2;color:#dc2626}
 .neb-ds-actions-item .material-symbols-outlined{font-size:16px;line-height:1}
 /* Network sub-tabs */
 .net-subtab-bar{display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--color-base-200,#e5e7eb);padding-bottom:0}
 .net-subtab{padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;border-radius:6px 6px 0 0;border:1px solid transparent;margin-bottom:-1px;color:var(--color-font-subtle,#6b7280)}
 .net-subtab:hover{background:var(--color-base-100,#f9fafb)}
-.net-subtab.active{background:#fff;border-color:var(--color-base-200,#e5e7eb);border-bottom-color:#fff;color:#7c3aed;font-weight:700}
+.net-subtab.active{background:#fff;border-color:var(--color-base-200,#e5e7eb);border-bottom-color:#fff;color:#c46f4f;font-weight:700}
 .dark .net-subtab.active{background:#1e293b;border-color:#334155;border-bottom-color:#1e293b}
 .tab-loading{text-align:center;padding:40px;color:var(--color-font-subtle,#9ca3af)}
-.tab-spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--color-base-200,#e5e7eb);border-top-color:#6366f1;border-radius:50%;animation:tabspin .7s linear infinite;vertical-align:middle;margin-right:8px}
+.tab-spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--color-base-200,#e5e7eb);border-top-color:#c46f4f;border-radius:50%;animation:tabspin .7s linear infinite;vertical-align:middle;margin-right:8px}
 @keyframes tabspin{to{transform:rotate(360deg)}}
 .tab-error{background:#fef2f2;color:#991b1b;padding:12px 16px;border-radius:8px;border:1px solid #fecaca;font-size:13px}
 .tab-empty{text-align:center;padding:30px;color:var(--color-font-subtle,#94a3b8);font-size:13px}
@@ -1498,7 +1536,7 @@
                         '<span class="material-symbols-outlined" style="font-size:16px">open_in_new</span>Full VM Manager' +
                     '</a>' +
                 '</div>' +
-                ALL_HOSTS.map(function(h) { return hostCard(h, 'vm', '#7c3aed', 'laptop_windows'); }).join('');
+                ALL_HOSTS.map(function(h) { return hostCard(h, 'vm', '#c46f4f', 'laptop_windows'); }).join('');
 
             vmsPanel.querySelectorAll('[data-reload]').forEach(function(btn) {
                 btn.addEventListener('click', function() {
@@ -1528,7 +1566,7 @@
             if (!vms.length) return '<div class="tab-empty">No VMs found on this host.</div>';
             var html = '<table class="tab-panel-table"><thead><tr>' +
                 '<th>Name</th><th>Status</th><th>Guest OS</th><th>IP Address</th>' +
-                '<th>CPU (MHz)</th><th>RAM (MB)</th><th>Storage Used</th><th>Actions</th>' +
+                '<th>CPU (MHz)</th><th>RAM (GB)</th><th>Storage Used</th><th>Actions</th>' +
                 '</tr></thead><tbody>';
             vms.forEach(function(vm) {
                 var powerRaw = String(vm.power_state || vm.state || vm.power || '').toLowerCase();
@@ -1536,8 +1574,12 @@
                 var guest = vm.guest_os || vm.guest_name || '--';
                 var ip = vm.ip_address || vm.ip || '--';
                 var cpu = vm.cpu_usage_mhz || vm.cpu_mhz || vm.host_cpu || 0;
-                var ram = vm.mem_active_mb || vm.memory_mb || vm.host_memory || 0;
-                var used = vm.storage_used_gb || vm.used_gb || '--';
+                var ramMb = vm.mem_active_mb || vm.memory_mb || vm.host_memory || 0;
+                var ramGb = (Number(ramMb) || 0) / 1024;
+                var usedRaw = vm.storage_used_gb;
+                if (usedRaw === null || usedRaw === undefined || usedRaw === '') usedRaw = vm.used_gb;
+                if (usedRaw === null || usedRaw === undefined || usedRaw === '') usedRaw = vm.storage_provisioned_gb;
+                var used = (usedRaw === null || usedRaw === undefined || usedRaw === '') ? '--' : usedRaw;
                 var manageUrl = vm.id
                     ? ('/admin/manager/virtualmachine/' + vm.id + '/change/')
                     : ('/admin/manager/virtualmachine/?q=' + encodeURIComponent(vm.name || vm.vmid || ''));
@@ -1549,7 +1591,7 @@
                     '<td>' + esc(guest) + '</td>' +
                     '<td class="tab-mono">' + esc(ip) + '</td>' +
                     '<td>' + esc(String(cpu)) + '</td>' +
-                    '<td>' + esc(String(ram)) + '</td>' +
+                    '<td>' + esc(ramGb.toFixed(2)) + '</td>' +
                     '<td>' + esc(String(used)) + '</td>' +
                     '<td><a href="' + manageUrl + '" class="tab-link-btn">' +
                         '<span class="material-symbols-outlined" style="font-size:14px">open_in_new</span>Manage</a></td>' +

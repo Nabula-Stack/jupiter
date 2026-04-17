@@ -99,7 +99,13 @@ class VirtualMachineAdmin(ModelAdmin):
         "storage_used_text", "storage_provisioned_text",
     ]
 
-    actions_list = ["sync_inventory_action", "refresh_vms_action", "register_vm_modal_action", "deploy_ova_modal_action"]
+    actions_list = [
+        "sync_inventory_action",
+        "refresh_vms_action",
+        "register_vm_modal_action",
+        "migrate_vm_modal_action",
+        "deploy_ova_modal_action",
+    ]
     actions_detail = [
         {
             "title": "VM Control",
@@ -107,6 +113,7 @@ class VirtualMachineAdmin(ModelAdmin):
             "items": [
                 "power_on_action",
                 "shutdown_action",
+                "guest_restart_action",
                 "power_off_action",
                 "reset_action",
                 "suspend_action",
@@ -121,6 +128,7 @@ class VirtualMachineAdmin(ModelAdmin):
     actions = [
         "power_on_action",
         "shutdown_action",
+        "guest_restart_action",
         "power_off_action",
         "reset_action",
         "suspend_action",
@@ -296,6 +304,10 @@ class VirtualMachineAdmin(ModelAdmin):
     def shutdown_action(self, request, queryset=None, object_id=None):
         return self._handle_action(request, queryset, object_id, "shutdown", "Shutdown signal sent.")
 
+    @action(description="Guest Restart", icon="restart_alt")
+    def guest_restart_action(self, request, queryset=None, object_id=None):
+        return self._handle_action(request, queryset, object_id, "guest_restart", "Guest restart signal sent.")
+
     @action(description="Power OFF", icon="power_settings_new")
     def power_off_action(self, request, queryset=None, object_id=None):
         """Immediately powers off the VM (hard shutdown). VM will not gracefully shutdown."""
@@ -306,9 +318,9 @@ class VirtualMachineAdmin(ModelAdmin):
     def shutdown_action(self, request, queryset=None, object_id=None):
         return self._handle_action(request, queryset, object_id, "shutdown", "Shutdown signal sent.")
 
-    @action(description="Reset", icon="refresh")
+    @action(description="Hard Reset", icon="refresh")
     def reset_action(self, request, queryset=None, object_id=None):
-        return self._handle_action(request, queryset, object_id, "reset", "Reset signal sent.")
+        return self._handle_action(request, queryset, object_id, "reset", "Hard reset signal sent.")
 
     @action(description="Suspend", icon="pause")
     def suspend_action(self, request, queryset=None, object_id=None):
@@ -404,6 +416,10 @@ class VirtualMachineAdmin(ModelAdmin):
     def register_vm_modal_action(self, request, queryset=None):
         return redirect(request.META.get('HTTP_REFERER', "/admin/manager/virtualmachine/"))
 
+    @action(description="Migrate VM", icon="swap_horiz")
+    def migrate_vm_modal_action(self, request, queryset=None):
+        return redirect(request.META.get('HTTP_REFERER', "/admin/manager/virtualmachine/"))
+
     @action(description="Deploy OVA", icon="cloud_upload")
     def deploy_ova_modal_action(self, request, queryset=None):
         return redirect(request.META.get('HTTP_REFERER', "/admin/manager/virtualmachine/"))
@@ -415,7 +431,7 @@ class VirtualMachineAdmin(ModelAdmin):
         self.message_user(request, "Inventory sync complete.")
         return redirect(request.META.get('HTTP_REFERER', "/admin/manager/virtualmachine/"))
     
-    @action(description="Refresh VM States")
+    @action(description="Refresh")
     def refresh_vms_action(self, request, queryset=None):
         """Refresh VM states from database for selected host or all hosts."""
         if queryset:
@@ -492,7 +508,12 @@ class VirtualMachineAdmin(ModelAdmin):
     @display(description="Used Space")
     def used_space(self, obj): return format_html(
         '<span id="vm-storage-{}">{} GB</span>',
-        obj.id, obj.storage_used_gb or 0
+        obj.id,
+        (
+            self._to_float(obj.storage_used_gb, 0.0)
+            or self._to_float((self._get_cached_data(obj) or {}).get("storage_used_gb"), 0.0)
+            or self._to_float(obj.storage_provisioned_gb, 0.0)
+        )
     )
 
     @display(description="Guest OS")
@@ -506,13 +527,21 @@ class VirtualMachineAdmin(ModelAdmin):
         return format_html('<span style="font-weight: bold;">{}</span>', host_name)
 
     @display(description="CPU")
-    def host_cpu(self, obj): return format_html(
-        '<span id="vm-cpu-{}">{} MHz</span>',
-        obj.id, obj.cpu_usage_mhz or 0
-    )
+    def host_cpu(self, obj):
+        live_data = self._get_cached_data(obj) or {}
+        cpu_mhz = int(obj.cpu_usage_mhz or live_data.get("cpu_usage_mhz") or 0)
+        return format_html(
+            '<span id="vm-cpu-{}">{} MHz</span>',
+            obj.id, cpu_mhz
+        )
 
     @display(description="RAM")
-    def host_memory(self, obj): return format_html(
-        '<span id="vm-memory-{}">{} MB</span>',
-        obj.id, obj.mem_active_mb or 0
-    )
+    def host_memory(self, obj):
+        live_data = self._get_cached_data(obj) or {}
+        ram_mb = self._to_float(obj.mem_active_mb or live_data.get("mem_active_mb") or obj.memory_mb or 0, 0.0)
+        ram_gb = ram_mb / 1024.0
+        ram_gb_text = f"{ram_gb:.2f}"
+        return format_html(
+            '<span id="vm-memory-{}">{} GB</span>',
+            obj.id, ram_gb_text
+        )

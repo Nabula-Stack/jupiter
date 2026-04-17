@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Jupiter Planet Logo</title>
+  <desc id="desc">Stylized Jupiter planet with warm atmospheric bands.</desc>
+  <defs>
+    <radialGradient id="spaceGlow" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#f7d8cf"/>
+      <stop offset="45%" stop-color="#e3a18c"/>
+      <stop offset="78%" stop-color="#bf6b4e"/>
+      <stop offset="100%" stop-color="#8a3f2d"/>
+    </radialGradient>
+    <linearGradient id="bandA" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f2d5c8"/>
+      <stop offset="100%" stop-color="#e7b6a3"/>
+    </linearGradient>
+    <linearGradient id="bandB" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#eab49f"/>
+      <stop offset="100%" stop-color="#d88a6a"/>
+    </linearGradient>
+    <linearGradient id="bandC" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#d17c5e"/>
+      <stop offset="100%" stop-color="#b46045"/>
+    </linearGradient>
+    <clipPath id="planetClip">
+      <circle cx="128" cy="128" r="96"/>
+    </clipPath>
+  </defs>
+
+  <circle cx="128" cy="128" r="96" fill="url(#spaceGlow)"/>
+
+  <g clip-path="url(#planetClip)">
+    <ellipse cx="118" cy="70" rx="130" ry="26" fill="url(#bandA)" transform="rotate(7 118 70)"/>
+    <ellipse cx="136" cy="95" rx="132" ry="24" fill="#efd0c3" transform="rotate(8 136 95)"/>
+    <ellipse cx="122" cy="120" rx="138" ry="24" fill="url(#bandB)" transform="rotate(9 122 120)"/>
+    <ellipse cx="140" cy="145" rx="136" ry="25" fill="#cf8c70" transform="rotate(10 140 145)"/>
+    <ellipse cx="118" cy="170" rx="140" ry="27" fill="url(#bandC)" transform="rotate(11 118 170)"/>
+    <ellipse cx="164" cy="188" rx="130" ry="24" fill="#9b4f38" transform="rotate(12 164 188)"/>
+
+    <ellipse cx="108" cy="138" rx="18" ry="16" fill="#efb29b" opacity="0.95"/>
+    <circle cx="186" cy="148" r="7" fill="#a95b42" opacity="0.85"/>
+    <circle cx="84" cy="94" r="4" fill="#f5ded4" opacity="0.7"/>
+    <circle cx="72" cy="132" r="3" fill="#f6d9cc" opacity="0.6"/>
+    <circle cx="190" cy="96" r="3" fill="#d17c5e" opacity="0.8"/>
+  </g>
+
+  <ellipse cx="166" cy="116" rx="26" ry="88" fill="#ffffff" opacity="0.16" transform="rotate(11 166 116)"/>
+  <circle cx="128" cy="128" r="96" fill="none" stroke="#6f3225" stroke-opacity="0.25" stroke-width="2"/>
+</svg>

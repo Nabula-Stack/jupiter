@@ -199,11 +199,11 @@ class EsxiAdapter(HypervisorAdapter):
                     ],
                     "num_cpu": int(vm_dict.get("cpu_count", 0) or 0),
                     "memory_mb": int(vm_dict.get("memory_mb", 0) or 0),
-                    "storage_used_gb": 0.0,
-                    "storage_provisioned_gb": 0.0,
-                    "cpu_usage_mhz": 0,
-                    "mem_active_mb": 0,
-                    "uptime_human": "N/A",
+                    "storage_used_gb": float(vm_dict.get("storage_used_gb", 0.0) or 0.0),
+                    "storage_provisioned_gb": float(vm_dict.get("storage_provisioned_gb", 0.0) or 0.0),
+                    "cpu_usage_mhz": int(vm_dict.get("cpu_usage_mhz", 0) or 0),
+                    "mem_active_mb": int(vm_dict.get("mem_active_mb", 0) or 0),
+                    "uptime_human": vm_dict.get("uptime_human") or "N/A",
                 },
             )
 

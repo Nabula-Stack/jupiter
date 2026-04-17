@@ -24,6 +24,7 @@ _POWER_MAP = {
     "poweron": "power.on",
     "poweroff": "power.off",
     "shutdown": "power.shutdown",
+    "guest_restart": "power.reboot",
     "reset": "power.reset",
     "reboot": "power.reboot",
     "suspend": "power.suspend",
@@ -34,6 +35,7 @@ _STATE_MAP = {
     "poweron": "poweredOn",
     "poweroff": "poweredOff",
     "shutdown": "poweredOff",
+    "guest_restart": "poweredOn",
     "suspend": "suspended",
 }
 
@@ -43,6 +45,7 @@ _PROXMOX_POWER_MAP = {
     "poweroff": "stop",
     "off": "stop",
     "shutdown": "shutdown",
+    "guest_restart": "reboot",
     "reset": "reset",
     "reboot": "reboot",
     "suspend": "suspend",
@@ -54,6 +57,7 @@ _KVM_POWER_MAP = {
     "poweroff": "power.off",
     "off": "power.off",
     "shutdown": "power.shutdown",
+    "guest_restart": "power.reboot",
     "reset": "power.reset",
     "reboot": "power.reboot",
     "suspend": "power.suspend",
