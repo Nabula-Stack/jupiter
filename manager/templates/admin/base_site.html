@@ -223,6 +223,8 @@
 {% block extrahead %}
     {{ block.super }}
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="{% static 'manager/img/jupiter-logo.svg' %}" />
+    <link rel="shortcut icon" href="{% static 'manager/img/jupiter-logo.svg' %}" />
     <script>
         // Global fetch patch: attach CSRF + same-origin credentials for mutating requests.
         (function () {

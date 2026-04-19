@@ -13,19 +13,23 @@ def multi_auth(request, token_auth=TokenAuth()):
     2. Allow valid Bearer tokens for staff users.
     3. Deny everything else.
     """
+    django_request = getattr(request, "_request", request)
+
     # Session auth path (browser/admin).
-    user = getattr(request, "user", None)
+    user = getattr(django_request, "user", None) or getattr(request, "user", None)
     if user and getattr(user, "is_authenticated", False) and getattr(user, "is_staff", False):
         return user
 
     # Bearer token path (programmatic clients).
-    auth_header = request.headers.get("Authorization", "")
+    headers = getattr(request, "headers", None) or getattr(django_request, "headers", {})
+    auth_header = headers.get("Authorization", "")
     if auth_header.lower().startswith("bearer "):
         token_value = auth_header.split(" ", 1)[1].strip()
         if token_value:
-            token_user = token_auth.authenticate(request, token_value)
+            token_user = token_auth.authenticate(django_request, token_value)
             if token_user and getattr(token_user, "is_staff", False):
                 request.user = token_user
+                django_request.user = token_user
                 return token_user
 
     return None
