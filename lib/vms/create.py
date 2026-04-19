@@ -411,9 +411,27 @@ def deploy_ova_from_session(
 
     requested_disk_files = []
     for disk_file in disk_files or []:
-        disk_name = os.path.basename(str(disk_file or "").strip())
+        raw_disk = str(disk_file or "").strip()
+        if not raw_disk:
+            continue
+
+        # Candidate 1: keep relative subpaths (OVF often references nested folders).
+        rel_disk = raw_disk.replace("\\", "/").lstrip("/")
+        if rel_disk:
+            requested_disk_files.append(f"{vm_dir}/{rel_disk}")
+
+        # Candidate 2: for absolute VMFS paths inside the session directory.
+        if raw_disk.startswith(session_dir.rstrip("/") + "/"):
+            rel_from_session = raw_disk[len(session_dir.rstrip("/") + "/") :].lstrip("/")
+            if rel_from_session:
+                requested_disk_files.append(f"{vm_dir}/{rel_from_session}")
+
+        # Candidate 3: legacy basename behavior.
+        disk_name = os.path.basename(raw_disk)
         if disk_name:
             requested_disk_files.append(f"{vm_dir}/{disk_name}")
+
+    requested_disk_files = sorted(set(requested_disk_files))
 
     descriptors = []
     if requested_disk_files:
@@ -421,8 +439,11 @@ def deploy_ova_from_session(
             exists = host.run(f"[ -f {shlex.quote(p)} ] && echo EXISTS || echo MISSING")
             if "EXISTS" in str(exists):
                 descriptors.append(p)
-    else:
-        list_vmdk = host.run(f"find {vm_dir_q} -maxdepth 1 -type f \\( -iname '*.vmdk' \\) 2>/dev/null")
+
+    # Fallback: if explicit OVF references were missing/invalid after staging,
+    # auto-discover descriptor VMDKs in the VM directory.
+    if not descriptors:
+        list_vmdk = host.run(f"find {vm_dir_q} -type f \\( -iname '*.vmdk' \\) 2>/dev/null")
         for path in (list_vmdk or "").splitlines():
             p = path.strip()
             if not p:

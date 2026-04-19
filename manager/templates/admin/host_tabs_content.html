@@ -193,13 +193,21 @@
 .fb-dest-crumb a:hover{text-decoration:underline}
 .fb-empty{padding:30px 18px;text-align:center;color:#94a3b8;font-size:13px}
 .fb-loading{display:flex;align-items:center;justify-content:center;padding:40px;gap:10px;color:#64748b;font-size:13px}
-.fb-footer{padding:10px 18px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:flex-end;background:#f8fafc}
+.fb-footer{padding:10px 18px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap;background:#f8fafc}
 .dark .fb-footer{background:#0f172a;border-color:#334155}
 .fb-footer button{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:700;border:0;cursor:pointer}
 .fb-btn-close{background:#f1f5f9;color:#334155;border:1px solid #cbd5e1!important}
 .fb-btn-close:hover{background:#e2e8f0}
 .fb-btn-upload{display:inline-flex!important;align-items:center;gap:6px}
 .fb-btn-upload:hover{background:#1d4ed8!important}
+.fb-upload-meta{display:flex;flex-direction:column;gap:6px;flex:1 1 100%;min-width:100%;order:3;padding-top:2px}
+.fb-upload-progress-wrap{display:none;align-items:center;gap:10px;width:100%}
+.fb-upload-progress-wrap.open{display:flex}
+.fb-upload-progress{display:block;flex:1 1 auto;height:10px;border-radius:999px;background:#dbe4ef;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(37,99,235,.12)}
+.dark .fb-upload-progress{background:#334155}
+.fb-upload-progress-bar{width:0%;height:100%;border-radius:999px;background:linear-gradient(90deg,#2563eb,#0ea5e9);transition:width .2s ease}
+.fb-upload-progress-label{min-width:44px;text-align:right;font-size:11px;font-weight:800;color:#2563eb}
+.dark .fb-upload-progress-label{color:#7dd3fc}
 /* Datastore wizard */
 .dsw-overlay{display:none;position:fixed;inset:0;background:rgba(2,6,23,.58);z-index:10003;align-items:center;justify-content:center}
 .dsw-overlay.open{display:flex}
@@ -257,7 +265,15 @@
             <button type="button" class="fb-btn-upload" id="fbUploadBtn" style="background:#2563eb;color:#fff;margin-right:auto">
                 <span class="material-symbols-outlined" style="font-size:16px">upload_file</span> Upload
             </button>
-            <div id="fbUploadStatus" style="flex:1;font-size:12px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+            <div class="fb-upload-meta">
+                <div id="fbUploadStatus" style="font-size:12px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+                <div id="fbUploadProgressWrap" class="fb-upload-progress-wrap">
+                    <div id="fbUploadProgress" class="fb-upload-progress">
+                        <div id="fbUploadProgressBar" class="fb-upload-progress-bar"></div>
+                    </div>
+                    <div id="fbUploadProgressLabel" class="fb-upload-progress-label">0%</div>
+                </div>
+            </div>
             <button type="button" class="fb-btn-close" id="fbCancel">Close</button>
         </div>
     </div>
@@ -314,6 +330,29 @@
     var fbBreadcrumb = document.getElementById('fbBreadcrumb');
     var fbTitle      = document.getElementById('fbTitle');
     var fbHost       = '';
+
+    function getCookie(name) {
+        var value = '; ' + document.cookie;
+        var parts = value.split('; ' + name + '=');
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return '';
+    }
+
+    function csrfHeaders(extra) {
+        var token = getCookie('csrftoken');
+        var headers = {
+            'X-Requested-With': 'XMLHttpRequest'
+        };
+        if (token) {
+            headers['X-CSRFToken'] = token;
+        }
+        if (extra && typeof extra === 'object') {
+            Object.keys(extra).forEach(function(k) {
+                headers[k] = extra[k];
+            });
+        }
+        return headers;
+    }
 
     function closeFb() { fbModal.classList.remove('open'); }
 
@@ -462,7 +501,11 @@
         }).then(function(ok) {
             if (!ok) return;
             fbSetStatus('Deleting ' + name + '...', '#dc2626');
-            fetch('/api/v1/storage/' + encodeURIComponent(fbHost) + '/explorer/rm?path=' + encodeURIComponent(path), {method:'DELETE'})
+            fetch('/api/v1/storage/' + encodeURIComponent(fbHost) + '/explorer/rm?path=' + encodeURIComponent(path), {
+                method:'DELETE',
+                credentials: 'same-origin',
+                headers: csrfHeaders()
+            })
                 .then(function(r) { return r.json(); })
                 .then(function(d) {
                     if (d.status === 'error') { fbSetStatus('Delete failed: ' + d.message, '#dc2626'); return; }
@@ -579,8 +622,12 @@
         var label = pendingAction === 'move' ? 'Moving' : 'Copying';
         fbSetStatus(label + '...', '#64748b');
 
-        fetch('/api/v1/storage/' + encodeURIComponent(fbHost) + '/explorer/' + endpoint +
-              '?src=' + encodeURIComponent(src) + '&dest=' + encodeURIComponent(dest), {method:'POST'})
+          fetch('/api/v1/storage/' + encodeURIComponent(fbHost) + '/explorer/' + endpoint +
+              '?src=' + encodeURIComponent(src) + '&dest=' + encodeURIComponent(dest), {
+                method:'POST',
+                credentials: 'same-origin',
+                headers: csrfHeaders()
+              })
             .then(function(r) { return r.json(); })
             .then(function(d) {
                 if (d.status === 'error') { fbSetStatus('Failed: ' + d.message, '#dc2626'); return; }
@@ -602,7 +649,24 @@
 
     // ── Upload logic ──
     var fbFileInput = document.getElementById('fbFileInput');
+    var fbUploadProgressWrap = document.getElementById('fbUploadProgressWrap');
+    var fbUploadProgress = document.getElementById('fbUploadProgress');
+    var fbUploadProgressBar = document.getElementById('fbUploadProgressBar');
+    var fbUploadProgressLabel = document.getElementById('fbUploadProgressLabel');
     var currentBrowsePath = '/vmfs/volumes';
+
+    function setUploadProgress(percent) {
+        var bounded = Math.max(0, Math.min(100, Math.round(percent || 0)));
+        fbUploadProgressWrap.classList.add('open');
+        fbUploadProgressBar.style.width = bounded + '%';
+        fbUploadProgressLabel.textContent = bounded + '%';
+    }
+
+    function hideUploadProgress() {
+        fbUploadProgressWrap.classList.remove('open');
+        fbUploadProgressBar.style.width = '0%';
+        fbUploadProgressLabel.textContent = '0%';
+    }
 
     // Patch fbNavigate to track current path
     var _origFbNavigate = fbNavigate;
@@ -626,9 +690,11 @@
             if (idx >= total) {
                 fbFileInput.value = '';
                 if (failed === 0) {
+                    hideUploadProgress();
                     fbUploadStatus.style.color = '#16a34a';
                     fbUploadStatus.textContent = 'Uploaded ' + done + ' file(s) successfully.';
                 } else {
+                    hideUploadProgress();
                     fbUploadStatus.style.color = '#dc2626';
                     fbUploadStatus.textContent = done + ' uploaded, ' + failed + ' failed.';
                 }
@@ -639,23 +705,86 @@
             var file = files[idx];
             fbUploadStatus.style.color = '#64748b';
             fbUploadStatus.textContent = 'Uploading ' + (idx + 1) + '/' + total + ': ' + file.name + '...';
+            setUploadProgress(0);
 
             var formData = new FormData();
             formData.append('file', file);
 
-            fetch('/api/v1/storage/' + encodeURIComponent(fbHost) + '/explorer/upload?path=' + encodeURIComponent(currentBrowsePath), {
-                method: 'POST',
-                body: formData
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(d) {
-                if (d.status === 'error') { failed++; } else { done++; }
-                uploadNext(idx + 1);
-            })
-            .catch(function() {
-                failed++;
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/v1/storage/' + encodeURIComponent(fbHost) + '/explorer/upload?path=' + encodeURIComponent(currentBrowsePath), true);
+            xhr.withCredentials = true;
+
+            var xhrHeaders = csrfHeaders();
+            Object.keys(xhrHeaders).forEach(function(key) {
+                xhr.setRequestHeader(key, xhrHeaders[key]);
+            });
+
+            xhr.upload.addEventListener('progress', function(e) {
+                if (!e.lengthComputable) return;
+                var pct = Math.round((e.loaded / e.total) * 100);
+                setUploadProgress(pct);
+                fbUploadStatus.style.color = '#64748b';
+                fbUploadStatus.textContent = 'Uploading ' + (idx + 1) + '/' + total + ': ' + file.name + ' (' + pct + '%)';
+            });
+
+            xhr.upload.addEventListener('load', function() {
+                setUploadProgress(100);
+                fbUploadStatus.style.color = '#64748b';
+                fbUploadStatus.textContent = 'Uploaded to Jupiter: ' + file.name + '. Transferring to ' + fbHost + '...';
+            });
+
+            xhr.addEventListener('load', function() {
+                var responseText = xhr.responseText || '';
+                var data = null;
+
+                if (xhr.status < 200 || xhr.status >= 300) {
+                    failed++;
+                    hideUploadProgress();
+                    fbUploadStatus.style.color = '#dc2626';
+                    fbUploadStatus.textContent = 'Upload failed for ' + file.name + ': HTTP ' + xhr.status + (responseText ? (': ' + responseText.slice(0, 180)) : '');
+                    uploadNext(idx + 1);
+                    return;
+                }
+
+                try {
+                    data = JSON.parse(responseText);
+                } catch (err) {
+                    failed++;
+                    hideUploadProgress();
+                    fbUploadStatus.style.color = '#dc2626';
+                    fbUploadStatus.textContent = 'Upload failed for ' + file.name + ': Unexpected server response.';
+                    uploadNext(idx + 1);
+                    return;
+                }
+
+                if (data.status === 'error') {
+                    failed++;
+                    hideUploadProgress();
+                    fbUploadStatus.style.color = '#dc2626';
+                    fbUploadStatus.textContent = 'Upload failed for ' + file.name + ': ' + (data.message || 'Unknown error');
+                } else {
+                    done++;
+                }
                 uploadNext(idx + 1);
             });
+
+            xhr.addEventListener('error', function() {
+                failed++;
+                hideUploadProgress();
+                fbUploadStatus.style.color = '#dc2626';
+                fbUploadStatus.textContent = 'Upload error for ' + file.name + ': Network/API error';
+                uploadNext(idx + 1);
+            });
+
+            xhr.addEventListener('abort', function() {
+                failed++;
+                hideUploadProgress();
+                fbUploadStatus.style.color = '#dc2626';
+                fbUploadStatus.textContent = 'Upload cancelled for ' + file.name + '.';
+                uploadNext(idx + 1);
+            });
+
+            xhr.send(formData);
         }
         uploadNext(0);
     });

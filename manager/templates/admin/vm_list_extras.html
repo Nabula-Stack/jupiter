@@ -724,7 +724,11 @@ aside#changelist-filter,
 
         var xhr = new XMLHttpRequest();
         xhr.open('POST', url, true);
-        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.withCredentials = true;
+        var xhrHeaders = csrfHeaders();
+        Object.keys(xhrHeaders).forEach(function(key) {
+            xhr.setRequestHeader(key, xhrHeaders[key]);
+        });
         xhr.timeout = 0; // no browser-level timeout — server controls this
 
         xhr.upload.addEventListener('progress', function(e) {

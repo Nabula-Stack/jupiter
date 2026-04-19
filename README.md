@@ -1,10 +1,10 @@
-# Jupiter Manager
+# Nebula Manager
 
-A self-hosted hypervisor management platform built with Django and Daphne (ASGI). Jupiter provides a unified admin UI, REST API, and real-time WebSocket dashboard for managing virtual machines across ESXi, KVM/libvirt, and Proxmox environments.
+A self-hosted hypervisor management platform built with Django and Daphne (ASGI). Nebula provides a unified admin UI, REST API, and real-time WebSocket dashboard for managing virtual machines across ESXi, KVM/libvirt, and Proxmox environments.
 
 ---
 
-## What Jupiter Can Do
+## What Nebula Can Do
 
 ### Hypervisor Support
 - **VMware ESXi** — connect over SSH or the vSphere API
@@ -136,15 +136,15 @@ docker compose exec web python manage.py <command>
 REGISTRY=build.home/home TAG=latest ./k8s/build-images.sh
 ```
 
-This builds and pushes four images: `Jupiter_web`, `Jupiter_sync_worker`, `Jupiter_postgres`, `Jupiter_redis`.
+This builds and pushes four images: `nebula_web`, `nebula_sync_worker`, `nebula_postgres`, `nebula_redis`.
 
 ### 2. Create the image pull secret
 
 ```bash
-kubectl create namespace Jupiter --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace nebula --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl create secret docker-registry harbor-regcred \
-  --namespace Jupiter \
+  --namespace nebula \
   --docker-server build.home \
   --docker-username <HARBOR_USERNAME> \
   --docker-password <HARBOR_PASSWORD>
@@ -164,19 +164,19 @@ secrets:
 
 ingress:
   hosts:
-    - host: Jupiter.your-domain.home
+    - host: nebula.your-domain.home
       paths:
         - path: /
           pathType: Prefix
 ```
 
-> **Option B — pre-created secret:** copy `k8s/secret-app.example.yaml` to `k8s/secret-app.yaml`, fill it in, apply it with `kubectl apply -f k8s/secret-app.yaml`, then set `secrets.create: false` and `secrets.existingSecret: Jupiter-app-secret` in `values-rancher.yaml`.
+> **Option B — pre-created secret:** copy `k8s/secret-app.example.yaml` to `k8s/secret-app.yaml`, fill it in, apply it with `kubectl apply -f k8s/secret-app.yaml`, then set `secrets.create: false` and `secrets.existingSecret: nebula-app-secret` in `values-rancher.yaml`.
 
 ### 4. Deploy with Helm
 
 ```bash
-helm upgrade --install Jupiter ./k8s \
-  --namespace Jupiter \
+helm upgrade --install nebula ./k8s \
+  --namespace nebula \
   --create-namespace \
   -f ./k8s/values-rancher.yaml
 ```
@@ -188,12 +188,12 @@ Commit and push the `k8s/` folder to your Fleet Git repository. `k8s/fleet.yaml`
 ### 6. Verify
 
 ```bash
-kubectl get pods      -n Jupiter
-kubectl get svc       -n Jupiter
-kubectl get ingress   -n Jupiter
+kubectl get pods      -n nebula
+kubectl get svc       -n nebula
+kubectl get ingress   -n nebula
 
-kubectl logs deployment/Jupiter-web          -n Jupiter --tail=100
-kubectl logs deployment/Jupiter-sync-worker  -n Jupiter --tail=100
+kubectl logs deployment/nebula-web          -n nebula --tail=100
+kubectl logs deployment/nebula-sync-worker  -n nebula --tail=100
 ```
 
 ### 7. Access
@@ -201,14 +201,14 @@ kubectl logs deployment/Jupiter-sync-worker  -n Jupiter --tail=100
 Browse to the host you set in `ingress.hosts`, e.g.:
 
 ```
-http://Jupiter.your-domain.home/admin/
-http://Jupiter.your-domain.home/api/v1/docs
+http://nebula.your-domain.home/admin/
+http://nebula.your-domain.home/api/v1/docs
 ```
 
 Port-forward fallback (no ingress):
 
 ```bash
-kubectl port-forward svc/Jupiter-web -n Jupiter 8000:8000
+kubectl port-forward svc/nebula-web -n nebula 8000:8000
 ```
 
 ---

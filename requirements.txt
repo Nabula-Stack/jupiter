@@ -10,6 +10,7 @@ psycopg[binary]
 channels
 channels-redis
 daphne
+uvicorn[standard]
 whitenoise
 cryptography
 pyvmomi

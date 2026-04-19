@@ -24,6 +24,7 @@ from __future__ import annotations
 import ssl
 import logging
 import posixpath
+import re
 import tempfile
 import time
 import urllib.parse
@@ -1318,6 +1319,59 @@ class EsxiApiClient:
         self._wait_for_task(task)
         return {"status": "success", "src": src_vmfs_path, "dest": dest_vmfs_path}
 
+    def import_virtual_disk(
+        self,
+        src_vmfs_path: str,
+        dest_vmfs_path: str,
+        disk_type: str = "thin",
+        adapter_type: str = "lsiLogic",
+        force: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Import/convert a VMDK via vSphere VirtualDiskManager.
+        This is the API equivalent of `vmkfstools -i` and fixes unsupported
+        source disk descriptor types (e.g. streamOptimized from OVF/OVA).
+        """
+        if not self.content:
+            raise RuntimeError("Not connected to vSphere. Use 'with client.connect():'")
+
+        _, _, src_path = self._vmfs_to_datastore_path(src_vmfs_path)
+        _, _, dest_path = self._vmfs_to_datastore_path(dest_vmfs_path)
+
+        if src_path == dest_path:
+            return {"status": "skipped", "src": src_vmfs_path, "dest": dest_vmfs_path}
+
+        valid_disk_types = {"thin", "preallocated", "eagerZeroedThick"}
+        requested_disk_type = str(disk_type or "thin")
+        if requested_disk_type not in valid_disk_types:
+            requested_disk_type = "thin"
+
+        valid_adapter_types = {"ide", "busLogic", "lsiLogic"}
+        requested_adapter_type = str(adapter_type or "lsiLogic")
+        if requested_adapter_type not in valid_adapter_types:
+            requested_adapter_type = "lsiLogic"
+
+        disk_spec = vim.VirtualDiskManager.VirtualDiskSpec()
+        disk_spec.diskType = requested_disk_type
+        disk_spec.adapterType = requested_adapter_type
+
+        task = self.content.virtualDiskManager.CopyVirtualDisk_Task(
+            sourceName=src_path,
+            sourceDatacenter=self._get_datacenter_object(),
+            destName=dest_path,
+            destDatacenter=self._get_datacenter_object(),
+            destSpec=disk_spec,
+            force=force,
+        )
+        self._wait_for_task(task, timeout=max(900, self.timeout * 60))
+        return {
+            "status": "success",
+            "src": src_vmfs_path,
+            "dest": dest_vmfs_path,
+            "disk_type": requested_disk_type,
+            "adapter_type": requested_adapter_type,
+        }
+
     def list_pci_devices(self) -> List[Dict[str, Any]]:
         """List host PCI devices for passthrough selection."""
         if not self.content:
@@ -1711,6 +1765,8 @@ class EsxiApiClient:
         ovf_vmfs_path: str,
         vm_name: str,
         datastore_name: str,
+        vmdk_paths: Optional[List[str]] = None,
+        disk_files: Optional[List[str]] = None,
         cpu_count: int = 2,
         ram_mb: int = 2048,
         guest_os: str = "other-64",
@@ -1745,22 +1801,118 @@ class EsxiApiClient:
         ovf_bytes = self.read_datastore_file_content(normalized_ovf, max_bytes=2 * 1024 * 1024)
         ovf_text = ovf_bytes.decode("utf-8", errors="replace")
 
-        # 2. Discover VMDK files in same directory
-        vmdk_paths = []
+        # 2. Discover/resolve descriptor VMDKs.
+        resolved_vmdk_paths: List[str] = []
+        if vmdk_paths:
+            for p in vmdk_paths:
+                sp = str(p or "").strip()
+                if not sp:
+                    continue
+                lower_name = posixpath.basename(sp).lower()
+                if lower_name.endswith(("-flat.vmdk", "-delta.vmdk", "-sesparse.vmdk", "-ctk.vmdk")):
+                    continue
+                if sp not in resolved_vmdk_paths:
+                    resolved_vmdk_paths.append(sp)
+
+        if not resolved_vmdk_paths:
+            try:
+                all_vmdks = self.list_files_by_suffix_under(ovf_source_dir, ".vmdk")
+            except Exception:
+                all_vmdks = []
+
+            descriptor_vmdks = []
+            by_basename: Dict[str, List[str]] = {}
+            for p in all_vmdks:
+                sp = str(p or "").strip()
+                if not sp:
+                    continue
+                base = posixpath.basename(sp).lower()
+                if base.endswith(("-flat.vmdk", "-delta.vmdk", "-sesparse.vmdk", "-ctk.vmdk")):
+                    continue
+                descriptor_vmdks.append(sp)
+                by_basename.setdefault(base, []).append(sp)
+
+            disk_file_refs: List[str] = []
+            if disk_files:
+                disk_file_refs = [str(x) for x in disk_files if str(x or "").strip()]
+            if not disk_file_refs:
+                disk_file_refs = [
+                    m.group(1)
+                    for m in re.finditer(r'ovf:href\s*=\s*"([^"]+\.vmdk)"', ovf_text, flags=re.IGNORECASE)
+                ]
+
+            for disk_ref in disk_file_refs:
+                base = posixpath.basename(str(disk_ref or "")).lower()
+                if not base:
+                    continue
+                for match in by_basename.get(base, []):
+                    if match not in resolved_vmdk_paths:
+                        resolved_vmdk_paths.append(match)
+
+            if not resolved_vmdk_paths:
+                resolved_vmdk_paths = sorted(set(descriptor_vmdks))
+
+        if not resolved_vmdk_paths:
+            return {
+                "status": "error",
+                "message": "No descriptor VMDK files found for this OVF package.",
+            }
+
+        # 3. Import/convert disks into the destination VM directory first.
+        target_vm_dir = f"/vmfs/volumes/{target_ds_name}/{vm_name}"
         try:
-            dir_entries = self.list_datastore_directory(ovf_source_dir)
-            for entry in dir_entries:
-                name_l = entry.name.lower()
-                if (
-                    not entry.is_dir
-                    and name_l.endswith(".vmdk")
-                    and not name_l.endswith(("-flat.vmdk", "-delta.vmdk", "-sesparse.vmdk", "-ctk.vmdk"))
-                ):
-                    vmdk_paths.append(entry.path)
+            self.make_datastore_directory(target_vm_dir, create_parents=True)
         except Exception:
+            # Folder may be created later by CreateVM_Task; conversion still works
+            # when destination path is valid.
             pass
 
-        # 3. Create the VM shell
+        disk_type_map = {
+            "thin": "thin",
+            "zeroedthick": "preallocated",
+            "eagerzeroedthick": "eagerZeroedThick",
+        }
+        api_disk_type = disk_type_map.get(str(disk_type).lower(), "thin")
+
+        adapter_type_map = {
+            "lsilogic": "lsiLogic",
+            "lsisas1068": "lsiLogic",
+            "pvscsi": "lsiLogic",
+        }
+        api_adapter_type = adapter_type_map.get(str(scsi_controller).lower(), "lsiLogic")
+
+        imported_vmdk_paths: List[str] = []
+        for idx, src_vmdk in enumerate(resolved_vmdk_paths, start=1):
+            src_name = posixpath.basename(src_vmdk)
+            if not src_name:
+                continue
+            dst_name = f"disk-{idx}.vmdk"
+            dst_vmdk = f"{target_vm_dir}/{dst_name}"
+            try:
+                self.import_virtual_disk(
+                    src_vmfs_path=src_vmdk,
+                    dest_vmfs_path=dst_vmdk,
+                    disk_type=api_disk_type,
+                    adapter_type=api_adapter_type,
+                    force=True,
+                )
+                imported_vmdk_paths.append(dst_vmdk)
+            except Exception as exc:
+                return {
+                    "status": "error",
+                    "message": (
+                        f"Failed to import disk '{src_name}' from OVF package: {str(exc)}. "
+                        "Ensure source VMDKs are valid and writable on target datastore."
+                    ),
+                }
+
+        if not imported_vmdk_paths:
+            return {
+                "status": "error",
+                "message": "No VMDK disks were imported from the OVF package.",
+            }
+
+        # 4. Create the VM shell
         host = self._get_host_object()
         resource_pool = host.parent.resourcePool
         vm_folder = None
@@ -1801,9 +1953,9 @@ class EsxiApiClient:
         scsi_spec.device = scsi_ctrl
         devices.append(scsi_spec)
 
-        # 4. Attach existing VMDKs
+        # 5. Attach imported destination VMDKs
         unit_number = 0
-        for vmdk_path in vmdk_paths:
+        for vmdk_path in imported_vmdk_paths:
             _, vmdk_rel, vmdk_ds_path = self._vmfs_to_datastore_path(vmdk_path)
             disk_spec = vim.vm.device.VirtualDeviceSpec()
             disk_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
@@ -1820,7 +1972,7 @@ class EsxiApiClient:
             devices.append(disk_spec)
             unit_number += 1
 
-        # 5. NIC
+        # 6. NIC
         nic_cls_map = {
             "e1000": vim.vm.device.VirtualE1000,
             "e1000e": vim.vm.device.VirtualE1000e,
@@ -1868,12 +2020,12 @@ class EsxiApiClient:
                 return {
                     "status": "success",
                     "warning": "VM created but could not power on automatically.",
-                    "message": f"VM '{vm_name}' created from OVF with {len(vmdk_paths)} attached disk(s).",
+                    "message": f"VM '{vm_name}' created from OVF with {len(imported_vmdk_paths)} imported disk(s).",
                 }
 
         return {
             "status": "success",
-            "message": f"VM '{vm_name}' created from OVF with {len(vmdk_paths)} attached disk(s).",
+            "message": f"VM '{vm_name}' created from OVF with {len(imported_vmdk_paths)} imported disk(s).",
         }
 
     # ========================================================================

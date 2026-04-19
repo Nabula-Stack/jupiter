@@ -1824,9 +1824,9 @@ def create_vm_endpoint(
                         "message": "Datastore differs from OVA import session. Use the pre-filled datastore or upload again.",
                     }
 
-                # ── API mode: OVF already on datastore, use pyVmomi import ──
-                if _is_esxi_api_mode(host_obj) and not session.get("api_ovf_source") and session.get("ovf_path"):
-                    session["api_ovf_source"] = True
+                # Honor session deployment mode as prepared by the deploy endpoint.
+                # Some sessions intentionally use SSH staging/copy semantics even when
+                # the host default connection method is API.
 
                 if session.get("api_ovf_source"):
                     ovf_vmfs_path = str(session.get("ovf_path") or "")
@@ -1836,6 +1836,8 @@ def create_vm_endpoint(
                         ovf_vmfs_path=ovf_vmfs_path,
                         vm_name=name,
                         datastore_name=datastore,
+                        vmdk_paths=session.get("vmdk_paths") or [],
+                        disk_files=session.get("disk_files") or [],
                         cpu_count=cpu,
                         ram_mb=ram,
                         guest_os=guest_os,
@@ -1873,28 +1875,23 @@ def create_vm_endpoint(
                         response["warning"] = api_result["warning"]
                     return response
 
-                if _is_esxi_api_mode(host_obj):
-                    return {
-                        "status": "error",
-                        "message": "OVA session deployment is SSH-only. Set ESXi connection method to SSH for this host.",
-                    }
-
                 staging_dir = str(session.get("staging_dir") or "").strip()
                 if not staging_dir:
                     return {"status": "error", "message": "Invalid OVA import session payload."}
 
-                if not hasattr(conn, "run"):
-                    return {
-                        "status": "error",
-                        "message": "Selected ESXi connection cannot run SSH OVA deployment commands.",
-                    }
+                disk_refs = session.get("disk_files") or session.get("vmdk_paths") or []
+                deploy_conn = conn
+                deploy_conn_cm = None
+                if not hasattr(deploy_conn, "run"):
+                    deploy_conn_cm = _build_esxi_ssh_conn(host_obj)
+                    deploy_conn = deploy_conn_cm.__enter__()
 
                 try:
                     result = vm_create.deploy_ova_from_session(
-                        conn,
+                        deploy_conn,
                         datastore=datastore,
                         session_dir=staging_dir,
-                        disk_files=session.get("disk_files") or [],
+                        disk_files=disk_refs,
                         vm_name=name,
                         cpu_count=cpu,
                         ram_mb=ram,
@@ -1909,7 +1906,11 @@ def create_vm_endpoint(
                         power_on=power_on,
                     )
                 finally:
-                    pass
+                    if deploy_conn_cm is not None:
+                        try:
+                            deploy_conn_cm.__exit__(None, None, None)
+                        except Exception:
+                            pass
 
                 cache.delete(_ova_session_cache_key(source_ova_session_id))
                 try:
@@ -2612,16 +2613,32 @@ def deploy_ovf_from_datastore_endpoint(request, host_name: str, ovf_path: str, v
 
                 ovf_defaults = _parse_ovf_defaults(ovf_text, ova_vm_name)
 
-                # Discover VMDKs next to the OVF in the same directory
-                dir_entries = api.list_datastore_directory(session_staging_dir)
-                vmdk_paths = [
-                    e.path for e in dir_entries
-                    if (
-                        not e.is_dir
-                        and e.name.lower().endswith(".vmdk")
-                        and not e.name.lower().endswith(("-flat.vmdk", "-delta.vmdk", "-sesparse.vmdk", "-ctk.vmdk"))
-                    )
-                ]
+                # Discover VMDKs from OVF references first, then fall back to all
+                # descriptor VMDKs under the session source path.
+                discovered_vmdks = api.list_files_by_suffix_under(session_staging_dir, ".vmdk")
+                descriptor_vmdks = []
+                by_basename = {}
+                for p in discovered_vmdks:
+                    name = posixpath.basename(str(p or ""))
+                    lower_name = name.lower()
+                    if not lower_name:
+                        continue
+                    if lower_name.endswith(("-flat.vmdk", "-delta.vmdk", "-sesparse.vmdk", "-ctk.vmdk")):
+                        continue
+                    descriptor_vmdks.append(p)
+                    by_basename.setdefault(lower_name, []).append(p)
+
+                vmdk_paths = []
+                for disk_file in ovf_defaults.get("disk_files") or []:
+                    base = posixpath.basename(str(disk_file or "")).lower()
+                    if not base:
+                        continue
+                    for match in by_basename.get(base, []):
+                        if match not in vmdk_paths:
+                            vmdk_paths.append(match)
+
+                if not vmdk_paths:
+                    vmdk_paths = sorted(set(descriptor_vmdks))
 
             ovf_disks = ovf_defaults.get("disks") or []
             disk_defaults = [{"label": f"Disk {i+1}", "size_gb": int(d.get("size_gb") or 16)} for i, d in enumerate(ovf_disks)] or [{"label": "Disk 1", "size_gb": 16}]
@@ -2776,6 +2793,7 @@ def deploy_ovf_from_datastore_endpoint(request, host_name: str, ovf_path: str, v
             "staging_dir": staging_dir,
             "filename": filename,
             "disk_files": ovf_defaults.get("disk_files") or [],
+            "vmdk_paths": candidate_vmdks,
             "prefill": prefill,
             "expires_in_seconds": 3600,
         }
