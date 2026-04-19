@@ -410,6 +410,29 @@ aside#changelist-filter,
 
 <script>
 (function() {
+    function getCookie(name) {
+        var value = '; ' + document.cookie;
+        var parts = value.split('; ' + name + '=');
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return '';
+    }
+
+    function csrfHeaders(extra) {
+        var token = getCookie('csrftoken');
+        var headers = {
+            'X-Requested-With': 'XMLHttpRequest'
+        };
+        if (token) {
+            headers['X-CSRFToken'] = token;
+        }
+        if (extra && typeof extra === 'object') {
+            Object.keys(extra).forEach(function(k) {
+                headers[k] = extra[k];
+            });
+        }
+        return headers;
+    }
+
     // ── Expose modal openers early so header buttons work immediately ─────
     // The actual functions are assigned below after definition.
     // These stubs queue clicks until the real functions are ready.
@@ -992,7 +1015,11 @@ aside#changelist-filter,
         regSubmitBtn.innerHTML = '<span class="ova-spinner"></span> Registering...';
         regStatus('warn', 'Registering VM...');
         try {
-            var r = await fetch('/api/v1/vms/' + encodeURIComponent(host) + '/register?vmx_path=' + encodeURIComponent(regSelectedVmx), { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            var r = await fetch('/api/v1/vms/' + encodeURIComponent(host) + '/register?vmx_path=' + encodeURIComponent(regSelectedVmx), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: csrfHeaders()
+            });
             var d = await r.json();
             if (d.status === 'error') {
                 regStatus('error', d.message || 'Registration failed.');
@@ -1021,7 +1048,11 @@ aside#changelist-filter,
             if (ds) url += '&datastore=' + encodeURIComponent(ds);
             var vmName = (regOvfVmName.value || '').trim();
             if (vmName) url += '&vm_name=' + encodeURIComponent(vmName);
-            var r = await fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            var r = await fetch(url, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: csrfHeaders()
+            });
             var d = await r.json();
             if (d.status === 'error') {
                 regStatus('error', d.message || 'Deploy failed.');
@@ -1141,11 +1172,28 @@ aside#changelist-filter,
     }
 
     function startMigPolling(taskId) {
+        var safeTaskId = String(taskId || '').trim();
+        if (!safeTaskId) {
+            migStatus('error', 'Migration could not start: missing task id from API response.');
+            migSubmitBtn.disabled = false;
+            migSubmitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">swap_horizontal_circle</span> Migrate VM';
+            return;
+        }
         stopMigPolling();
         migPollTimer = setInterval(async function() {
             try {
-                var r = await fetch('/api/v1/vms/migrate/status?task_id=' + encodeURIComponent(taskId));
+                var r = await fetch('/api/v1/vms/migrate/status?task_id=' + encodeURIComponent(safeTaskId), {
+                    credentials: 'same-origin'
+                });
                 var d = await r.json();
+                if (!r.ok) {
+                    var errText = d.message || d.detail || ('HTTP ' + r.status);
+                    migStatus('error', 'Migration status request failed: ' + errText);
+                    stopMigPolling();
+                    migSubmitBtn.disabled = false;
+                    migSubmitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">swap_horizontal_circle</span> Migrate VM';
+                    return;
+                }
                 if (d.status === 'error' && !d.task_id) {
                     migStatus('error', d.message || 'Migration task not found.');
                     stopMigPolling();
@@ -1289,8 +1337,13 @@ aside#changelist-filter,
         migHostByName = {};
         migVmSel.innerHTML = '<option value="">Loading...</option>';
         try {
-            var r = await fetch('/api/v1/vms/migrate/options');
+            var r = await fetch('/api/v1/vms/migrate/options', {
+                credentials: 'same-origin'
+            });
             var d = await r.json();
+            if (!r.ok) {
+                throw new Error(d.message || d.detail || ('HTTP ' + r.status));
+            }
             migOptions = d || { hosts: [], vms: [] };
             (migOptions.hosts || []).forEach(function(h) {
                 migHostByName[h.name] = h;
@@ -1371,11 +1424,18 @@ aside#changelist-filter,
         try {
             var r = await fetch(query, {
                 method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                headers: csrfHeaders(),
+                credentials: 'same-origin'
             });
             var d = await r.json();
-            if (d.status === 'error') {
-                migStatus('error', d.message || 'Migration failed.');
+            if (!r.ok || d.status === 'error') {
+                migStatus('error', d.message || d.detail || 'Migration failed.');
+                migSubmitBtn.disabled = false;
+                migSubmitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">swap_horizontal_circle</span> Migrate VM';
+                return;
+            }
+            if (!d.task_id) {
+                migStatus('error', d.message || d.detail || 'Migration start response missing task id.');
                 migSubmitBtn.disabled = false;
                 migSubmitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">swap_horizontal_circle</span> Migrate VM';
                 return;

@@ -18,6 +18,60 @@ from manager.websocket_broadcaster import (
 # 1. Define the router
 router = Router(tags=["Host Management"])
 
+
+def _to_float(value, default=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_percent_int(value):
+    pct = _to_float(value, 0.0)
+    if pct < 0:
+        pct = 0.0
+    return int(round(pct))
+
+
+def _storage_percent_from_snapshot(storage_data):
+    data = storage_data if isinstance(storage_data, dict) else {}
+    datastores = data.get("datastores") if isinstance(data.get("datastores"), list) else []
+
+    total_capacity = 0.0
+    total_used = 0.0
+    fallback_usage_values = []
+
+    for ds in datastores:
+        if not isinstance(ds, dict):
+            continue
+
+        capacity = _to_float(
+            ds.get("capacity_gb", ds.get("capacity", ds.get("total_gb", 0))),
+            0.0,
+        )
+        used = _to_float(
+            ds.get("used_gb", ds.get("used", ds.get("used_space_gb", 0))),
+            0.0,
+        )
+
+        if capacity > 0:
+            total_capacity += capacity
+            total_used += max(0.0, min(used, capacity))
+            continue
+
+        usage_pct = ds.get("usage_percent", ds.get("used_percent"))
+        if usage_pct is not None:
+            fallback_usage_values.append(_to_float(usage_pct, 0.0))
+
+    if total_capacity > 0:
+        return _to_percent_int((total_used / total_capacity) * 100.0)
+
+    if fallback_usage_values:
+        avg = sum(fallback_usage_values) / len(fallback_usage_values)
+        return _to_percent_int(avg)
+
+    return 0
+
 # --- Schemas ---
 class LicenseSchema(Schema):
     serial_key: str
@@ -67,6 +121,28 @@ def get_summary(request, host_name: str):
             "processor_type": host_obj.processor_type,
         },
     }
+
+
+@router.get("/metrics", summary="Get host metrics overview")
+@decorate_view(cache_page(15))
+def get_host_metrics(request):
+    """Return host-keyed CPU/memory/storage utilization percentages."""
+    hosts = Host.objects.filter(is_active=True).order_by("name")
+    payload = {}
+
+    for host_obj in hosts:
+        services_snapshot = host_obj.services_status if isinstance(host_obj.services_status, dict) else {}
+        cpu_percent = _to_percent_int(services_snapshot.get("cpu_usage_percent", 0))
+        memory_percent = _to_percent_int(services_snapshot.get("memory_usage_percent", 0))
+        storage_percent = _storage_percent_from_snapshot(host_obj.storage_data)
+
+        payload[host_obj.name] = {
+            "CPU": cpu_percent,
+            "memory_percent": memory_percent,
+            "storage_percent": storage_percent,
+        }
+
+    return payload
 
 @router.get("/{host_name}/license", summary="Get license info")
 @decorate_view(cache_page(3600))

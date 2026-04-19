@@ -224,6 +224,63 @@
     {{ block.super }}
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script>
+        // Global fetch patch: attach CSRF + same-origin credentials for mutating requests.
+        (function () {
+            if (window.__nebulaFetchCsrfPatched) return;
+            window.__nebulaFetchCsrfPatched = true;
+
+            function getCookie(name) {
+                var value = '; ' + document.cookie;
+                var parts = value.split('; ' + name + '=');
+                if (parts.length === 2) return parts.pop().split(';').shift();
+                return '';
+            }
+
+            function isSafeMethod(method) {
+                var m = String(method || 'GET').toUpperCase();
+                return m === 'GET' || m === 'HEAD' || m === 'OPTIONS' || m === 'TRACE';
+            }
+
+            var originalFetch = window.fetch.bind(window);
+            window.fetch = function (input, init) {
+                var requestInit = init ? Object.assign({}, init) : {};
+                var method = (requestInit.method || (input && input.method) || 'GET').toUpperCase();
+                var rawUrl = typeof input === 'string' ? input : ((input && input.url) || '');
+                var sameOrigin = true;
+
+                if (rawUrl) {
+                    try {
+                        var target = new URL(rawUrl, window.location.origin);
+                        sameOrigin = target.origin === window.location.origin;
+                    } catch (e) {
+                        sameOrigin = true;
+                    }
+                }
+
+                if (sameOrigin) {
+                    if (!requestInit.credentials) {
+                        requestInit.credentials = 'same-origin';
+                    }
+
+                    if (!isSafeMethod(method)) {
+                        var token = getCookie('csrftoken');
+                        if (token) {
+                            var headers = new Headers(requestInit.headers || (input && input.headers) || undefined);
+                            if (!headers.has('X-CSRFToken')) {
+                                headers.set('X-CSRFToken', token);
+                            }
+                            if (!headers.has('X-Requested-With')) {
+                                headers.set('X-Requested-With', 'XMLHttpRequest');
+                            }
+                            requestInit.headers = headers;
+                        }
+                    }
+                }
+
+                return originalFetch(input, requestInit);
+            };
+        })();
+
         // Smart table-only refresh (not full page reload)
         // Only refresh on list pages, not on add/delete pages
         if (!window.location.pathname.includes('/add/') && 

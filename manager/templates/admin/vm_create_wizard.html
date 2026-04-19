@@ -268,6 +268,9 @@
 .vm-wizard-wrap label[style*="color:#1f2937"]{color:var(--vmw-text-strong)!important}
 .dark .vm-wizard-wrap label[style*="color:#1f2937"]{color:var(--vmw-text-strong)!important}
 .dark .vm-wizard-wrap div[style*="display:flex;gap:16px;flex-wrap:wrap;padding:8px 0 2px;"]{color:var(--vmw-text-strong)!important}
+.vm-inline-check{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--vmw-text-strong);text-transform:none;letter-spacing:0;cursor:pointer}
+.vm-inline-check input[type="checkbox"]{width:auto;accent-color:var(--vmw-accent)}
+.dark .vm-inline-check{color:var(--vmw-text-strong)}
 </style>
 
 <div class="vm-wizard-wrap">
@@ -367,7 +370,7 @@
                     </div>
                 </div>
                 <div class="vm-f" style="justify-content: flex-end; padding-bottom: 4px;">
-                    <label style="text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 600; color: #1f2937; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <label class="vm-inline-check">
                         <input id="wiz_power_on" type="checkbox" style="width: auto;">
                         Power on after creation
                     </label>

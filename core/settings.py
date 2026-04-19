@@ -8,11 +8,44 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load environment variables from .env file
 load_dotenv(BASE_DIR / '.env')
 
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    return os.getenv(name, str(default)).strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _env_csv(name: str, default: str = '') -> list:
+    raw = os.getenv(name, default)
+    return [item.strip() for item in str(raw).split(',') if item.strip()]
+
+
 # --- SECURITY SETTINGS ---
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-w696_g@g$hydzq!0j2fucc)2q=vnse2m=*r#5zmaf3)9lm#*7!')
-DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost,0.0.0.0,192.168.1.37').split(',')
+DEBUG = _env_bool('DJANGO_DEBUG', True)
+ALLOWED_HOSTS = _env_csv('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost,0.0.0.0,192.168.1.37')
 SSH_PUBLIC_KEY_ENCRYPTION_KEY = os.getenv('SSH_PUBLIC_KEY_ENCRYPTION_KEY', SECRET_KEY)
+
+# CSRF trusted origins must include ingress/browser origins with scheme,
+# e.g. https://jupiter.prod.home
+CSRF_TRUSTED_ORIGINS = _env_csv('DJANGO_CSRF_TRUSTED_ORIGINS', '')
+
+# If not explicitly set, derive conservative defaults from ALLOWED_HOSTS.
+if not CSRF_TRUSTED_ORIGINS:
+    inferred_origins = []
+    for host in ALLOWED_HOSTS:
+        if host in {'*', '0.0.0.0'}:
+            continue
+        inferred_origins.append(f'http://{host}')
+        inferred_origins.append(f'https://{host}')
+    CSRF_TRUSTED_ORIGINS = sorted(set(inferred_origins))
+
+# Reverse proxy / ingress awareness (k3s ingress / nginx / traefik)
+USE_X_FORWARDED_HOST = _env_bool('DJANGO_USE_X_FORWARDED_HOST', True)
+USE_X_FORWARDED_PORT = _env_bool('DJANGO_USE_X_FORWARDED_PORT', True)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Cookie security can be toggled from env for HTTPS ingress deployments.
+SESSION_COOKIE_SECURE = _env_bool('DJANGO_SESSION_COOKIE_SECURE', not DEBUG)
+CSRF_COOKIE_SECURE = _env_bool('DJANGO_CSRF_COOKIE_SECURE', not DEBUG)
 
 # core/settings.py
 
@@ -26,6 +59,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
+    "rest_framework.authtoken",
     "manager", # Your app
 ]
 
