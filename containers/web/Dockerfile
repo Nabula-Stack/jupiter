@@ -16,4 +16,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput --clear && python manage.py fix_proxmox_usernames || true; exec uvicorn core.asgi:application --host 0.0.0.0 --port ${WEB_INTERNAL_PORT:-8000} --ws websockets --timeout-keep-alive 600"]
+CMD ["sh", "-c", "python manage.py ensure_postgres_db && python manage.py migrate --noinput && python manage.py collectstatic --noinput --clear && (python manage.py fix_proxmox_usernames || true) && python manage.py ensure_default_superuser && exec uvicorn core.asgi:application --host 0.0.0.0 --port \"${WEB_INTERNAL_PORT:-8000}\" --ws websockets --timeout-keep-alive 600"]

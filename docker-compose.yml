@@ -6,14 +6,16 @@ services:
       dockerfile: containers/db/Dockerfile
     image: nebula-db:latest
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: ${DB_NAME:-mydatabase}
-      POSTGRES_USER: ${DB_USER:-admin}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-mypassword}
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-mydatabase}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -43,13 +45,13 @@ services:
     env_file:
       - .env
     environment:
-      DB_HOST: ${DB_HOST:-db}
-      DB_PORT: ${DB_PORT:-5432}
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      SSH_KEY_PATH: ${SSH_KEY_PATH:-/app/ssh_keys/rsa}
-      ESXI_SSH_KEY_PATH: ${ESXI_SSH_KEY_PATH:-/app/ssh_keys/nebula_rsa}
-      KVM_SSH_KEY_PATH: ${KVM_SSH_KEY_PATH:-/app/ssh_keys/rsa}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      SSH_KEY_PATH: ${SSH_KEY_PATH}
+      ESXI_SSH_KEY_PATH: ${ESXI_SSH_KEY_PATH}
+      KVM_SSH_KEY_PATH: ${KVM_SSH_KEY_PATH}
       WEB_INTERNAL_PORT: ${WEB_INTERNAL_PORT:-8000}
     depends_on:
       db:
@@ -73,13 +75,13 @@ services:
     env_file:
       - .env
     environment:
-      DB_HOST: ${DB_HOST:-db}
-      DB_PORT: ${DB_PORT:-5432}
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      SSH_KEY_PATH: ${SSH_KEY_PATH:-/app/ssh_keys/rsa}
-      ESXI_SSH_KEY_PATH: ${ESXI_SSH_KEY_PATH:-/app/ssh_keys/nebula_rsa}
-      KVM_SSH_KEY_PATH: ${KVM_SSH_KEY_PATH:-/app/ssh_keys/rsa}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      SSH_KEY_PATH: ${SSH_KEY_PATH}
+      ESXI_SSH_KEY_PATH: ${ESXI_SSH_KEY_PATH}
+      KVM_SSH_KEY_PATH: ${KVM_SSH_KEY_PATH}
     depends_on:
       db:
         condition: service_healthy

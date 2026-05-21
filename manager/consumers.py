@@ -14,6 +14,7 @@ import json
 import redis.asyncio as aioredis
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
+from django.conf import settings
 
 # ---------------------------------------------------------------------------
 #  Singleton sync-loop state  (module-level — shared across all consumer instances)
@@ -38,7 +39,11 @@ def _get_redis() -> aioredis.Redis:
     """Return the module-level async Redis client, creating it if needed."""
     global _redis_client
     if _redis_client is None:
-        _redis_client = aioredis.Redis(host="redis", port=6379, decode_responses=True)
+        _redis_client = aioredis.Redis(
+            host=getattr(settings, "REDIS_HOST", "127.0.0.1"),
+            port=int(getattr(settings, "REDIS_PORT", 6379)),
+            decode_responses=True,
+        )
     return _redis_client
 
 

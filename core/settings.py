@@ -9,24 +9,31 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 
-def _env_bool(name: str, default: bool = False) -> bool:
-    return os.getenv(name, str(default)).strip().lower() in {'1', 'true', 'yes', 'on'}
+def _env_bool(name: str) -> bool:
+    return _env_required(name).lower() in {'1', 'true', 'yes', 'on'}
 
 
-def _env_csv(name: str, default: str = '') -> list:
-    raw = os.getenv(name, default)
+def _env_csv(name: str) -> list:
+    raw = _env_required(name)
     return [item.strip() for item in str(raw).split(',') if item.strip()]
 
 
+def _env_required(name: str) -> str:
+    value = os.getenv(name)
+    if value is None or not str(value).strip():
+        raise RuntimeError(f"Required environment variable '{name}' is not set")
+    return str(value).strip()
+
+
 # --- SECURITY SETTINGS ---
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-w696_g@g$hydzq!0j2fucc)2q=vnse2m=*r#5zmaf3)9lm#*7!')
-DEBUG = _env_bool('DJANGO_DEBUG', True)
-ALLOWED_HOSTS = _env_csv('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost,0.0.0.0,192.168.1.37')
-SSH_PUBLIC_KEY_ENCRYPTION_KEY = os.getenv('SSH_PUBLIC_KEY_ENCRYPTION_KEY', SECRET_KEY)
+SECRET_KEY = _env_required('DJANGO_SECRET_KEY')
+DEBUG = _env_bool('DJANGO_DEBUG')
+ALLOWED_HOSTS = _env_csv('DJANGO_ALLOWED_HOSTS')
+SSH_PUBLIC_KEY_ENCRYPTION_KEY = _env_required('SSH_PUBLIC_KEY_ENCRYPTION_KEY')
 
 # CSRF trusted origins must include ingress/browser origins with scheme,
 # e.g. https://jupiter.prod.home
-CSRF_TRUSTED_ORIGINS = _env_csv('DJANGO_CSRF_TRUSTED_ORIGINS', '')
+CSRF_TRUSTED_ORIGINS = _env_csv('DJANGO_CSRF_TRUSTED_ORIGINS')
 
 # If not explicitly set, derive conservative defaults from ALLOWED_HOSTS.
 if not CSRF_TRUSTED_ORIGINS:
@@ -39,13 +46,13 @@ if not CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS = sorted(set(inferred_origins))
 
 # Reverse proxy / ingress awareness (k3s ingress / nginx / traefik)
-USE_X_FORWARDED_HOST = _env_bool('DJANGO_USE_X_FORWARDED_HOST', True)
-USE_X_FORWARDED_PORT = _env_bool('DJANGO_USE_X_FORWARDED_PORT', True)
+USE_X_FORWARDED_HOST = _env_bool('DJANGO_USE_X_FORWARDED_HOST')
+USE_X_FORWARDED_PORT = _env_bool('DJANGO_USE_X_FORWARDED_PORT')
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Cookie security can be toggled from env for HTTPS ingress deployments.
-SESSION_COOKIE_SECURE = _env_bool('DJANGO_SESSION_COOKIE_SECURE', not DEBUG)
-CSRF_COOKIE_SECURE = _env_bool('DJANGO_CSRF_COOKIE_SECURE', not DEBUG)
+SESSION_COOKIE_SECURE = _env_bool('DJANGO_SESSION_COOKIE_SECURE')
+CSRF_COOKIE_SECURE = _env_bool('DJANGO_CSRF_COOKIE_SECURE')
 
 # core/settings.py
 
@@ -98,10 +105,10 @@ ASGI_APPLICATION = 'core.asgi.application'
 
 # --- CHANNELS & WEBSOCKETS ---
 # Requires: pip install channels channels-redis
-REDIS_HOST = os.getenv('REDIS_HOST', '192.168.1.37')
-REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
-REDIS_CACHE_TIMEOUT = int(os.getenv('REDIS_CACHE_TIMEOUT', '300'))
-REDIS_CACHE_MAX_CONNECTIONS = int(os.getenv('REDIS_CACHE_MAX_CONNECTIONS', '200'))
+REDIS_HOST = _env_required('REDIS_HOST')
+REDIS_PORT = int(_env_required('REDIS_PORT'))
+REDIS_CACHE_TIMEOUT = int(_env_required('REDIS_CACHE_TIMEOUT'))
+REDIS_CACHE_MAX_CONNECTIONS = int(_env_required('REDIS_CACHE_MAX_CONNECTIONS'))
 
 CHANNEL_LAYERS = {
     "default": {
@@ -119,11 +126,11 @@ CHANNEL_LAYERS = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'mydatabase'),
-        'USER': os.getenv('DB_USER', 'admin'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'mypassword'),
-        'HOST': os.getenv('DB_HOST', '192.168.1.37'),
-        'PORT': os.getenv('DB_PORT', '5432'),
+        'NAME': _env_required('DB_NAME'),
+        'USER': _env_required('DB_USER'),
+        'PASSWORD': _env_required('DB_PASSWORD'),
+        'HOST': _env_required('DB_HOST'),
+        'PORT': _env_required('DB_PORT'),
         'CONN_MAX_AGE': 600,  # Connection pooling
         'OPTIONS': {
             'connect_timeout': 10,

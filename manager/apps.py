@@ -1,4 +1,5 @@
 from django.apps import AppConfig
+from django.conf import settings
 
 
 class ManagerConfig(AppConfig):
@@ -15,7 +16,11 @@ class ManagerConfig(AppConfig):
         """
         try:
             import redis
-            r = redis.Redis(host='redis', port=6379, decode_responses=True)
+            r = redis.Redis(
+                host=getattr(settings, 'REDIS_HOST', '127.0.0.1'),
+                port=int(getattr(settings, 'REDIS_PORT', 6379)),
+                decode_responses=True,
+            )
             r.set('active_sync_users', 0)
             r.close()
             print("[ManagerConfig] Reset active_sync_users → 0")
